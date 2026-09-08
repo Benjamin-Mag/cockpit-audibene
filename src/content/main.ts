@@ -2,6 +2,7 @@ import { CONTENT_VERSION } from '../shared/messages';
 import { initAcuitis } from './acuitis';
 import { initDoctolib } from './doctolib';
 import { initSalesforce } from './salesforce';
+import { initSalesforceFrame } from './salesforce/frame';
 
 // Le script peut être injecté plusieurs fois : par le manifest au chargement de la
 // page, puis par le panneau après chaque nouveau build de l'extension. Un seul
@@ -16,7 +17,7 @@ if (!(prev && prev.alive() && prev.version === CONTENT_VERSION)) {
   const host = location.hostname;
   let dispose: () => void = () => {};
   if (/(salesforce\.com|force\.com)$/.test(host)) {
-    if (window === window.top) dispose = initSalesforce();
+    dispose = window === window.top ? initSalesforce() : initSalesforceFrame();
   } else if (/doctolib\.fr$/.test(host)) {
     dispose = initDoctolib();
   } else if (/acuitis\.com$/.test(host)) {

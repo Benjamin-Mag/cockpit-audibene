@@ -1,5 +1,5 @@
 import { CONTENT_VERSION, PORT_NAME, type ContentRequest, type ContentResponse, type ContextPush } from '../../shared/messages';
-import { fillAnamnese, insertMail, openComposer, runMv, writeChatPartenaire, writeComment } from './actions';
+import { fillAnamnese, fillSmsSearch, insertMail, openComposer, openSmsPanel, runMv, writeChatPartenaire, writeComment } from './actions';
 import { currentContext, readFiche } from './context';
 
 async function handle(req: ContentRequest): Promise<ContentResponse> {
@@ -16,6 +16,8 @@ async function handle(req: ContentRequest): Promise<ContentResponse> {
       return { type: 'result', result: await writeComment(req.text, req.save) };
     case 'writeChatPartenaire':
       return { type: 'result', result: await writeChatPartenaire(req.text) };
+    case 'openSms':
+      return { type: 'result', result: await openSmsPanel() };
     case 'fillAnamnese':
       return { type: 'result', result: await fillAnamnese(req.picklists, req.texts) };
     case 'openComposer':
@@ -30,6 +32,13 @@ async function handle(req: ContentRequest): Promise<ContentResponse> {
 /** Installe les écouteurs ; renvoie la fonction qui les retire (remplacement par un build plus récent). */
 export function initSalesforce(): () => void {
   const onMessage = (msg: ContentRequest, _sender: chrome.runtime.MessageSender, sendResponse: (r: ContentResponse) => void) => {
+    // Envoyé à tous les cadres : seul celui qui contient le champ répond (sinon il
+    // prendrait la place du bon cadre, la première réponse l'emportant).
+    if (msg.type === 'fillSmsSearch') {
+      const r = fillSmsSearch(msg.text);
+      if (r) sendResponse({ type: 'result', result: r });
+      return;
+    }
     handle(msg).then(sendResponse, (e: unknown) => sendResponse({ type: 'result', result: { ok: false, msg: String(e) } }));
     return true;
   };

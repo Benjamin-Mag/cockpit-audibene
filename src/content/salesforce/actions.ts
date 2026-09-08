@@ -111,6 +111,34 @@ export async function writeChatPartenaire(text: string): Promise<ActionResult> {
   return { ok: true, msg: 'Chat Partenaire : message envoyé' };
 }
 
+// ---------------------------------------------------------------- SMS (utilitaire Hearo)
+const SMS_LABEL = /^(hearo|nouveau message|approbation en attente)/i;
+
+/** Ouvre l'utilitaire Hearo de la barre du bas s'il ne l'est pas déjà ; renvoie les adresses des cadres du panneau. */
+export async function openSmsPanel(): Promise<ActionResult> {
+  const panelOpen = () => visibleEl(deepAll<HTMLElement>('.slds-utility-panel, [class*="utilityPanel"]').filter((p) => /hearo/i.test(textOf(p).slice(0, 200))));
+  if (!panelOpen()) {
+    const btn = visibleEl(deepAll<HTMLButtonElement>('button').filter((b) => SMS_LABEL.test(textOf(b))));
+    if (!btn) return { ok: false, msg: 'bouton Hearo / Nouveau message introuvable dans la barre du bas' };
+    btn.click();
+    await waitFor(panelOpen, 4000, 200);
+  }
+  const panel = panelOpen();
+  const frames = panel ? deepAll<HTMLIFrameElement>('iframe', panel).map((f) => f.src).filter(Boolean) : [];
+  return { ok: true, msg: 'panneau SMS ouvert', steps: frames.map((src) => ({ ok: true, msg: src })) };
+}
+
+/** Tape le texte dans la « Recherche de client » (dans le document courant, quel que soit le cadre). */
+export function fillSmsSearch(text: string): ActionResult | null {
+  const input = visibleEl(deepAll<HTMLInputElement>('input').filter((i) => /recherche de client/i.test(i.placeholder || i.getAttribute('aria-label') || '')));
+  if (!input) return null;
+  input.focus();
+  setNativeValue(input, text);
+  input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', bubbles: true }));
+  input.dispatchEvent(new KeyboardEvent('keyup', { key: 'Enter', code: 'Enter', bubbles: true }));
+  return { ok: true, msg: `SMS : recherche « ${text} »` };
+}
+
 // ---------------------------------------------------------------- Anamnèse
 async function selectPicklist(labelText: string, valueText: string): Promise<StepResult> {
   const lc = labelledControl(labelText);

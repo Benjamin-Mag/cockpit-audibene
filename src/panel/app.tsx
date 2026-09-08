@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
 import type { ContentRequest } from '../shared/messages';
-import type { Fiche, RecentPatient, SfContext } from '../shared/types';
+import type { ActionResult, Fiche, RecentPatient, SfContext } from '../shared/types';
 import { type Site, connectContext, isExtension, loadRecent, onCommand, onRecentChanged, pushRecent, readFiche, runAction, siteOf, watchActiveTab } from './bridge';
 import { Btn, Icon, type IconName, Toast, type ToastMsg } from './components/ui';
 import { type AppData, defaultData } from './model';
@@ -126,6 +126,31 @@ export function App() {
     const { recordId: _r, savedAt: _s, ...patient } = p;
     return act('paste', { type: 'pastePatient', data: patient, note: RDV_NOTE });
   };
+  /** Ouvre l'utilitaire SMS (Hearo) puis cherche le patient — la recherche vit souvent dans un cadre intégré, d'où le second envoi à tous les cadres. */
+  const openSms = async () => {
+    if (tabId == null || !ficheName) return;
+    setBusy('sms');
+    try {
+      const opened = await runAction(tabId, { type: 'openSms' });
+      if (!opened.ok) { showToast(opened.msg, 'err'); return; }
+      await new Promise((r) => setTimeout(r, 900));
+      let filled: ActionResult | null = null;
+      for (let attempt = 0; attempt < 4 && !filled?.ok; attempt++) {
+        try {
+          const r = (await chrome.tabs.sendMessage(tabId, { type: 'fillSmsSearch', text: ficheName } satisfies ContentRequest)) as { type: 'result'; result: ActionResult } | undefined;
+          if (r?.result.ok) filled = r.result;
+        } catch { /* aucun cadre ne répond encore */ }
+        if (!filled?.ok) await new Promise((r) => setTimeout(r, 700));
+      }
+      if (filled?.ok) showToast(filled.msg, 'ok');
+      else {
+        const frames = (opened.steps ?? []).map((s) => s.msg).filter((s) => s.startsWith('http'));
+        showToast(frames.length ? `Panneau ouvert, mais la recherche est hors de portée (cadre : ${new URL(frames[0]).hostname}) — dis-le à Claude` : 'Panneau ouvert, mais champ « Recherche de client » introuvable', 'err');
+      }
+    } finally {
+      setBusy(null);
+    }
+  };
   const insertMail = (subject: string, body: string) => act('mail', { type: 'insertMail', subject, html: buildMailHtml(body, data?.reglages.emailFooter ?? '') });
   const ficheName = fiche ? [fiche.prenom, fiche.nom].filter(Boolean).join(' ') : '';
   const salePrefill = ficheName && ctx ? { name: ficheName, url: ctx.url.split('?')[0] } : null;
@@ -232,7 +257,7 @@ export function App() {
   return (
     <>
       <div class="top" style="padding-bottom:0">{pageSwitch}</div>
-      <Header site={site} ctx={ctx} fiche={fiche} ficheState={ficheState} recent={recent} busy={busy} onMv={runMv} onPaste={pastePatient} onAddSale={addSaleFromFiche} onRefresh={() => setFicheTick((n) => n + 1)} goTo={goTo} />
+      <Header site={site} ctx={ctx} fiche={fiche} ficheState={ficheState} recent={recent} busy={busy} onMv={runMv} onPaste={pastePatient} onAddSale={addSaleFromFiche} onSms={openSms} onRefresh={() => setFicheTick((n) => n + 1)} goTo={goTo} />
       {storage.sync === 'paused' && (
         <div class="banner" style="margin:8px 12px 0">
           <Icon name="folder" />

@@ -13,6 +13,7 @@ interface Props {
   onRefresh: () => void;
   onPaste: (p: RecentPatient) => void;
   onAddSale: (cat: 1 | 2) => void;
+  onSms: () => void;
   goTo: (tab: 'anamnese' | 'commentaire' | 'mails' | 'chat') => void;
 }
 
@@ -22,7 +23,7 @@ const ago = (t: number) => {
   return m < 1 ? "à l'instant" : m < 60 ? `il y a ${m} min` : m < 1440 ? `il y a ${Math.round(m / 60)} h` : `il y a ${Math.round(m / 1440)} j`;
 };
 
-export function Header({ site, ctx, fiche, ficheState, recent, busy, onMv, onRefresh, onPaste, onAddSale, goTo }: Props) {
+export function Header({ site, ctx, fiche, ficheState, recent, busy, onMv, onRefresh, onPaste, onAddSale, onSms, goTo }: Props) {
   const page = ctx?.page ?? 'other';
   const onSf = site === 'salesforce' && !!ctx;
   const hasFiche = !!fiche && !!(fiche.prenom || fiche.nom);
@@ -98,7 +99,12 @@ export function Header({ site, ctx, fiche, ficheState, recent, busy, onMv, onRef
                   {ficheState === 'error' ? 'Lecture impossible — recharge la page Salesforce.' : page === 'other' ? 'Pas de fiche patient sur cette page.' : 'Fiche vide — clique ↻ une fois la page chargée.'}
                 </span>
               )}
-              <Btn kind="ghost" icon="refresh" title="Relire la fiche" onClick={onRefresh} busy={ficheState === 'loading'} />
+              <div class="row" style="gap:4px">
+                {page === 'opportunity' && hasFiche && (
+                  <Btn kind="soft" icon="message" title="Ouvrir les SMS (Hearo) et chercher ce patient" onClick={onSms} busy={busy === 'sms'} />
+                )}
+                <Btn kind="ghost" icon="refresh" title="Relire la fiche" onClick={onRefresh} busy={ficheState === 'loading'} />
+              </div>
             </div>
 
             {page !== 'opportunity' && (
