@@ -9,13 +9,14 @@ interface Props {
   update: (fn: (d: AppData) => void) => void;
   storage: StorageState;
   onChangeFolder: () => void;
+  onAuthorize: () => void;
   onImport: () => void;
   onExport: () => void;
   onExportLegacy: () => void;
   version: string;
 }
 
-export function Reglages({ data, update, storage, onChangeFolder, onImport, onExport, onExportLegacy, version }: Props) {
+export function Reglages({ data, update, storage, onChangeFolder, onAuthorize, onImport, onExport, onExportLegacy, version }: Props) {
   const r = data.reglages;
   const set = <K extends keyof AppData['reglages']>(k: K, v: AppData['reglages'][K]) => update((d) => { d.reglages[k] = v; });
   const input = (k: 'nom' | 'telephone' | 'mvComment', placeholder?: string) => (
@@ -46,9 +47,11 @@ export function Reglages({ data, update, storage, onChangeFolder, onImport, onEx
       <div class="section-title">Données</div>
       <div class="card" style="animation:none">
         <div class="stack">
-          <div class="row"><Icon name="folder" /><span class="grow">{storage.mode === 'folder' ? <>Dossier <b>{storage.folderName}</b> · cockpit.json</> : 'Enregistré dans le navigateur'}</span></div>
+          <div class="row"><Icon name="folder" /><span class="grow">{storage.mode === 'folder' ? <>Dossier <b>{storage.folderName}</b> · cockpit.json — {storage.sync === 'synced' ? 'synchronisé' : 'en pause'}</> : 'Enregistré dans le navigateur uniquement'}</span></div>
+          <div class="note">Les données sont toujours gardées dans le navigateur ; le dossier sert de copie de sauvegarde et de passerelle avec l'ancien générateur.</div>
           <div class="row wrap">
-            {fsSupported && <Btn kind="ghost" icon="folder" onClick={onChangeFolder}>Changer de dossier</Btn>}
+            {storage.sync === 'paused' && <Btn kind="soft" icon="folder" onClick={onAuthorize}>Autoriser le dossier</Btn>}
+            {fsSupported && <Btn kind="ghost" icon="folder" onClick={onChangeFolder}>{storage.mode === 'folder' ? 'Changer de dossier' : 'Choisir un dossier'}</Btn>}
             <Btn kind="ghost" icon="upload" onClick={onImport} title="data.json de l'ancien générateur, export suivi-ventes-primes-….json, ou cockpit.json">Importer un fichier</Btn>
             <Btn kind="ghost" icon="download" onClick={onExport}>Exporter cockpit.json</Btn>
             <Btn kind="ghost" icon="download" onClick={onExportLegacy} title="Écrit un data.json lisible par l'ancien générateur de mails (modèles, textes, signature)">Mettre à jour data.json (ancien générateur)</Btn>

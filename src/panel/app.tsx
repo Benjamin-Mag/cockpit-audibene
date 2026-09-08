@@ -7,6 +7,7 @@ import { type AppData, defaultData } from './model';
 import { type StorageState, authorize, chooseFolder, exportLegacy, initStorage, parseAny, save, useBrowserStorage } from './storage/data';
 import { downloadJson, pickJsonFile } from './storage/fs';
 import { Anamnese } from './views/Anamnese';
+import { ChatPartenaire } from './views/ChatPartenaire';
 import { Commentaire } from './views/Commentaire';
 import { Header } from './views/Header';
 import { Mails } from './views/Mails';
@@ -16,11 +17,12 @@ import { buildMailHtml } from '../shared/mail-html';
 import { monthKey, monthShort } from './ventes';
 import { Setup } from './views/Setup';
 
-type TabId = 'anamnese' | 'commentaire' | 'mails' | 'ventes' | 'reglages';
+type TabId = 'anamnese' | 'commentaire' | 'mails' | 'chat' | 'ventes' | 'reglages';
 const TABS: { id: TabId; label: string; icon: IconName }[] = [
   { id: 'anamnese', label: 'COSI', icon: 'stetho' },
   { id: 'commentaire', label: 'Anamnèse', icon: 'pen' },
   { id: 'mails', label: 'Mails', icon: 'mail' },
+  { id: 'chat', label: 'Commentaire', icon: 'message' },
   { id: 'ventes', label: 'Ventes', icon: 'coins' },
   { id: 'reglages', label: '', icon: 'settings' },
 ];
@@ -55,7 +57,12 @@ export function App() {
     if (skipSave.current) { skipSave.current = false; return; }
     if (!data) return;
     clearTimeout(saveTimer.current);
-    saveTimer.current = window.setTimeout(() => save(data).catch(() => showToast("Erreur d'enregistrement du data.json", 'err')), 350);
+    saveTimer.current = window.setTimeout(() => {
+      save(data).then(
+        (sync) => setStorage((s) => (s && s.sync !== sync && s.mode === 'folder' ? { ...s, sync } : s)),
+        () => showToast("Erreur d'enregistrement", 'err'),
+      );
+    }, 350);
   }, [data]);
 
   useEffect(() => {
@@ -143,8 +150,15 @@ export function App() {
 
   useEffect(() => onCommand(async (c) => { if (c === 'run-mv') await runMv(); }), [tabId, data?.reglages.mvComment]);
 
+  const doAuthorize = async () => {
+    const r = await authorize(data);
+    setStorage(r.state);
+    if (r.data && r.data !== data) loadData(r.data);
+    showToast(r.state.sync === 'synced' ? `Dossier ${r.state.folderName} synchronisé` : 'Accès refusé — les données restent dans le navigateur', r.state.sync === 'synced' ? 'ok' : 'err');
+  };
+
   const doChooseFolder = async () => {
-    const r = await chooseFolder();
+    const r = await chooseFolder(data);
     if (!r) return;
     setStorage(r.state);
     loadData(r.data);
@@ -175,22 +189,10 @@ export function App() {
   // ---------------------------------------------------------------- rendu
   if (!storage) return <div class="empty"><div class="skeleton" style="width:40%;margin:40px auto" /></div>;
 
-  if (storage.status === 'needs-permission') {
-    return (
-      <div class="setup">
-        <img class="logo" src="./icons/icon128.png" alt="" />
-        <h1>Accès au dossier</h1>
-        <p>Le navigateur demande ton accord pour relire <b>{storage.folderName}</b> (data.json). Choisis « Autoriser à chaque visite » pour ne plus avoir cette étape.</p>
-        <Btn big icon="folder" onClick={async () => { const r = await authorize(); setStorage(r.state); loadData(r.data); }}>Autoriser</Btn>
-        <Btn kind="ghost" onClick={doChooseFolder}>Choisir un autre dossier</Btn>
-      </div>
-    );
-  }
-
   if (storage.status === 'needs-folder' || !data || !data.onboardingDone) {
     return (
       <Setup data={data} folderName={storage.folderName} onChooseFolder={doChooseFolder}
-        onBrowserStorage={async () => { const r = await useBrowserStorage(); setStorage(r.state); loadData(r.data); }}
+        onBrowserStorage={async () => { const r = await useBrowserStorage(data); setStorage(r.state); loadData(r.data); }}
         onImport={doImport}
         onFinish={(r) => { update((d) => { Object.assign(d.reglages, r); d.onboardingDone = true; }); showToast(`Bienvenue ${r.nom} !`, 'ok'); }} />
     );
@@ -203,13 +205,20 @@ export function App() {
 
   // Onglets adaptés à la fiche : une Piste n'envoie pas de mail, une Opportunité n'a pas d'anamnèse.
   const page = connected ? ctx!.page : 'other';
-  const hidden: TabId[] = page === 'lead' ? ['mails'] : page === 'opportunity' ? ['anamnese', 'commentaire'] : [];
+  const hidden: TabId[] = page === 'lead' ? ['mails', 'chat'] : page === 'opportunity' ? ['anamnese', 'commentaire'] : [];
   const visibleTabs = TABS.filter((t) => !hidden.includes(t.id));
   const activeTab: TabId = hidden.includes(tab) ? visibleTabs[0].id : tab;
 
   return (
     <>
       <Header site={site} ctx={ctx} fiche={fiche} ficheState={ficheState} recent={recent} busy={busy} onMv={runMv} onPaste={pastePatient} onAddSale={addSaleFromFiche} onRefresh={() => setFicheTick((n) => n + 1)} goTo={goTo} />
+      {storage.sync === 'paused' && (
+        <div class="banner" style="margin:8px 12px 0">
+          <Icon name="folder" />
+          <span class="grow">Sauvegarde dans <b>{storage.folderName}</b> en pause — les données sont bien dans le navigateur.</span>
+          <Btn kind="soft" onClick={doAuthorize}>Autoriser</Btn>
+        </div>
+      )}
       <nav class="tabs">
         {visibleTabs.map((t) => (
           <button key={t.id} class={activeTab === t.id ? 'on' : ''} onClick={() => setTab(t.id)} title={t.label || 'Réglages'} style={t.label ? '' : 'flex:0 0 auto;padding:6px 10px'}>
@@ -231,8 +240,12 @@ export function App() {
           <Mails key={recordKey} data={data} update={update} fiche={fiche} connected={connected} busy={busy === 'mail'}
             onInsert={insertMail} onNeedPartner={readPartner} toast={showToast} />
         )}
+        {activeTab === 'chat' && (
+          <ChatPartenaire key={recordKey} data={data} update={update} fiche={fiche} connected={connected && ctx?.page !== 'lead'} busy={busy === 'chat'}
+            onWrite={(text) => act('chat', { type: 'writeChatPartenaire', text })} toast={showToast} />
+        )}
         {activeTab === 'ventes' && <Ventes data={data} update={update} prefill={ctx?.page === 'opportunity' ? salePrefill : null} onImport={doImport} toast={showToast} />}
-        {activeTab === 'reglages' && <Reglages data={data} update={update} storage={storage} onChangeFolder={doChooseFolder} onImport={doImport} onExport={doExport} onExportLegacy={doExportLegacy} version={VERSION} />}
+        {activeTab === 'reglages' && <Reglages data={data} update={update} storage={storage} onChangeFolder={doChooseFolder} onAuthorize={doAuthorize} onImport={doImport} onExport={doExport} onExportLegacy={doExportLegacy} version={VERSION} />}
       </main>
       <div class="footer" ref={setFooterEl} />
       <Toast toast={toast} />

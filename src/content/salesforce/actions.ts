@@ -53,6 +53,31 @@ export async function writeComment(text: string, save: boolean): Promise<ActionR
   return { ok: true, msg: 'Écrit dans « Remarques générales profil client » et enregistré' };
 }
 
+// ---------------------------------------------------------------- Chat Partenaire (Opportunité)
+// Onglet « Chat Partenaire » du bandeau d'actions : on l'ouvre, on repère la zone de
+// saisie qui apparaît (celle du bandeau, pas une autre de la page), on écrit, on enregistre.
+export async function writeChatPartenaire(text: string): Promise<ActionResult> {
+  const visibleAreas = () => deepAll<HTMLTextAreaElement>('textarea').filter(isRendered);
+  const before = new Set(visibleAreas());
+  const tab = await clickTabByTitle('Chat Partenaire');
+  if (!tab.ok) return { ok: false, msg: tab.msg };
+  await sleep(400);
+  const field = await waitFor(() => {
+    const fresh = visibleAreas().filter((t) => !before.has(t));
+    if (fresh.length) return fresh[fresh.length - 1];
+    const byLabel = inputBehindLabel((l) => /^(commentaires?|message|chat partenaire)$/i.test(l));
+    return byLabel && byLabel.tagName === 'TEXTAREA' ? (byLabel as HTMLTextAreaElement) : null;
+  }, 4000);
+  if (!field) return { ok: false, msg: 'zone de saisie du Chat Partenaire introuvable' };
+  setNativeValue(field, text);
+  const btn = await waitFor(() => saveButtonNear(field, 14), 3000);
+  if (!btn) return { ok: true, msg: 'Texte collé, mais bouton Enregistrer introuvable — enregistre à la main' };
+  btn.click();
+  await sleep(1200);
+  await waitFor(() => field.value === '' || !isRendered(field), 5000);
+  return { ok: true, msg: 'Chat Partenaire : texte collé et enregistré' };
+}
+
 // ---------------------------------------------------------------- Anamnèse
 async function selectPicklist(labelText: string, valueText: string): Promise<StepResult> {
   const lc = labelledControl(labelText);

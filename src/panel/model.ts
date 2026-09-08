@@ -40,9 +40,13 @@ export interface VentesData {
   sales: Record<string, Vente[]>;
 }
 
+export interface ChatTexte { id: string; label: string; text: string }
+
 export interface AppData {
   version: 2;
   onboardingDone: boolean;
+  /** Horodatage du dernier enregistrement (sert à départager copie locale et dossier). */
+  updatedAt?: number;
   reglages: Reglages;
   anamnese: {
     situations: Situation[];
@@ -51,6 +55,8 @@ export interface AppData {
     /** valeur de Situation 1/2 (ex. "Musique") → micro-phrases enregistrées */
     phrases: Record<string, string[]>;
   };
+  /** Textes à coller dans le « Chat Partenaire » d'une Opportunité. */
+  chatPartenaire: ChatTexte[];
   templates: Template[];
   /** Liste complète (modifiable) des catégories ; `seeded` = les catégories de base ont été ajoutées une fois. */
   categories: { patient: Categorie[]; partenaire: Categorie[]; seeded?: boolean };
@@ -88,6 +94,7 @@ export function defaultData(): AppData {
     onboardingDone: false,
     reglages: { nom: '', telephone: '', genre: 'M', mvComment: 'MV', autoSaveComment: true, emailFooter: DEFAULT_FOOTER, sigPatientMail: '', sigPatientSMS: '', sigPartenaireMail: '' },
     anamnese: { situations: DEFAULT_SITUATIONS.map((s) => ({ ...s })), textes: { ...DEFAULT_TEXTES }, phrases: {} },
+    chatPartenaire: [{ id: 'chat-merci', label: 'Merci', text: 'Bonjour,\nMerci pour cette mise à jour.\nAu plaisir de vous lire,\n{{nom_conseiller}}' }],
     templates: [],
     categories: { patient: CATEGORIES_PATIENT.map((c) => ({ ...c })), partenaire: CATEGORIES_PARTENAIRE.map((c) => ({ ...c })), seeded: true },
     ventes: {

@@ -13,7 +13,7 @@ interface Props {
   onRefresh: () => void;
   onPaste: (p: RecentPatient) => void;
   onAddSale: (cat: 1 | 2) => void;
-  goTo: (tab: 'anamnese' | 'commentaire' | 'mails' | 'ventes') => void;
+  goTo: (tab: 'anamnese' | 'commentaire' | 'mails' | 'chat' | 'ventes') => void;
 }
 
 const civ = (g: 'M' | 'F' | null) => (g === 'F' ? 'Mme' : g === 'M' ? 'M.' : '');
@@ -117,7 +117,7 @@ export function Header({ site, ctx, fiche, ficheState, recent, busy, onMv, onRef
                 </>
               )}
               {page !== 'lead' && <Btn kind="soft" icon="mail" onClick={() => goTo('mails')}>Mail</Btn>}
-              {page === 'opportunity' && <Btn kind="ghost" icon="coins" onClick={() => goTo('ventes')}>Ventes</Btn>}
+              {page !== 'lead' && <Btn kind="soft" icon="message" onClick={() => goTo('chat')}>Commentaire</Btn>}
             </div>
             {page === 'opportunity' && hasFiche && (
               <div class="actions" style="margin-top:8px">

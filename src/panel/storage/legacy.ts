@@ -156,6 +156,8 @@ export function normalize(raw: unknown, base: AppData): AppData {
   }
   for (const [id, t] of Object.entries(out.anamnese.textes)) out.anamnese.textes[id] = ensurePhoneUnderName(t);
   if (Array.isArray(o.templates)) out.templates = o.templates;
+  if (Array.isArray(o.chatPartenaire)) out.chatPartenaire = o.chatPartenaire;
+  if (typeof o.updatedAt === 'number') out.updatedAt = o.updatedAt;
   if (o.categories) out.categories = seedCategories({ patient: o.categories.patient ?? [], partenaire: o.categories.partenaire ?? [], seeded: o.categories.seeded });
   if (o.ventes) out.ventes = { settings: { ...out.ventes.settings, ...(o.ventes.settings ?? {}) }, payslips: o.ventes.payslips ?? [], sales: canonicalizeSales(o.ventes.sales ?? {}) };
   return out;

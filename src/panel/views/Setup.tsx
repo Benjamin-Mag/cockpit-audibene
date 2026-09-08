@@ -18,7 +18,7 @@ export function Setup({ data, folderName, onChooseFolder, onBrowserStorage, onIm
   const [tel, setTel] = useState(data?.reglages.telephone ?? '');
   const [genre, setGenre] = useState<'M' | 'F'>(data?.reglages.genre ?? 'M');
   const [busy, setBusy] = useState(false);
-  const step = fsSupported && !data ? 1 : 2;
+  const step = fsSupported && !folderName && !data?.templates.length ? 1 : 2;
 
   return (
     <div class="setup">

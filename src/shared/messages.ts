@@ -12,6 +12,7 @@ export type ContentRequest =
   | { type: 'runMv'; comment: string }
   | { type: 'fillAnamnese'; picklists: { label: string; value: string }[]; texts: { label: string; value: string }[] }
   | { type: 'writeComment'; text: string; save: boolean }
+  | { type: 'writeChatPartenaire'; text: string }
   | { type: 'openComposer' }
   | { type: 'insertMail'; subject: string; html: string }
   | { type: 'pastePatient'; data: PatientData; note: string };
