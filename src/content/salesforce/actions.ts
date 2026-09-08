@@ -128,6 +128,25 @@ export async function openSmsPanel(): Promise<ActionResult> {
   return { ok: true, msg: 'panneau SMS ouvert', steps: frames.map((src) => ({ ok: true, msg: src })) };
 }
 
+/** Relevé de ce que voit la page : cadres et leurs domaines, champs de recherche, utilitaires — pour cibler Hearo. */
+export function diagSms(): ActionResult {
+  const lines: string[] = [`page: ${location.hostname}${location.pathname.slice(0, 40)}`];
+  const frames = deepAll<HTMLIFrameElement>('iframe');
+  lines.push(`iframes: ${frames.length}`);
+  for (const f of frames.slice(0, 12)) {
+    let host = '(sans src)';
+    try { host = f.src ? new URL(f.src).hostname + new URL(f.src).pathname.slice(0, 30) : f.srcdoc ? '(srcdoc)' : '(sans src)'; } catch { host = f.src.slice(0, 60); }
+    lines.push(`  - ${isRendered(f) ? 'visible' : 'caché'} ${f.title ? `"${f.title}" ` : ''}${host}`);
+  }
+  const inputs = deepAll<HTMLInputElement>('input').filter((i) => /recherch|search/i.test(i.placeholder || i.getAttribute('aria-label') || ''));
+  lines.push(`champs recherche (page principale): ${inputs.map((i) => `"${i.placeholder || i.getAttribute('aria-label')}"${isRendered(i) ? '' : ' (caché)'}`).join(', ') || 'aucun'}`);
+  const utils = deepAll<HTMLButtonElement>('button').filter((b) => SMS_LABEL.test(textOf(b)));
+  lines.push(`bouton utilitaire: ${utils.map((b) => `"${textOf(b).slice(0, 30)}"`).join(', ') || 'introuvable'}`);
+  const panels = deepAll<HTMLElement>('[class*="utility"], [class*="Utility"]').filter((p) => isRendered(p) && p.getBoundingClientRect().height > 150);
+  lines.push(`panneaux utilitaires visibles: ${panels.slice(0, 5).map((p) => `[${p.className.toString().slice(0, 40)}] ${textOf(p).slice(0, 60).replace(/\s+/g, ' ')}`).join(' | ') || 'aucun'}`);
+  return { ok: true, msg: lines.join('\n') };
+}
+
 /** Tape le texte dans la « Recherche de client » (dans le document courant, quel que soit le cadre). */
 export function fillSmsSearch(text: string): ActionResult | null {
   const input = visibleEl(deepAll<HTMLInputElement>('input').filter((i) => /recherche de client/i.test(i.placeholder || i.getAttribute('aria-label') || '')));

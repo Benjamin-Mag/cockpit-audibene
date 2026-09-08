@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
 import type { ContentRequest } from '../shared/messages';
 import type { ActionResult, Fiche, RecentPatient, SfContext } from '../shared/types';
-import { type Site, connectContext, isExtension, loadRecent, onCommand, onRecentChanged, pushRecent, readFiche, runAction, siteOf, watchActiveTab } from './bridge';
+import { type Site, connectContext, isExtension, loadRecent, onCommand, onRecentChanged, pushRecent, readFiche, runAction, siteOf, watchActiveTab, writeClipboard } from './bridge';
 import { Btn, Icon, type IconName, Toast, type ToastMsg } from './components/ui';
 import { type AppData, defaultData } from './model';
 import { type StorageState, authorize, chooseFolder, exportLegacy, initStorage, parseAny, save, useBrowserStorage } from './storage/data';
@@ -144,8 +144,10 @@ export function App() {
       }
       if (filled?.ok) showToast(filled.msg, 'ok');
       else {
-        const frames = (opened.steps ?? []).map((s) => s.msg).filter((s) => s.startsWith('http'));
-        showToast(frames.length ? `Panneau ouvert, mais la recherche est hors de portée (cadre : ${new URL(frames[0]).hostname}) — dis-le à Claude` : 'Panneau ouvert, mais champ « Recherche de client » introuvable', 'err');
+        // Relevé technique copié dans le presse-papier, à transmettre pour cibler le panneau.
+        const diag = await runAction(tabId, { type: 'diagSms' });
+        await writeClipboard(`Diagnostic SMS Cockpit\n${diag.msg}`);
+        showToast('Champ « Recherche de client » introuvable — diagnostic copié dans le presse-papier, colle-le à Claude', 'err');
       }
     } finally {
       setBusy(null);

@@ -15,6 +15,7 @@ export type ContentRequest =
   | { type: 'writeChatPartenaire'; text: string }
   | { type: 'openSms' }
   | { type: 'fillSmsSearch'; text: string }
+  | { type: 'diagSms' }
   | { type: 'openComposer' }
   | { type: 'insertMail'; subject: string; html: string }
   | { type: 'pastePatient'; data: PatientData; note: string };
