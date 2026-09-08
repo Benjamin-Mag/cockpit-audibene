@@ -138,6 +138,11 @@ export function diagSms(): ActionResult {
     try { host = f.src ? new URL(f.src).hostname + new URL(f.src).pathname.slice(0, 30) : f.srcdoc ? '(srcdoc)' : '(sans src)'; } catch { host = f.src.slice(0, 60); }
     lines.push(`  - ${isRendered(f) ? 'visible' : 'caché'} ${f.title ? `"${f.title}" ` : ''}${host}`);
   }
+  // Une application Canvas est chargée par un formulaire POST vers son adresse : c'est là qu'on lit son domaine.
+  const forms = deepAll<HTMLFormElement>('form').filter((f) => /^https?:/.test(f.getAttribute('action') || ''));
+  lines.push(`formulaires vers l'extérieur: ${forms.map((f) => { try { return new URL(f.action).hostname + (f.target ? ` (cible ${f.target})` : ''); } catch { return f.action.slice(0, 50); } }).join(', ') || 'aucun'}`);
+  const canvasFrames = deepAll<HTMLIFrameElement>('iframe').filter((f) => /canvas/i.test(f.title || '') || /canvas/i.test(f.name || ''));
+  lines.push(`iframes canvas: ${canvasFrames.map((f) => `name="${f.name}" id="${f.id}"`).join(', ') || 'aucun'}`);
   const inputs = deepAll<HTMLInputElement>('input').filter((i) => /recherch|search/i.test(i.placeholder || i.getAttribute('aria-label') || ''));
   lines.push(`champs recherche (page principale): ${inputs.map((i) => `"${i.placeholder || i.getAttribute('aria-label')}"${isRendered(i) ? '' : ' (caché)'}`).join(', ') || 'aucun'}`);
   const utils = deepAll<HTMLButtonElement>('button').filter((b) => SMS_LABEL.test(textOf(b)));

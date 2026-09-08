@@ -163,7 +163,8 @@ export function App() {
       else {
         const diag = await runAction(tabId, { type: 'diagSms' });
         const list = frames.map((f) => `  - cadre ${f.frameId}: ${f.host}${f.url.length > f.host.length + 9 ? new URL(f.url).pathname.slice(0, 40) : ''}`).join('\n');
-        await writeClipboard(`Diagnostic SMS Cockpit\n${diag.msg}\ncadres (webNavigation, ${chrome.webNavigation ? 'ok' : 'API absente'}):\n${list || '  aucun'}`);
+        const perms = chrome.runtime.getManifest().permissions?.join(', ') ?? '';
+        await writeClipboard(`Diagnostic SMS Cockpit v${VERSION}\n${diag.msg}\npermissions du manifest chargé: ${perms}\ncadres (webNavigation, ${chrome.webNavigation ? 'ok' : 'API absente'}):\n${list || '  aucun'}`);
         showToast(frames.length ? `Recherche introuvable dans ${frames.map((f) => f.host).join(', ')} — diagnostic copié, colle-le à Claude` : 'Aucun cadre détecté — diagnostic copié, colle-le à Claude', 'err');
       }
     } finally {
