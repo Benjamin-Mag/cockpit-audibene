@@ -232,6 +232,9 @@ input[type="date"], input[type="time"] { cursor: pointer; }
 .setup p { margin: 0; color: var(--muted); }
 .logo { width: 44px; height: 44px; border-radius: 12px; }
 
+.shake { animation: shake 0.5s var(--ease); }
+.shake .seg { border-color: var(--danger); box-shadow: 0 0 0 3px var(--danger-soft); }
+@keyframes shake { 0%, 100% { transform: translateX(0); } 20% { transform: translateX(-5px); } 40% { transform: translateX(5px); } 60% { transform: translateX(-3px); } 80% { transform: translateX(3px); } }
 @keyframes fadeUp { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
 @keyframes rise { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
 @keyframes shimmer { from { transform: translateX(-100%); } to { transform: translateX(100%); } }

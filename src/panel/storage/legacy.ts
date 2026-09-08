@@ -1,4 +1,4 @@
-import { type AppData, DEFAULT_SITUATIONS, DEFAULT_TEXTES, RESUME_TAG, type Situation, type Template, type Vente, type VentesData, ensurePhoneUnderName } from '../model';
+import { type AppData, CATEGORIES_PARTENAIRE, CATEGORIES_PATIENT, DEFAULT_SITUATIONS, DEFAULT_TEXTES, RESUME_TAG, type Situation, type Template, type Vente, type VentesData, ensurePhoneUnderName, seedCategories } from '../model';
 import { canonicalMonthKey } from '../ventes';
 
 /** Regroupe les ventes sous des clés de mois normalisées ("Janvier 26" et "Janvier 2026" fusionnent). */
@@ -82,8 +82,12 @@ export function mergeGenerateur(data: AppData, raw: unknown): AppData {
     }
   }
   if (old.customCategories) {
-    out.categories.patient = old.customCategories.patient?.map((c) => ({ id: c.id, label: c.label })) ?? out.categories.patient;
-    out.categories.partenaire = old.customCategories.partenaire?.map((c) => ({ id: c.id, label: c.label })) ?? out.categories.partenaire;
+    const add = (list: { id: string; label: string }[] | undefined, target: { id: string; label: string }[]) => {
+      for (const c of list ?? []) if (c?.id && !target.some((t) => t.id === c.id)) target.push({ id: c.id, label: c.label || c.id });
+    };
+    out.categories = seedCategories(out.categories);
+    add(old.customCategories.patient, out.categories.patient);
+    add(old.customCategories.partenaire, out.categories.partenaire);
   }
   if (old.onboardingDone) out.onboardingDone = true;
   return out;
@@ -100,7 +104,11 @@ export function toLegacyGenerateur(data: AppData): Record<string, unknown> {
     templates: data.templates,
     anamnese,
     customSituations: data.anamnese.situations,
-    customCategories: data.categories,
+    // L'ancien générateur ajoute lui-même ses catégories de base : on n'exporte que les autres.
+    customCategories: {
+      patient: data.categories.patient.filter((c) => !CATEGORIES_PATIENT.some((b) => b.id === c.id)),
+      partenaire: data.categories.partenaire.filter((c) => !CATEGORIES_PARTENAIRE.some((b) => b.id === c.id)),
+    },
     signatureName: r.nom,
     phone: r.telephone,
     advisorGenre: r.genre,
@@ -148,7 +156,7 @@ export function normalize(raw: unknown, base: AppData): AppData {
   }
   for (const [id, t] of Object.entries(out.anamnese.textes)) out.anamnese.textes[id] = ensurePhoneUnderName(t);
   if (Array.isArray(o.templates)) out.templates = o.templates;
-  if (o.categories) out.categories = { patient: o.categories.patient ?? [], partenaire: o.categories.partenaire ?? [] };
+  if (o.categories) out.categories = seedCategories({ patient: o.categories.patient ?? [], partenaire: o.categories.partenaire ?? [], seeded: o.categories.seeded });
   if (o.ventes) out.ventes = { settings: { ...out.ventes.settings, ...(o.ventes.settings ?? {}) }, payslips: o.ventes.payslips ?? [], sales: canonicalizeSales(o.ventes.sales ?? {}) };
   return out;
 }

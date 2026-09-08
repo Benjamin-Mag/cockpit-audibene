@@ -3,7 +3,7 @@ import type { Fiche, Genre } from '../../shared/types';
 import { writeClipboard } from '../bridge';
 import { Btn, Chip, Field, Icon, Seg } from '../components/ui';
 import { frToIso, frToTime, isDateVar, isHeureVar, isoToFr, timeToFr } from '../dates';
-import { type AppData, CATEGORIES_PARTENAIRE, CATEGORIES_PATIENT, type Template, fillVars, resolveGenre, systemValues, uid } from '../model';
+import { type AppData, type Template, fillVars, resolveGenre, systemValues, uid } from '../model';
 
 type Audience = 'patient' | 'partenaire';
 const SYSTEM_VARS = ['nom_conseiller', 'tel_conseiller', 'titre_conseiller'];
@@ -38,9 +38,51 @@ export function Mails({ data, update, fiche, connected, busy, onInsert, onNeedPa
   const [manualBody, setManualBody] = useState<string | null>(null);
   const [editing, setEditing] = useState<Template | null>(null);
   const [partnerLoading, setPartnerLoading] = useState(false);
+  const [catManage, setCatManage] = useState(false);
+  const [newCat, setNewCat] = useState('');
+  const [genreAlert, setGenreAlert] = useState(0);
 
   const effectiveGenre = genre ?? fiche?.genre ?? null;
-  const categories = audience === 'patient' ? [...CATEGORIES_PATIENT, ...data.categories.patient] : [...CATEGORIES_PARTENAIRE, ...data.categories.partenaire];
+  const categories = data.categories[audience];
+  const catField = audience === 'patient' ? 'patientCategory' : 'partnerCategory';
+
+  const addCategory = () => {
+    const label = newCat.trim();
+    if (!label) return;
+    if (categories.some((c) => c.id.toLowerCase() === label.toLowerCase())) { toast('Cette catégorie existe déjà', 'err'); return; }
+    update((d) => { d.categories[audience].push({ id: label, label }); });
+    setNewCat('');
+  };
+  const renameCategory = (id: string, label: string) => {
+    const l = label.trim();
+    if (!l || l === id) return;
+    if (categories.some((c) => c.id === l)) { toast('Ce nom existe déjà', 'err'); return; }
+    update((d) => {
+      const c = d.categories[audience].find((x) => x.id === id);
+      if (c) { c.id = l; c.label = l; }
+      for (const t of d.templates) if (t.audience === audience && t[catField] === id) t[catField] = l;
+    });
+    if (cat === id) setCat(l);
+  };
+  const deleteCategory = (id: string) => {
+    const n = data.templates.filter((t) => t.audience === audience && t[catField] === id).length;
+    const fallback = audience === 'patient' ? 'all' : categories.find((c) => c.id !== id)?.id;
+    if (audience === 'partenaire' && !fallback) { toast('Garde au moins une catégorie partenaire', 'err'); return; }
+    if (!confirm(`Supprimer la catégorie « ${id} » ?${n ? `\n${n} modèle(s) passeront en « ${fallback === 'all' ? 'Toutes' : fallback} ».` : ''}`)) return;
+    update((d) => {
+      d.categories[audience] = d.categories[audience].filter((c) => c.id !== id);
+      for (const t of d.templates) if (t.audience === audience && t[catField] === id) t[catField] = fallback;
+    });
+    if (cat === id) setCat(null);
+  };
+
+  /** Verrou : pas de mail sans genre choisi (lu sur la fiche ou cliqué). */
+  const requireGenre = () => {
+    if (effectiveGenre) return true;
+    setGenreAlert((n) => n + 1);
+    toast('Choisis M. ou Mme avant de générer le mail', 'err');
+    return false;
+  };
   const templates = data.templates.filter((t) => t.audience === audience && (!cat || (audience === 'patient' ? t.patientCategory === 'all' || t.patientCategory === cat : t.partnerCategory === cat)));
   const sel = data.templates.find((t) => t.id === selId) ?? null;
 
@@ -94,8 +136,8 @@ export function Mails({ data, update, fiche, connected, busy, onInsert, onNeedPa
   if (editing) {
     const e = editing;
     const set = (patch: Partial<Template>) => setEditing({ ...e, ...patch });
-    const cats = e.audience === 'patient' ? [{ id: 'all', label: 'Toutes' }, ...CATEGORIES_PATIENT, ...data.categories.patient] : [...CATEGORIES_PARTENAIRE, ...data.categories.partenaire];
-    const catVal = e.audience === 'patient' ? e.patientCategory ?? 'all' : e.partnerCategory ?? 'CC1';
+    const cats = e.audience === 'patient' ? [{ id: 'all', label: 'Toutes' }, ...data.categories.patient] : data.categories.partenaire;
+    const catVal = e.audience === 'patient' ? e.patientCategory ?? 'all' : e.partnerCategory ?? data.categories.partenaire[0]?.id;
     const isNew = !data.templates.some((t) => t.id === e.id);
     const saveTpl = () => {
       if (!e.title.trim() || !e.body.trim()) { toast('Titre et texte obligatoires', 'err'); return; }
@@ -114,7 +156,7 @@ export function Mails({ data, update, fiche, connected, busy, onInsert, onNeedPa
         </div>
         <Field label="Titre"><input value={e.title} onInput={(ev) => set({ title: (ev.target as HTMLInputElement).value })} placeholder="Ex. Confirmation de rendez-vous" /></Field>
         <div class="row wrap">
-          <Seg options={[{ id: 'patient', label: 'Patient' }, { id: 'partenaire', label: 'Partenaire' }]} value={e.audience} onChange={(a) => set({ audience: a, patientCategory: a === 'patient' ? 'all' : undefined, partnerCategory: a === 'partenaire' ? 'CC1' : undefined })} />
+          <Seg options={[{ id: 'patient', label: 'Patient' }, { id: 'partenaire', label: 'Partenaire' }]} value={e.audience} onChange={(a) => set({ audience: a, patientCategory: a === 'patient' ? 'all' : undefined, partnerCategory: a === 'partenaire' ? data.categories.partenaire[0]?.id : undefined })} />
           <Seg options={[{ id: 'email', label: 'E-mail' }, { id: 'sms', label: 'SMS' }]} value={e.type} onChange={(t) => set({ type: t })} />
         </div>
         <Field label="Catégorie">
@@ -138,7 +180,7 @@ export function Mails({ data, update, fiche, connected, busy, onInsert, onNeedPa
 
   const newTemplate = () => {
     const sig = audience === 'partenaire' ? data.reglages.sigPartenaireMail : data.reglages.sigPatientMail;
-    setEditing({ id: uid('tpl'), title: '', audience, type: 'email', patientCategory: audience === 'patient' ? 'all' : undefined, partnerCategory: audience === 'partenaire' ? 'CC1' : undefined, subject: '', body: sig ? '\n' + fillVars(sig, systemValues(data.reglages)) : '', smsCompanion: audience === 'patient' && data.reglages.sigPatientSMS ? '\n' + fillVars(data.reglages.sigPatientSMS, systemValues(data.reglages)) : '' });
+    setEditing({ id: uid('tpl'), title: '', audience, type: 'email', patientCategory: audience === 'patient' ? (cat ?? 'all') : undefined, partnerCategory: audience === 'partenaire' ? (cat ?? data.categories.partenaire[0]?.id) : undefined, subject: '', body: sig ? '\n' + fillVars(sig, systemValues(data.reglages)) : '', smsCompanion: audience === 'patient' && data.reglages.sigPatientSMS ? '\n' + fillVars(data.reglages.sigPatientSMS, systemValues(data.reglages)) : '' });
   };
 
   // ---------------------------------------------------------------- vue principale
@@ -151,10 +193,31 @@ export function Mails({ data, update, fiche, connected, busy, onInsert, onNeedPa
 
       {(listOpen || !sel) ? (
         <>
-          <div class="chips">
-            <Chip small on={cat === null} onClick={() => setCat(null)}>Tous</Chip>
-            {categories.map((c) => <Chip key={c.id} small on={cat === c.id} onClick={() => setCat(cat === c.id ? null : c.id)}>{c.label}</Chip>)}
+          <div class="row" style="align-items:flex-start">
+            <div class="chips grow">
+              <Chip small on={cat === null} onClick={() => setCat(null)}>Tous</Chip>
+              {categories.map((c) => <Chip key={c.id} small on={cat === c.id} onClick={() => setCat(cat === c.id ? null : c.id)}>{c.label}</Chip>)}
+            </div>
+            <Btn kind={catManage ? 'soft' : 'ghost'} icon="pen" title="Gérer les catégories" onClick={() => setCatManage((v) => !v)} />
           </div>
+          {catManage && (
+            <div class="card" style="animation:none">
+              <div class="stack" style="gap:6px">
+                <span class="label">Catégories {audience}</span>
+                {categories.map((c) => (
+                  <div key={c.id} class="row">
+                    <input value={c.label} style="padding:5px 8px;font-size:12px" onChange={(e) => renameCategory(c.id, (e.target as HTMLInputElement).value)} onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }} />
+                    <Btn kind="ghost" icon="x" title="Supprimer" onClick={() => deleteCategory(c.id)} />
+                  </div>
+                ))}
+                <div class="row">
+                  <input value={newCat} placeholder="Nouvelle catégorie…" style="padding:5px 8px;font-size:12px" onInput={(e) => setNewCat((e.target as HTMLInputElement).value)} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addCategory(); } }} />
+                  <Btn kind="soft" icon="plus" title="Ajouter" onClick={addCategory} />
+                </div>
+                <span class="note">Renommer : modifie le nom puis Entrée — les modèles suivent.</span>
+              </div>
+            </div>
+          )}
           {templates.length === 0 ? (
             <div class="empty"><div class="ico"><Icon name="mail" size={26} /></div>Aucun modèle {audience === 'patient' ? 'patient' : 'partenaire'}{cat ? ` en ${cat}` : ''}.<br /><span class="note">Le + en haut à droite en crée un, ou importe ton data.json dans Réglages.</span></div>
           ) : (
@@ -180,7 +243,10 @@ export function Mails({ data, update, fiche, connected, busy, onInsert, onNeedPa
           <div class="card" style="animation:none">
             <div class="stack">
               <div class="row wrap" style="justify-content:space-between">
-                <Seg options={[{ id: 'M', label: 'M.' }, { id: 'F', label: 'Mme' }]} value={effectiveGenre} onChange={setGenre} />
+                <div key={genreAlert} class={genreAlert ? 'row shake' : 'row'}>
+                  <Seg options={[{ id: 'M', label: 'M.' }, { id: 'F', label: 'Mme' }]} value={effectiveGenre} onChange={setGenre} />
+                  {!effectiveGenre ? <span class="note warn">genre requis</span> : !genre && fiche?.genre ? <span class="note">depuis la fiche</span> : null}
+                </div>
                 <Btn kind="ghost" icon="pen" title="Modifier ce modèle" onClick={() => setEditing({ ...sel })} />
               </div>
               {vars.map((v) => {
@@ -226,18 +292,18 @@ export function Mails({ data, update, fiche, connected, busy, onInsert, onNeedPa
 
           {sel.type === 'email' ? (
             <div class="row">
-              <Btn big icon="send" busy={busy} disabled={!connected} onClick={() => onInsert(subject, body)} class="grow" title="Ouvre le composeur Salesforce et y met l'objet, le logo, le texte et le pied de page">
+              <Btn big icon="send" busy={busy} disabled={!connected} onClick={() => requireGenre() && onInsert(subject, body)} class="grow" title="Ouvre le composeur Salesforce et y met l'objet, le logo, le texte et le pied de page">
                 Insérer dans Salesforce
               </Btn>
-              <Btn kind="ghost" icon="copy" title="Copier (objet + texte)" onClick={() => copy(subject ? `${subject}\n${body}` : body, 'Message')} />
+              <Btn kind="ghost" icon="copy" title="Copier (objet + texte)" onClick={() => requireGenre() && copy(subject ? `${subject}\n${body}` : body, 'Message')} />
             </div>
           ) : (
-            <Btn big icon="copy" onClick={() => copy(body, 'SMS')}>Copier le SMS</Btn>
+            <Btn big icon="copy" onClick={() => requireGenre() && copy(body, 'SMS')}>Copier le SMS</Btn>
           )}
           {sms && sel.type === 'email' && (
             <div class="stack" style="gap:6px">
               <div class="preview" style="font-size:12.3px">{markup(sms)}</div>
-              <Btn kind="soft" icon="copy" onClick={() => copy(sms, 'SMS')}>Copier le SMS</Btn>
+              <Btn kind="soft" icon="copy" onClick={() => requireGenre() && copy(sms, 'SMS')}>Copier le SMS</Btn>
             </div>
           )}
           {!connected && sel.type === 'email' && <div class="note">Ouvre une fiche Salesforce pour insérer directement dans le composeur ; sinon Copier puis coller.</div>}

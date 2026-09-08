@@ -52,7 +52,8 @@ export interface AppData {
     phrases: Record<string, string[]>;
   };
   templates: Template[];
-  categories: { patient: Categorie[]; partenaire: Categorie[] };
+  /** Liste complète (modifiable) des catégories ; `seeded` = les catégories de base ont été ajoutées une fois. */
+  categories: { patient: Categorie[]; partenaire: Categorie[]; seeded?: boolean };
   ventes: VentesData;
 }
 
@@ -88,7 +89,7 @@ export function defaultData(): AppData {
     reglages: { nom: '', telephone: '', genre: 'M', mvComment: 'MV', autoSaveComment: true, emailFooter: DEFAULT_FOOTER, sigPatientMail: '', sigPatientSMS: '', sigPartenaireMail: '' },
     anamnese: { situations: DEFAULT_SITUATIONS.map((s) => ({ ...s })), textes: { ...DEFAULT_TEXTES }, phrases: {} },
     templates: [],
-    categories: { patient: [], partenaire: [] },
+    categories: { patient: CATEGORIES_PATIENT.map((c) => ({ ...c })), partenaire: CATEGORIES_PARTENAIRE.map((c) => ({ ...c })), seeded: true },
     ventes: {
       settings: { primeCat1: 40, primeCat2: 80, salaireBase: 0, indemnites: 0, cotFallback: 0.21, pasFallback: 0.099, retenuesFallback: 0, tauxImposition: 9.9 },
       payslips: [],
@@ -144,6 +145,13 @@ export function composeComment(raw: string, resume: string, r: Reglages, genre: 
   else t = t.replace(new RegExp(`\\n*${RESUME_TAG.replace(/[{}]/g, '\\$&')}\\n*`), '\n\n');
   t = t.split('\n').filter((line) => !/^\s*\{\{[^}]+\}\}\s*$/.test(line)).join('\n');
   return t.replace(/\n{3,}/g, '\n\n').trim();
+}
+
+/** Ajoute une fois les catégories de base devant les catégories personnalisées. */
+export function seedCategories(c: AppData['categories']): AppData['categories'] {
+  if (c.seeded) return c;
+  const merge = (base: Categorie[], extra: Categorie[]) => [...base.map((x) => ({ ...x })), ...extra.filter((e) => !base.some((b) => b.id === e.id))];
+  return { patient: merge(CATEGORIES_PATIENT, c.patient ?? []), partenaire: merge(CATEGORIES_PARTENAIRE, c.partenaire ?? []), seeded: true };
 }
 
 export function uid(prefix = 'id'): string {
