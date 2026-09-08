@@ -1,5 +1,25 @@
 import type { ComponentChildren } from 'preact';
-import { useEffect, useState } from 'preact/hooks';
+import { useEffect, useRef, useState } from 'preact/hooks';
+
+const esc = (s: string) => s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!);
+
+/** Texte → HTML d'aperçu, variables {{x}} non remplies surlignées. */
+export function previewHtml(text: string): string {
+  return esc(text).replace(/\{\{[^}]+\}\}/g, (m) => `<mark>${m}</mark>`);
+}
+
+/**
+ * Aperçu modifiable à la volée : le contenu est posé une fois par valeur de `html`
+ * (Preact ne touche jamais l'intérieur), et chaque frappe remonte le texte brut.
+ */
+export function EditablePreview({ html, onChange, class: cls, style }: { html: string; onChange: (text: string) => void; class?: string; style?: string }) {
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => { if (ref.current && ref.current.innerHTML !== html) ref.current.innerHTML = html; }, [html]);
+  return (
+    <div ref={ref} class={['preview editable', cls ?? ''].join(' ')} style={style} contentEditable spellcheck={false}
+      title="Modifiable directement : tape dedans" onInput={() => onChange(ref.current?.innerText ?? '')} />
+  );
+}
 
 const PATHS = {
   'phone-off': 'M10.7 5.2a15 15 0 0 0 5.6 5.6l1.6-1.6a1 1 0 0 1 1-.25 11 11 0 0 0 3.4.55 1 1 0 0 1 1 1V14a1 1 0 0 1-1 1A17 17 0 0 1 4 6a1 1 0 0 1 1-1h3.4a1 1 0 0 1 1 1 11 11 0 0 0 .55 3.4 1 1 0 0 1-.25 1L8.1 12M2 2l20 20',

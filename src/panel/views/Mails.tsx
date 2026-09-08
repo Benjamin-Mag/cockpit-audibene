@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'preact/hooks';
 import type { Fiche, Genre } from '../../shared/types';
 import { writeClipboard } from '../bridge';
-import { Btn, Chip, Field, Icon, Seg } from '../components/ui';
+import { Btn, Chip, EditablePreview, Field, Icon, Seg, previewHtml } from '../components/ui';
 import { frToIso, frToTime, isDateVar, isHeureVar, isoToFr, timeToFr } from '../dates';
 import { type AppData, type Template, fillVars, resolveGenre, systemValues, uid } from '../model';
 
@@ -35,7 +35,7 @@ export function Mails({ data, update, fiche, connected, busy, onInsert, onNeedPa
   const [listOpen, setListOpen] = useState(true);
   const [values, setValues] = useState<Record<string, string>>({});
   const [genre, setGenre] = useState<Genre>(null);
-  const [manualBody, setManualBody] = useState<string | null>(null);
+  const [edits, setEdits] = useState<{ subject?: string; body?: string; sms?: string }>({});
   const [editing, setEditing] = useState<Template | null>(null);
   const [partnerLoading, setPartnerLoading] = useState(false);
   const [catManage, setCatManage] = useState(false);
@@ -123,12 +123,16 @@ export function Mails({ data, update, fiche, connected, busy, onInsert, onNeedPa
     return out;
   };
   const compose = (text: string) => resolveGenre(fillVars(text, composeValues()), effectiveGenre);
-  const subject = sel?.type === 'email' && sel.subject ? compose(sel.subject) : '';
-  const body = sel ? manualBody ?? compose(sel.body) : '';
-  const sms = sel?.audience === 'patient' && sel.type === 'email' && sel.smsCompanion ? compose(sel.smsCompanion) : sel?.type === 'sms' ? body : '';
+  // Textes générés ; chacun peut être retouché à la volée dans l'aperçu (edits), et se régénère si le modèle ou un champ change.
+  const genSubject = sel?.type === 'email' && sel.subject ? compose(sel.subject) : '';
+  const genBody = sel ? compose(sel.body) : '';
+  const genSms = sel?.audience === 'patient' && sel.type === 'email' && sel.smsCompanion ? compose(sel.smsCompanion) : '';
+  useEffect(() => { setEdits({}); }, [genSubject, genBody, genSms]);
+  const subject = edits.subject ?? genSubject;
+  const body = edits.body ?? genBody;
+  const sms = sel?.type === 'sms' ? body : edits.sms ?? genSms;
 
-  const select = (id: string) => { setSelId(id); setListOpen(false); setValues({}); setManualBody(null); };
-  const markup = (text: string) => text.split(/(\{\{[^}]+\}\})/g).map((part, i) => (/^\{\{/.test(part) ? <mark key={i}>{part}</mark> : part));
+  const select = (id: string) => { setSelId(id); setListOpen(false); setValues({}); setEdits({}); };
 
   const copy = async (text: string, what: string) => toast((await writeClipboard(text)) ? `${what} copié` : 'Copie impossible', 'ok');
 
@@ -277,18 +281,13 @@ export function Mails({ data, update, fiche, connected, busy, onInsert, onNeedPa
             </div>
           </div>
 
-          {manualBody === null ? (
-            <div class="preview" onDblClick={() => setManualBody(body)} title="Double-clic pour modifier le texte">
-              {subject && <div class="subj">{markup(subject)}</div>}
-              {markup(body)}
-            </div>
-          ) : (
-            <div class="stack">
-              {subject && <div class="preview"><div class="subj">{subject}</div></div>}
-              <textarea rows={12} value={manualBody} onInput={(e) => setManualBody((e.target as HTMLTextAreaElement).value)} />
-              <div class="row"><span class="note grow">Texte modifié à la main</span><Btn kind="ghost" icon="refresh" onClick={() => setManualBody(null)}>Revenir au modèle</Btn></div>
-            </div>
-          )}
+          <div class="stack" style="gap:6px">
+            {genSubject && <EditablePreview class="subj-line" html={previewHtml(genSubject)} onChange={(t) => setEdits((e) => ({ ...e, subject: t.trim() }))} />}
+            <EditablePreview html={previewHtml(genBody)} onChange={(t) => setEdits((e) => ({ ...e, body: t }))} />
+            {(edits.subject !== undefined || edits.body !== undefined) && (
+              <div class="row"><span class="note grow">Texte retouché à la main</span><Btn kind="ghost" icon="refresh" onClick={() => setEdits((e) => ({ ...e, subject: undefined, body: undefined }))}>Revenir au modèle</Btn></div>
+            )}
+          </div>
 
           {sel.type === 'email' ? (
             <div class="row">
@@ -302,7 +301,7 @@ export function Mails({ data, update, fiche, connected, busy, onInsert, onNeedPa
           )}
           {sms && sel.type === 'email' && (
             <div class="stack" style="gap:6px">
-              <div class="preview" style="font-size:12.3px">{markup(sms)}</div>
+              <EditablePreview style="font-size:12.3px" html={previewHtml(genSms)} onChange={(t) => setEdits((e) => ({ ...e, sms: t }))} />
               <Btn kind="soft" icon="copy" onClick={() => requireGenre() && copy(sms, 'SMS')}>Copier le SMS</Btn>
             </div>
           )}

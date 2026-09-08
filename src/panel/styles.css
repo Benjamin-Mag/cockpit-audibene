@@ -196,6 +196,9 @@ textarea { resize: vertical; min-height: 90px; line-height: 1.5; }
   white-space: pre-wrap; background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius-sm);
   padding: 10px 12px; font-size: 12.8px; line-height: 1.5; color: var(--text);
 }
+.preview.editable { outline: none; cursor: text; transition: border-color var(--dur) var(--ease), box-shadow var(--dur) var(--ease); }
+.preview.editable:hover { border-color: var(--border-strong); }
+.preview.editable:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); background: var(--surface); }
 .preview mark { background: var(--warn-soft); color: var(--warn); border-radius: 4px; padding: 0 4px; font-style: italic; }
 .preview mark.ok { background: var(--success-soft); color: var(--success); font-style: normal; }
 .note { font-size: 12px; color: var(--muted); }
@@ -221,6 +224,7 @@ hr { border: 0; border-top: 1px solid var(--border); margin: 4px 0; }
 .badge { font-size: 10px; font-weight: 600; padding: 1px 7px; border-radius: 999px; background: var(--surface-2); color: var(--muted); border: 1px solid var(--border); white-space: nowrap; }
 .badge.sms { background: var(--warn-soft); color: var(--warn); border-color: transparent; }
 .preview .subj { font-weight: 600; margin-bottom: 8px; padding-bottom: 6px; border-bottom: 1px dashed var(--border); }
+.preview.subj-line { font-weight: 600; padding: 7px 12px; }
 .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 input[type="date"], input[type="time"] { cursor: pointer; }
 

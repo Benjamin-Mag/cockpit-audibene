@@ -1,8 +1,8 @@
-import { useState } from 'preact/hooks';
+import { useEffect, useState } from 'preact/hooks';
 import type { Fiche, Genre } from '../../shared/types';
 import { writeClipboard } from '../bridge';
 import { type AppData, fillVars, resolveGenre, systemValues, uid } from '../model';
-import { Btn, Chip, Seg } from '../components/ui';
+import { Btn, Chip, EditablePreview, Seg, previewHtml } from '../components/ui';
 
 interface Props {
   data: AppData;
@@ -24,7 +24,10 @@ export function ChatPartenaire({ data, update, fiche, connected, busy, onWrite, 
 
   const sel = list.find((t) => t.id === selId) ?? null;
   const effectiveGenre = genre ?? fiche?.genre ?? null;
-  const compose = () => (sel ? resolveGenre(fillVars(sel.text, systemValues(data.reglages)), effectiveGenre).trim() : '');
+  const generated = sel ? resolveGenre(fillVars(sel.text, systemValues(data.reglages)), effectiveGenre).trim() : '';
+  const [edited, setEdited] = useState<string | null>(null);
+  useEffect(() => { setEdited(null); }, [generated]);
+  const compose = () => (edited ?? generated).trim();
 
   const startNew = () => { setDraft({ label: '', text: '' }); setEditing(true); setSelId(null); };
   const startEdit = () => { if (sel) { setDraft({ label: sel.label, text: sel.text }); setEditing(true); } };
@@ -81,7 +84,7 @@ export function ChatPartenaire({ data, update, fiche, connected, busy, onWrite, 
 
       {sel && (
         <>
-          <div class="preview" onDblClick={startEdit} title="Double-clic pour modifier">{compose()}</div>
+          <EditablePreview html={previewHtml(generated)} onChange={(t) => setEdited(t)} />
           <div class="row">
             <Btn big icon="send" busy={busy} disabled={!connected} onClick={() => onWrite(compose())} class="grow" title="Ouvre l'onglet Chat Partenaire, écrit le texte et clique « Envoyer un message »">
               Envoyer dans Chat Partenaire

@@ -1,8 +1,8 @@
-import { useState } from 'preact/hooks';
+import { useEffect, useState } from 'preact/hooks';
 import type { Fiche, Genre } from '../../shared/types';
 import { readClipboard, writeClipboard } from '../bridge';
 import { type AppData, RESUME_TAG, composeComment, fillVars, resolveGenre, systemValues, uid } from '../model';
-import { Btn, Chip, Seg } from '../components/ui';
+import { Btn, Chip, EditablePreview, Seg, previewHtml } from '../components/ui';
 
 interface Props {
   data: AppData;
@@ -64,17 +64,19 @@ export function Commentaire({ data, update, fiche, connected, busy, onWrite, toa
     return false;
   };
 
-  const preview = () => {
+  // Aperçu modifiable à la volée (résumé compris) ; se régénère si la situation, le genre ou le résumé change.
+  const [edited, setEdited] = useState<string | null>(null);
+  const generated = composeComment(raw, resume, data.reglages, effectiveGenre);
+  useEffect(() => { setEdited(null); }, [generated]);
+  const previewMarkup = () => {
     const t = resolveGenre(fillVars(raw, systemValues(data.reglages)), effectiveGenre);
     const [before, after] = t.split(RESUME_TAG);
-    return (
-      <div class="preview">
-        {before}
-        {after !== undefined && (resume.trim() ? <mark class="ok">{resume.trim()}</mark> : <mark>résumé Salesforce — copie-le, il s'insère ici</mark>)}
-        {after}
-      </div>
-    );
+    const esc = (s: string) => s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!);
+    if (after === undefined) return previewHtml(t);
+    const middle = resume.trim() ? `<mark class="ok">${esc(resume.trim())}</mark>` : '<mark>résumé Salesforce — copie-le, il s\'insère ici</mark>';
+    return previewHtml(before) + middle + previewHtml(after);
   };
+  const preview = () => <EditablePreview html={previewMarkup()} onChange={(t) => setEdited(t)} />;
 
   const grabResume = async () => {
     const txt = await readClipboard();
@@ -85,7 +87,8 @@ export function Commentaire({ data, update, fiche, connected, busy, onWrite, toa
   };
 
   // Seul le résumé explicitement collé est utilisé : jamais le presse-papier en douce.
-  const compose = () => composeComment(raw, resume, data.reglages, effectiveGenre);
+  // Le texte retouché dans l'aperçu prime ; sinon la version générée (balise résumé vide retirée).
+  const compose = () => (edited !== null ? edited.replace(/résumé Salesforce — copie-le, il s'insère ici/g, '').replace(/\n{3,}/g, '\n\n').trim() : generated);
 
   const write = () => {
     if (!sit || !requireGenre()) return;
