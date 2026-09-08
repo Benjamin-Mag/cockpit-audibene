@@ -225,7 +225,7 @@ export function App() {
           <Mails key={recordKey} data={data} update={update} fiche={fiche} connected={connected} busy={busy === 'mail'}
             onInsert={insertMail} onNeedPartner={readPartner} toast={showToast} />
         )}
-        {tab === 'ventes' && <Ventes data={data} update={update} prefill={ctx?.page === 'opportunity' ? salePrefill : null} toast={showToast} />}
+        {tab === 'ventes' && <Ventes data={data} update={update} prefill={ctx?.page === 'opportunity' ? salePrefill : null} onImport={doImport} toast={showToast} />}
         {tab === 'reglages' && <Reglages data={data} update={update} storage={storage} onChangeFolder={doChooseFolder} onImport={doImport} onExport={doExport} onExportLegacy={doExportLegacy} version={VERSION} />}
       </main>
       <div class="footer" ref={setFooterEl} />

@@ -26,16 +26,22 @@ export const monthShort = (key: string) => {
   return p ? SHORT[p.month] : key;
 };
 
-/** Tous les mois de janvier de la première année connue jusqu'au mois courant. */
-export function listMonths(v: VentesData): string[] {
+/** Années connues (ventes saisies) jusqu'à l'année courante. */
+export function listYears(v: VentesData): number[] {
+  const now = new Date().getFullYear();
+  let start = now;
+  for (const k of Object.keys(v.sales)) { const p = parseMonthKey(k); if (p && (v.sales[k]?.length ?? 0) > 0 && p.year < start) start = p.year; }
+  const out: number[] = [];
+  for (let y = start; y <= now; y++) out.push(y);
+  return out;
+}
+
+/** Les mois d'une année, de janvier au mois courant (ou décembre pour une année passée). */
+export function listMonths(year: number): string[] {
   const now = new Date();
-  let startYear = now.getFullYear();
-  for (const k of Object.keys(v.sales)) { const p = parseMonthKey(k); if (p && p.year < startYear) startYear = p.year; }
+  const last = year === now.getFullYear() ? now.getMonth() : 11;
   const out: string[] = [];
-  for (let y = startYear; y <= now.getFullYear(); y++) {
-    const last = y === now.getFullYear() ? now.getMonth() : 11;
-    for (let m = 0; m <= last; m++) out.push(monthKey(new Date(y, m, 1)));
-  }
+  for (let m = 0; m <= last; m++) out.push(monthKey(new Date(year, m, 1)));
   return out;
 }
 

@@ -102,13 +102,25 @@ export function toLegacyGenerateur(data: AppData): Record<string, unknown> {
   };
 }
 
-/** Fusionne un export JSON de l'ancien Suivi Ventes & Primes. */
+/** Fusionne un export JSON de l'ancien Suivi Ventes & Primes (union : rien de déjà saisi n'est perdu). */
 export function mergeVentes(data: AppData, raw: unknown): AppData {
-  const old = raw as VentesData;
+  const old = raw as Partial<VentesData>;
   const out: AppData = structuredClone(data);
-  out.ventes.settings = { ...out.ventes.settings, ...old.settings };
-  out.ventes.payslips = Array.isArray(old.payslips) ? old.payslips : out.ventes.payslips;
-  out.ventes.sales = old.sales && typeof old.sales === 'object' ? old.sales : out.ventes.sales;
+  out.ventes.settings = { ...out.ventes.settings, ...(old.settings ?? {}) };
+  if (Array.isArray(old.payslips)) {
+    for (const p of old.payslips) if (p && !out.ventes.payslips.some((q) => q.ficheMonth === p.ficheMonth && q.brut === p.brut)) out.ventes.payslips.push(p);
+  }
+  if (old.sales && typeof old.sales === 'object') {
+    for (const [month, list] of Object.entries(old.sales)) {
+      if (!Array.isArray(list)) continue;
+      const target = (out.ventes.sales[month] ??= []);
+      for (const s of list) {
+        if (!s || typeof s.name !== 'string') continue;
+        const cat = s.cat === 2 ? 2 : 1;
+        if (!target.some((t) => t.name === s.name && t.cat === cat)) target.push({ name: s.name, cat, ...(s.url ? { url: s.url } : {}) });
+      }
+    }
+  }
   return out;
 }
 

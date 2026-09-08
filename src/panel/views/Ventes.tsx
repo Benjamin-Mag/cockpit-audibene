@@ -1,13 +1,14 @@
 import { useState } from 'preact/hooks';
 import { Btn, Chip, Field, Icon, Seg } from '../components/ui';
 import type { AppData, Payslip } from '../model';
-import { computeMonth, computeRates, euro, euro2, listMonths, monthKey, monthLabel, monthShort, pct } from '../ventes';
+import { computeMonth, computeRates, euro, euro2, listMonths, listYears, monthKey, monthLabel, monthShort, parseMonthKey, pct } from '../ventes';
 
 interface Props {
   data: AppData;
   update: (fn: (d: AppData) => void) => void;
   /** Vente proposée depuis la fiche Salesforce ouverte (Opportunité). */
   prefill: { name: string; url: string } | null;
+  onImport: () => void;
   toast: (msg: string, kind?: 'ok' | 'err' | 'info') => void;
 }
 
@@ -15,11 +16,14 @@ type Section = 'mois' | 'annee' | 'paie' | 'params';
 
 const num = (v: string) => { const n = parseFloat(v.replace(',', '.')); return isNaN(n) ? 0 : n; };
 
-export function Ventes({ data, update, prefill, toast }: Props) {
+export function Ventes({ data, update, prefill, onImport, toast }: Props) {
   const v = data.ventes;
-  const months = listMonths(v);
   const current = monthKey(new Date());
   const [month, setMonth] = useState(current);
+  const year = parseMonthKey(month)?.year ?? new Date().getFullYear();
+  const years = listYears(v);
+  const months = listMonths(year);
+  const totalSales = Object.values(v.sales).flat().length;
   const [section, setSection] = useState<Section>('mois');
   const [name, setName] = useState(prefill?.name ?? '');
   const [url, setUrl] = useState(prefill?.url ?? '');
@@ -40,7 +44,7 @@ export function Ventes({ data, update, prefill, toast }: Props) {
 
   const setSetting = (k: keyof AppData['ventes']['settings'], val: string) => update((d) => { d.ventes.settings[k] = num(val); });
 
-  const yearRows = months.filter((k) => k.endsWith(month.slice(-2))).map((k) => ({ key: k, ...computeMonth(v, k) }));
+  const yearRows = months.map((k) => ({ key: k, ...computeMonth(v, k) }));
   const yearTotal = yearRows.reduce((a, r) => ({ total: a.total + r.total, prime: a.prime + r.totalPrime, c1: a.c1 + r.count1, c2: a.c2 + r.count2 }), { total: 0, prime: 0, c1: 0, c2: 0 });
   const maxPrime = Math.max(1, ...yearRows.map((r) => r.totalPrime));
 
@@ -66,10 +70,24 @@ export function Ventes({ data, update, prefill, toast }: Props) {
     <div class="view">
       <Seg options={[{ id: 'mois', label: 'Mois' }, { id: 'annee', label: 'Année' }, { id: 'paie', label: 'Paie' }, { id: 'params', label: 'Primes' }]} value={section} onChange={setSection} />
 
+      {totalSales === 0 && (
+        <div class="banner">
+          <Icon name="upload" />
+          <span class="grow">Aucune vente enregistrée. Tu as un export de l'ancien suivi ?</span>
+          <Btn kind="soft" onClick={onImport}>Importer</Btn>
+        </div>
+      )}
+
       {section === 'mois' && (
         <>
-          <div class="chips">
-            {months.slice(-6).map((k) => <Chip key={k} small on={month === k} onClick={() => setMonth(k)}>{monthShort(k)}</Chip>)}
+          {years.length > 1 && (
+            <Seg options={years.map((y) => ({ id: String(y), label: String(y) }))} value={String(year)} onChange={(y) => setMonth(listMonths(parseInt(y, 10)).slice(-1)[0])} />
+          )}
+          <div class="chips scroll">
+            {months.map((k) => {
+              const n = v.sales[k]?.length ?? 0;
+              return <Chip key={k} small on={month === k} onClick={() => setMonth(k)}>{monthShort(k)}{n > 0 && <b style="opacity:.75">{n}</b>}</Chip>;
+            })}
           </div>
           <div class="card" style="animation:none">
             <div class="stack" style="gap:6px">
@@ -113,7 +131,7 @@ export function Ventes({ data, update, prefill, toast }: Props) {
         <>
           <div class="card" style="animation:none">
             <div class="stack" style="gap:6px">
-              <div class="label">Année 20{month.slice(-2)}</div>
+              <div class="label">Année {year}</div>
               <div class="kv"><span>Ventes</span><span><b>{yearTotal.total}</b> · {yearTotal.c1} CAT 1 · {yearTotal.c2} CAT 2</span></div>
               <div class="kv"><span>Primes cumulées</span><span><b>{euro(yearTotal.prime)}</b></span></div>
               <div class="kv"><span>Moyenne / mois</span><span>{euro(yearRows.length ? yearTotal.prime / yearRows.length : 0)}</span></div>
