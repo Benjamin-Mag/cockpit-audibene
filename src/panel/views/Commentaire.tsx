@@ -1,7 +1,7 @@
 import { useState } from 'preact/hooks';
 import type { Fiche, Genre } from '../../shared/types';
 import { readClipboard, writeClipboard } from '../bridge';
-import { type AppData, RESUME_TAG, composeComment, fillVars, resolveGenre, systemValues } from '../model';
+import { type AppData, RESUME_TAG, composeComment, fillVars, resolveGenre, systemValues, uid } from '../model';
 import { Btn, Chip, Seg } from '../components/ui';
 
 interface Props {
@@ -31,6 +31,27 @@ export function Commentaire({ data, update, fiche, connected, busy, onWrite, toa
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState('');
   const [genreAlert, setGenreAlert] = useState(0);
+  const [manage, setManage] = useState(false);
+  const [newSit, setNewSit] = useState('');
+
+  const addSituation = () => {
+    const label = newSit.trim();
+    if (!label) return;
+    const id = uid('sit');
+    update((d) => { d.anamnese.situations.push({ id, label }); d.anamnese.textes[id] = `Cher partenaire, je vous confie notre patient(e).\n\n${RESUME_TAG}\n\nBien à vous,\n{{nom_conseiller}}\n{{tel_conseiller}}`; });
+    setNewSit('');
+    setSit(id);
+  };
+  const renameSituation = (id: string, label: string) => {
+    const l = label.trim();
+    if (!l) return;
+    update((d) => { const s = d.anamnese.situations.find((x) => x.id === id); if (s) s.label = l; });
+  };
+  const deleteSituation = (id: string, label: string) => {
+    if (!confirm(`Supprimer la situation « ${label} » et son texte ?`)) return;
+    update((d) => { d.anamnese.situations = d.anamnese.situations.filter((x) => x.id !== id); delete d.anamnese.textes[id]; });
+    if (sit === id) setSit(data.anamnese.situations.find((x) => x.id !== id)?.id ?? null);
+  };
 
   const raw = sit ? data.anamnese.textes[sit] ?? '' : '';
   const effectiveGenre = genre ?? fiche?.genre ?? null;
@@ -84,9 +105,30 @@ export function Commentaire({ data, update, fiche, connected, busy, onWrite, toa
         {!effectiveGenre ? <span class="note warn">genre requis</span> : !genre && fiche?.genre ? <span class="note">depuis la fiche</span> : null}
       </div>
 
-      <div class="chips">
-        {data.anamnese.situations.map((s) => <Chip key={s.id} on={sit === s.id} onClick={() => { setSit(s.id); setEditing(false); }}>{s.label}</Chip>)}
+      <div class="row" style="align-items:flex-start">
+        <div class="chips grow">
+          {data.anamnese.situations.map((s) => <Chip key={s.id} on={sit === s.id} onClick={() => { setSit(s.id); setEditing(false); }}>{s.label}</Chip>)}
+        </div>
+        <Btn kind={manage ? 'soft' : 'ghost'} icon="pen" title="Gérer les situations" onClick={() => setManage((v) => !v)} />
       </div>
+      {manage && (
+        <div class="card" style="animation:none">
+          <div class="stack" style="gap:6px">
+            <span class="label">Situations</span>
+            {data.anamnese.situations.map((s) => (
+              <div key={s.id} class="row">
+                <input value={s.label} style="padding:5px 8px;font-size:12px" onChange={(e) => renameSituation(s.id, (e.target as HTMLInputElement).value)} onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }} />
+                <Btn kind="ghost" icon="x" title="Supprimer" onClick={() => deleteSituation(s.id, s.label)} />
+              </div>
+            ))}
+            <div class="row">
+              <input value={newSit} placeholder="Nouvelle situation…" style="padding:5px 8px;font-size:12px" onInput={(e) => setNewSit((e.target as HTMLInputElement).value)} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addSituation(); } }} />
+              <Btn kind="soft" icon="plus" title="Ajouter" onClick={addSituation} />
+            </div>
+            <span class="note">Renommer : modifie le nom puis Entrée. Le texte de chaque situation se modifie avec le crayon sous l'aperçu.</span>
+          </div>
+        </div>
+      )}
 
       {sit && !editing && preview()}
 
