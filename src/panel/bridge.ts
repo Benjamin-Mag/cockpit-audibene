@@ -108,6 +108,44 @@ export function onCommand(cb: (command: string) => Promise<void>): () => void {
   return () => chrome.runtime.onMessage.removeListener(listener);
 }
 
+// ---------------------------------------------------------------- cadres tiers (ex. Hearo, application Canvas)
+const OWN_HOSTS = /(salesforce\.com|force\.com|doctolib\.fr|acuitis\.com)$/;
+
+export interface FrameInfo { frameId: number; url: string; host: string }
+
+/** Cadres de l'onglet hébergés hors Salesforce (candidats pour une application intégrée). */
+export async function foreignFrames(tabId: number): Promise<FrameInfo[]> {
+  if (!isExtension || !chrome.webNavigation) return [];
+  const frames = (await chrome.webNavigation.getAllFrames({ tabId })) ?? [];
+  return frames
+    .filter((f) => f.frameId !== 0 && /^https:/.test(f.url))
+    .map((f) => ({ frameId: f.frameId, url: f.url, host: new URL(f.url).hostname }))
+    .filter((f) => !OWN_HOSTS.test(f.host) && !/twilio\.com$|audibene\.fr$/.test(f.host));
+}
+
+/** Accès à un domaine tiers : mémorisé par le navigateur après une première confirmation. */
+export async function ensureOrigin(url: string): Promise<boolean> {
+  const origin = new URL(url).origin + '/*';
+  if (await chrome.permissions.contains({ origins: [origin] })) return true;
+  try {
+    return await chrome.permissions.request({ origins: [origin] });
+  } catch {
+    return false;
+  }
+}
+
+/** Injecte le script dans un cadre précis et lui envoie une demande. */
+export async function sendToFrame(tabId: number, frameId: number, req: ContentRequest): Promise<ContentResponse | undefined> {
+  const ping = () => chrome.tabs.sendMessage(tabId, { type: 'ping' } satisfies ContentRequest, { frameId }) as Promise<ContentResponse | undefined>;
+  let alive = false;
+  try { alive = (await ping())?.type === 'pong'; } catch { /* pas encore de script */ }
+  if (!alive) {
+    await chrome.scripting.executeScript({ target: { tabId, frameIds: [frameId] }, files: ['content.js'] });
+    await new Promise((r) => setTimeout(r, 200));
+  }
+  return (await chrome.tabs.sendMessage(tabId, req, { frameId })) as ContentResponse | undefined;
+}
+
 // ---------------------------------------------------------------- fiches récentes
 const RECENT_KEY = 'recentPatients';
 const RECENT_MAX = 5;

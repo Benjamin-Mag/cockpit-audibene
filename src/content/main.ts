@@ -15,13 +15,16 @@ const prev = window.__cockpit;
 if (!(prev && prev.alive() && prev.version === CONTENT_VERSION)) {
   try { prev?.dispose(); } catch { /* ancien exemplaire sans dispose */ }
   const host = location.hostname;
-  let dispose: () => void = () => {};
+  let dispose: () => void;
   if (/(salesforce\.com|force\.com)$/.test(host)) {
     dispose = window === window.top ? initSalesforce() : initSalesforceFrame();
   } else if (/doctolib\.fr$/.test(host)) {
     dispose = initDoctolib();
   } else if (/acuitis\.com$/.test(host)) {
     dispose = initAcuitis();
+  } else {
+    // Cadre d'une application intégrée à Salesforce (ex. Hearo), injecté à la demande par le panneau.
+    dispose = initSalesforceFrame();
   }
   window.__cockpit = {
     version: CONTENT_VERSION,

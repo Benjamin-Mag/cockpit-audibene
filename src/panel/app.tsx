@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
 import type { ContentRequest } from '../shared/messages';
 import type { ActionResult, Fiche, RecentPatient, SfContext } from '../shared/types';
-import { type Site, connectContext, isExtension, loadRecent, onCommand, onRecentChanged, pushRecent, readFiche, runAction, siteOf, watchActiveTab, writeClipboard } from './bridge';
+import { type Site, connectContext, ensureOrigin, foreignFrames, isExtension, loadRecent, onCommand, onRecentChanged, pushRecent, readFiche, runAction, sendToFrame, siteOf, watchActiveTab, writeClipboard } from './bridge';
 import { Btn, Icon, type IconName, Toast, type ToastMsg } from './components/ui';
 import { type AppData, defaultData } from './model';
 import { type StorageState, authorize, chooseFolder, exportLegacy, initStorage, parseAny, save, useBrowserStorage } from './storage/data';
@@ -131,23 +131,39 @@ export function App() {
     if (tabId == null || !ficheName) return;
     setBusy('sms');
     try {
+      // Hearo est une application Canvas : son cadre a son propre domaine, découvert ici.
+      // L'accès est demandé au navigateur pendant le clic (une seule fois, puis mémorisé).
+      let frames = await foreignFrames(tabId);
+      for (const f of frames) await ensureOrigin(f.url);
+
       const opened = await runAction(tabId, { type: 'openSms' });
       if (!opened.ok) { showToast(opened.msg, 'err'); return; }
-      await new Promise((r) => setTimeout(r, 900));
+
       let filled: ActionResult | null = null;
-      for (let attempt = 0; attempt < 4 && !filled?.ok; attempt++) {
-        try {
-          const r = (await chrome.tabs.sendMessage(tabId, { type: 'fillSmsSearch', text: ficheName } satisfies ContentRequest)) as { type: 'result'; result: ActionResult } | undefined;
-          if (r?.result.ok) filled = r.result;
-        } catch { /* aucun cadre ne répond encore */ }
-        if (!filled?.ok) await new Promise((r) => setTimeout(r, 700));
+      for (let attempt = 0; attempt < 6 && !filled?.ok; attempt++) {
+        await new Promise((r) => setTimeout(r, attempt === 0 ? 600 : 800));
+        frames = await foreignFrames(tabId);
+        for (const f of frames) {
+          if (!(await ensureOrigin(f.url))) continue;
+          try {
+            const r = await sendToFrame(tabId, f.frameId, { type: 'fillSmsSearch', text: ficheName });
+            if (r?.type === 'result' && r.result.ok) { filled = r.result; break; }
+          } catch { /* cadre pas prêt */ }
+        }
+        if (!filled?.ok) {
+          // Le champ peut aussi être dans la page principale.
+          try {
+            const r = (await chrome.tabs.sendMessage(tabId, { type: 'fillSmsSearch', text: ficheName } satisfies ContentRequest, { frameId: 0 })) as { type: 'result'; result: ActionResult } | undefined;
+            if (r?.result.ok) filled = r.result;
+          } catch { /* rien */ }
+        }
       }
       if (filled?.ok) showToast(filled.msg, 'ok');
       else {
-        // Relevé technique copié dans le presse-papier, à transmettre pour cibler le panneau.
         const diag = await runAction(tabId, { type: 'diagSms' });
-        await writeClipboard(`Diagnostic SMS Cockpit\n${diag.msg}`);
-        showToast('Champ « Recherche de client » introuvable — diagnostic copié dans le presse-papier, colle-le à Claude', 'err');
+        const list = frames.map((f) => `  - cadre ${f.frameId}: ${f.host}`).join('\n');
+        await writeClipboard(`Diagnostic SMS Cockpit\n${diag.msg}\ncadres tiers (webNavigation):\n${list || '  aucun'}`);
+        showToast(frames.length ? `Recherche introuvable dans ${frames.map((f) => f.host).join(', ')} — diagnostic copié, colle-le à Claude` : 'Aucun cadre tiers détecté — diagnostic copié, colle-le à Claude', 'err');
       }
     } finally {
       setBusy(null);
