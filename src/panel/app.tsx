@@ -9,7 +9,9 @@ import { downloadJson, pickJsonFile } from './storage/fs';
 import { Anamnese } from './views/Anamnese';
 import { Commentaire } from './views/Commentaire';
 import { Header } from './views/Header';
+import { Mails } from './views/Mails';
 import { Reglages } from './views/Reglages';
+import { buildMailHtml } from '../shared/mail-html';
 import { Setup } from './views/Setup';
 
 type TabId = 'anamnese' | 'commentaire' | 'mails' | 'ventes' | 'reglages';
@@ -114,6 +116,18 @@ export function App() {
     const { recordId: _r, savedAt: _s, ...patient } = p;
     return act('paste', { type: 'pastePatient', data: patient, note: RDV_NOTE });
   };
+  const insertMail = (subject: string, body: string) => act('mail', { type: 'insertMail', subject, html: buildMailHtml(body, data?.reglages.emailFooter ?? '') });
+  /** Lecture complète de la fiche (partenaire + adresse via le survol du lien Compte, ~2 s). */
+  const readPartner = async (): Promise<Fiche | null> => {
+    if (tabId == null) return null;
+    try {
+      const f = await readFiche(tabId, true);
+      setFiche(f);
+      return f;
+    } catch {
+      return null;
+    }
+  };
 
   useEffect(() => onCommand(async (c) => { if (c === 'run-mv') await runMv(); }), [tabId, data?.reglages.mvComment]);
 
@@ -195,7 +209,10 @@ export function App() {
           <Commentaire key={recordKey} data={data} update={update} fiche={fiche} connected={connected && ctx?.page !== 'opportunity'} busy={busy === 'comment'}
             onWrite={(text) => act('comment', { type: 'writeComment', text, save: data.reglages.autoSaveComment })} toast={showToast} />
         )}
-        {tab === 'mails' && <div class="empty"><div class="ico"><Icon name="mail" size={28} /></div>Mails — arrive à l'étape 2.<br /><span class="note">{data.templates.length} modèle(s) déjà repris de ton data.json.</span></div>}
+        {tab === 'mails' && (
+          <Mails key={recordKey} data={data} update={update} fiche={fiche} connected={connected} busy={busy === 'mail'}
+            onInsert={insertMail} onNeedPartner={readPartner} toast={showToast} />
+        )}
         {tab === 'ventes' && <div class="empty"><div class="ico"><Icon name="coins" size={28} /></div>Ventes — arrive à l'étape 3.</div>}
         {tab === 'reglages' && <Reglages data={data} update={update} storage={storage} onChangeFolder={doChooseFolder} onImport={doImport} onExport={doExport} onExportLegacy={doExportLegacy} version={VERSION} />}
       </main>

@@ -192,6 +192,22 @@ hr { border: 0; border-top: 1px solid var(--border); margin: 4px 0; }
 .empty { text-align: center; color: var(--muted); padding: 26px 10px; font-size: 13px; }
 .empty .ico { color: var(--accent); margin-bottom: 8px; }
 
+/* ---------- modèles de mails ---------- */
+.tpl-list { display: flex; flex-direction: column; gap: 6px; }
+.tpl {
+  display: flex; align-items: center; gap: 8px; text-align: left; width: 100%;
+  border: 1px solid var(--border); background: var(--surface); border-radius: 10px; padding: 8px 10px;
+  transition: background var(--dur) var(--ease), border-color var(--dur) var(--ease), box-shadow var(--dur) var(--ease), transform var(--dur) var(--ease);
+}
+.tpl:hover { border-color: var(--accent); background: var(--accent-soft); }
+.tpl:active { transform: scale(0.99); }
+.tpl.on { border-color: var(--accent); background: var(--accent-soft); box-shadow: inset 3px 0 0 var(--accent); }
+.tpl .t { flex: 1; font-weight: 500; font-size: 13px; }
+.badge { font-size: 10px; font-weight: 600; padding: 1px 7px; border-radius: 999px; background: var(--surface-2); color: var(--muted); border: 1px solid var(--border); white-space: nowrap; }
+.badge.sms { background: var(--warn-soft); color: var(--warn); border-color: transparent; }
+.preview .subj { font-weight: 600; margin-bottom: 8px; padding-bottom: 6px; border-bottom: 1px dashed var(--border); }
+input[type="date"], input[type="time"] { cursor: pointer; }
+
 /* ---------- bannière / toast / accueil ---------- */
 .banner {
   display: flex; align-items: center; gap: 10px; background: var(--warn-soft); border: 1px solid #ead9b3; color: #6c4f1c;
