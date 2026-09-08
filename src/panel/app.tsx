@@ -201,32 +201,38 @@ export function App() {
   const connected = site === 'salesforce' && !!ctx;
   const goTo = (t: TabId) => setTab(t);
 
+  // Onglets adaptés à la fiche : une Piste n'envoie pas de mail, une Opportunité n'a pas d'anamnèse.
+  const page = connected ? ctx!.page : 'other';
+  const hidden: TabId[] = page === 'lead' ? ['mails'] : page === 'opportunity' ? ['anamnese', 'commentaire'] : [];
+  const visibleTabs = TABS.filter((t) => !hidden.includes(t.id));
+  const activeTab: TabId = hidden.includes(tab) ? visibleTabs[0].id : tab;
+
   return (
     <>
       <Header site={site} ctx={ctx} fiche={fiche} ficheState={ficheState} recent={recent} busy={busy} onMv={runMv} onPaste={pastePatient} onAddSale={addSaleFromFiche} onRefresh={() => setFicheTick((n) => n + 1)} goTo={goTo} />
       <nav class="tabs">
-        {TABS.map((t) => (
-          <button key={t.id} class={tab === t.id ? 'on' : ''} onClick={() => setTab(t.id)} title={t.label || 'Réglages'} style={t.label ? '' : 'flex:0 0 auto;padding:6px 10px'}>
+        {visibleTabs.map((t) => (
+          <button key={t.id} class={activeTab === t.id ? 'on' : ''} onClick={() => setTab(t.id)} title={t.label || 'Réglages'} style={t.label ? '' : 'flex:0 0 auto;padding:6px 10px'}>
             <Icon name={t.icon} size={14} />{t.label}
           </button>
         ))}
       </nav>
       <main class="content">
-        {tab === 'anamnese' && (
+        {activeTab === 'anamnese' && (
           <Anamnese key={recordKey} data={data} update={update} connected={connected && ctx?.page !== 'opportunity'} busy={busy === 'anamnese'} footerEl={footerEl}
             onApply={(picklists, texts) => act('anamnese', { type: 'fillAnamnese', picklists, texts })}
             onEmpty={() => showToast('Aucune valeur choisie', 'info')} />
         )}
-        {tab === 'commentaire' && (
+        {activeTab === 'commentaire' && (
           <Commentaire key={recordKey} data={data} update={update} fiche={fiche} connected={connected && ctx?.page !== 'opportunity'} busy={busy === 'comment'}
             onWrite={(text) => act('comment', { type: 'writeComment', text, save: data.reglages.autoSaveComment })} toast={showToast} />
         )}
-        {tab === 'mails' && (
+        {activeTab === 'mails' && (
           <Mails key={recordKey} data={data} update={update} fiche={fiche} connected={connected} busy={busy === 'mail'}
             onInsert={insertMail} onNeedPartner={readPartner} toast={showToast} />
         )}
-        {tab === 'ventes' && <Ventes data={data} update={update} prefill={ctx?.page === 'opportunity' ? salePrefill : null} onImport={doImport} toast={showToast} />}
-        {tab === 'reglages' && <Reglages data={data} update={update} storage={storage} onChangeFolder={doChooseFolder} onImport={doImport} onExport={doExport} onExportLegacy={doExportLegacy} version={VERSION} />}
+        {activeTab === 'ventes' && <Ventes data={data} update={update} prefill={ctx?.page === 'opportunity' ? salePrefill : null} onImport={doImport} toast={showToast} />}
+        {activeTab === 'reglages' && <Reglages data={data} update={update} storage={storage} onChangeFolder={doChooseFolder} onImport={doImport} onExport={doExport} onExportLegacy={doExportLegacy} version={VERSION} />}
       </main>
       <div class="footer" ref={setFooterEl} />
       <Toast toast={toast} />
