@@ -83,8 +83,8 @@ export function ChatPartenaire({ data, update, fiche, connected, busy, onWrite, 
         <>
           <div class="preview" onDblClick={startEdit} title="Double-clic pour modifier">{compose()}</div>
           <div class="row">
-            <Btn big icon="send" busy={busy} disabled={!connected} onClick={() => onWrite(compose())} class="grow" title="Ouvre l'onglet Chat Partenaire, colle le texte et clique Enregistrer">
-              Coller dans Chat Partenaire
+            <Btn big icon="send" busy={busy} disabled={!connected} onClick={() => onWrite(compose())} class="grow" title="Ouvre l'onglet Chat Partenaire, écrit le texte et clique « Envoyer un message »">
+              Envoyer dans Chat Partenaire
             </Btn>
             <Btn kind="ghost" icon="pen" title="Modifier ce texte" onClick={startEdit} />
             <Btn kind="ghost" icon="copy" title="Copier" onClick={async () => toast((await writeClipboard(compose())) ? 'Texte copié' : 'Copie impossible', 'ok')} />

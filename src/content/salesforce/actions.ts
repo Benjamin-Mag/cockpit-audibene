@@ -1,5 +1,5 @@
 import type { ActionResult, StepResult } from '../../shared/types';
-import { clickTabByTitle, deepAll, deepFirst, expandSection, fillCommentAndSave, inputBehindLabel, isRendered, labelledControl, saveButtonNear, setNativeValue, sleep, textOf, visibleEl, waitFor } from './dom';
+import { clickTabByTitle, climbUp, deepAll, deepFirst, expandSection, fillCommentAndSave, inputBehindLabel, isRendered, labelledControl, saveButtonNear, setNativeValue, sleep, textOf, visibleEl, waitFor } from './dom';
 
 // ---------------------------------------------------------------- MV non joignable
 async function clickPisteNonJoignable(): Promise<StepResult> {
@@ -56,26 +56,59 @@ export async function writeComment(text: string, save: boolean): Promise<ActionR
 // ---------------------------------------------------------------- Chat Partenaire (Opportunité)
 // Onglet « Chat Partenaire » du bandeau d'actions : on l'ouvre, on repère la zone de
 // saisie qui apparaît (celle du bandeau, pas une autre de la page), on écrit, on enregistre.
+// C'est un fil Chatter : zone « Partager une mise à jour… » (simple zone de texte,
+// qui devient un éditeur riche au focus) puis bouton « Envoyer un message (Chat) ».
 export async function writeChatPartenaire(text: string): Promise<ActionResult> {
-  const visibleAreas = () => deepAll<HTMLTextAreaElement>('textarea').filter(isRendered);
-  const before = new Set(visibleAreas());
-  const tab = await clickTabByTitle('Chat Partenaire');
-  if (!tab.ok) return { ok: false, msg: tab.msg };
-  await sleep(400);
-  const field = await waitFor(() => {
-    const fresh = visibleAreas().filter((t) => !before.has(t));
-    if (fresh.length) return fresh[fresh.length - 1];
-    const byLabel = inputBehindLabel((l) => /^(commentaires?|message|chat partenaire)$/i.test(l));
-    return byLabel && byLabel.tagName === 'TEXTAREA' ? (byLabel as HTMLTextAreaElement) : null;
-  }, 4000);
-  if (!field) return { ok: false, msg: 'zone de saisie du Chat Partenaire introuvable' };
-  setNativeValue(field, text);
-  const btn = await waitFor(() => saveButtonNear(field, 14), 3000);
-  if (!btn) return { ok: true, msg: 'Texte collé, mais bouton Enregistrer introuvable — enregistre à la main' };
-  btn.click();
-  await sleep(1200);
-  await waitFor(() => field.value === '' || !isRendered(field), 5000);
-  return { ok: true, msg: 'Chat Partenaire : texte collé et enregistré' };
+  let tab = await clickTabByTitle('Chat Partenaire');
+  if (!tab.ok) {
+    const el = visibleEl(deepAll<HTMLElement>('a, [role="tab"], button').filter((e) => textOf(e) === 'Chat Partenaire'));
+    if (!el) return { ok: false, msg: 'onglet « Chat Partenaire » introuvable sur cette fiche' };
+    el.click();
+    tab = { ok: true, msg: 'Chat Partenaire ouvert' };
+  }
+  await sleep(500);
+
+  const placeholderOf = (e: Element) => e.getAttribute('placeholder') || e.getAttribute('data-placeholder') || e.getAttribute('aria-placeholder') || e.getAttribute('aria-label') || '';
+  const findBox = () => visibleEl(deepAll<HTMLElement>('textarea, [contenteditable="true"]').filter((e) => /partager une mise à jour/i.test(placeholderOf(e))));
+  const box = await waitFor(findBox, 4000);
+  if (!box) return { ok: false, msg: 'zone « Partager une mise à jour » introuvable' };
+
+  box.focus();
+  box.click();
+  await sleep(500);
+
+  // Après le focus, Salesforce peut avoir remplacé la zone par un éditeur riche (Quill) dans le même panneau.
+  let editor: HTMLElement | null = null;
+  let ancestor: Element | null = box;
+  for (let depth = 0; depth < 10 && ancestor && !editor; depth++) {
+    ancestor = climbUp(ancestor);
+    if (ancestor) editor = visibleEl(deepAll<HTMLElement>('.ql-editor, [contenteditable="true"]', ancestor));
+  }
+  const target = editor && isRendered(editor) ? editor : box;
+  if (target.tagName === 'TEXTAREA') {
+    setNativeValue(target as HTMLTextAreaElement, text);
+  } else {
+    target.focus();
+    document.execCommand('selectAll', false);
+    document.execCommand('insertText', false, text);
+    target.dispatchEvent(new Event('input', { bubbles: true }));
+  }
+  await sleep(300);
+
+  const sendBtn = await waitFor(() => {
+    let a: Element | null = target;
+    for (let depth = 0; depth < 12 && a; depth++) {
+      a = climbUp(a);
+      if (!a) break;
+      const btns = deepAll<HTMLButtonElement>('button', a).filter((b) => /envoyer un message|partager/i.test(textOf(b)) && isRendered(b) && !b.disabled);
+      if (btns.length) return btns[0];
+    }
+    return null;
+  }, 3000);
+  if (!sendBtn) return { ok: true, msg: 'Texte collé, mais le bouton « Envoyer un message » reste inactif — clique-le à la main' };
+  sendBtn.click();
+  await sleep(1000);
+  return { ok: true, msg: 'Chat Partenaire : message envoyé' };
 }
 
 // ---------------------------------------------------------------- Anamnèse
