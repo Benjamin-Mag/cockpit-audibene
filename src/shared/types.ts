@@ -1,0 +1,45 @@
+export type SfPage = 'lead' | 'opportunity' | 'other';
+export type Genre = 'M' | 'F' | null;
+
+/** Infos lues sur la fiche Salesforce courante. */
+export interface Fiche {
+  page: SfPage;
+  recordId: string;
+  genre: Genre;
+  prenom: string;
+  nom: string;
+  email: string;
+  telephone: string;
+  naissance: string;
+  partenaire: string;
+  adresse: string;
+}
+
+/** État léger de la page, poussé par le script de contenu à chaque changement. */
+export interface SfContext {
+  page: SfPage;
+  recordId: string;
+  composerOpen: boolean;
+  url: string;
+}
+
+export interface StepResult {
+  ok: boolean;
+  msg: string;
+}
+
+export interface ActionResult {
+  ok: boolean;
+  msg: string;
+  steps?: StepResult[];
+}
+
+/** Données patient envoyées aux formulaires Doctolib / Acuitis. */
+export interface PatientData {
+  genre: Genre;
+  prenom: string;
+  nom: string;
+  email: string;
+  telephone: string;
+  naissance: string;
+}

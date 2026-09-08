@@ -1,0 +1,30 @@
+{
+  "name": "cockpit-audibene",
+  "version": "0.1.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "dev": "vite",
+    "build": "vite build && vite build --config vite.content.config.ts",
+    "zip": "npm run build && node scripts/zip.mjs",
+    "typecheck": "tsc --noEmit",
+    "icons": "node scripts/icons.mjs"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "module",
+  "devDependencies": {
+    "@preact/preset-vite": "^2.10.6",
+    "@types/chrome": "^0.2.9",
+    "@types/wicg-file-system-access": "^2023.10.7",
+    "archiver": "^8.0.0",
+    "typescript": "^7.0.2",
+    "vite": "^6.4.3"
+  },
+  "dependencies": {
+    "preact": "^10.29.8"
+  },
+  "private": "true"
+}
