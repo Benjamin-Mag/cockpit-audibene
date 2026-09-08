@@ -143,6 +143,24 @@ export function mergeVentes(data: AppData, raw: unknown): AppData {
   return out;
 }
 
+/**
+ * Réunit deux copies Cockpit (navigateur / dossier) sans rien perdre : les collections
+ * sont fusionnées, les réglages viennent de la copie la plus récente (ou la plus remplie).
+ */
+export function mergeData(a: AppData, b: AppData): AppData {
+  const [newer, older] = (a.updatedAt ?? 0) >= (b.updatedAt ?? 0) ? [a, b] : [b, a];
+  const out: AppData = structuredClone(newer);
+  out.onboardingDone = a.onboardingDone || b.onboardingDone;
+  if (!out.reglages.nom && older.reglages.nom) out.reglages = { ...older.reglages, ...Object.fromEntries(Object.entries(out.reglages).filter(([, v]) => v !== '' && v !== undefined)) } as AppData['reglages'];
+  for (const s of older.anamnese.situations) if (!out.anamnese.situations.some((x) => x.id === s.id)) out.anamnese.situations.push(s);
+  for (const [id, t] of Object.entries(older.anamnese.textes)) if (!out.anamnese.textes[id]) out.anamnese.textes[id] = t;
+  for (const [k, list] of Object.entries(older.anamnese.phrases)) { const arr = (out.anamnese.phrases[k] ??= []); for (const p of list) if (!arr.includes(p)) arr.push(p); }
+  for (const c of older.chatPartenaire ?? []) if (!out.chatPartenaire.some((x) => x.id === c.id)) out.chatPartenaire.push(c);
+  for (const t of older.templates) if (!out.templates.some((x) => x.id === t.id)) out.templates.push(t);
+  for (const aud of ['patient', 'partenaire'] as const) for (const c of older.categories[aud]) if (!out.categories[aud].some((x) => x.id === c.id)) out.categories[aud].push(c);
+  return mergeVentes(out, older.ventes);
+}
+
 /** Complète des données Cockpit éventuellement incomplètes (ancienne version, champs manquants). */
 export function normalize(raw: unknown, base: AppData): AppData {
   const o = (raw ?? {}) as Partial<AppData>;
