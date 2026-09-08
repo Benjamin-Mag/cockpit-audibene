@@ -3,7 +3,7 @@
   "name": "Cockpit Audibene",
   "version": "0.1.0",
   "description": "Panneau latéral pour Salesforce : anamnèse, MV non joignable, commentaires, mails, prise de RDV et suivi des ventes — en un clic.",
-  "permissions": ["sidePanel", "scripting", "activeTab", "tabs", "storage", "clipboardRead", "clipboardWrite"],
+  "permissions": ["sidePanel", "scripting", "activeTab", "tabs", "storage", "clipboardRead", "clipboardWrite", "downloads"],
   "host_permissions": [
     "*://*.salesforce.com/*",
     "*://*.force.com/*",
