@@ -1,5 +1,5 @@
 import { CONTENT_VERSION, PORT_NAME, type ContentRequest, type ContentResponse, type ContextPush } from '../shared/messages';
-import type { ActionResult, Fiche, SfContext } from '../shared/types';
+import type { ActionResult, Fiche, RecentPatient, SfContext } from '../shared/types';
 
 export type Site = 'salesforce' | 'doctolib' | 'acuitis' | 'none';
 
@@ -44,7 +44,7 @@ export async function ensureContent(tabId: number): Promise<boolean> {
 }
 
 export async function send(tabId: number, req: ContentRequest): Promise<ContentResponse> {
-  if (!(await ensureContent(tabId))) throw new Error('Impossible de dialoguer avec la page — recharge l\'onglet Salesforce.');
+  if (!(await ensureContent(tabId))) throw new Error('Impossible de dialoguer avec la page — ouvre le formulaire ou recharge l\'onglet, puis réessaie.');
   const r = (await chrome.tabs.sendMessage(tabId, req)) as ContentResponse | undefined;
   if (!r) throw new Error('Pas de réponse de la page.');
   return r;
@@ -106,6 +106,40 @@ export function onCommand(cb: (command: string) => Promise<void>): () => void {
   };
   chrome.runtime.onMessage.addListener(listener);
   return () => chrome.runtime.onMessage.removeListener(listener);
+}
+
+// ---------------------------------------------------------------- fiches récentes
+const RECENT_KEY = 'recentPatients';
+const RECENT_MAX = 5;
+
+async function rawRecent(): Promise<RecentPatient[]> {
+  try {
+    if (isExtension) return ((await chrome.storage.local.get(RECENT_KEY))[RECENT_KEY] as RecentPatient[]) ?? [];
+    return JSON.parse(localStorage.getItem(RECENT_KEY) || '[]');
+  } catch {
+    return [];
+  }
+}
+
+export const loadRecent = rawRecent;
+
+/** Mémorise une fiche lue (dédoublonnée, la plus récente en tête) pour la coller sur Doctolib / Acuitis. */
+export async function pushRecent(p: RecentPatient): Promise<RecentPatient[]> {
+  const list = [p, ...(await rawRecent()).filter((r) => r.recordId !== p.recordId)].slice(0, RECENT_MAX);
+  try {
+    if (isExtension) await chrome.storage.local.set({ [RECENT_KEY]: list });
+    else localStorage.setItem(RECENT_KEY, JSON.stringify(list));
+  } catch { /* stockage indisponible */ }
+  return list;
+}
+
+export function onRecentChanged(cb: (list: RecentPatient[]) => void): () => void {
+  if (!isExtension) return () => {};
+  const l = (changes: Record<string, chrome.storage.StorageChange>, area: string) => {
+    if (area === 'local' && changes[RECENT_KEY]) cb((changes[RECENT_KEY].newValue as RecentPatient[]) ?? []);
+  };
+  chrome.storage.onChanged.addListener(l);
+  return () => chrome.storage.onChanged.removeListener(l);
 }
 
 export async function readClipboard(): Promise<string> {

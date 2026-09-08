@@ -43,3 +43,9 @@ export interface PatientData {
   telephone: string;
   naissance: string;
 }
+
+/** Fiche lue récemment, mémorisée pour être collée sur Doctolib / Acuitis. */
+export interface RecentPatient extends PatientData {
+  recordId: string;
+  savedAt: number;
+}

@@ -107,6 +107,10 @@ export function Commentaire({ data, update, fiche, connected, busy, onWrite, toa
             </Btn>
             <Btn kind="ghost" icon="copy" title="Copier le texte" onClick={copy} />
           </div>
+          <label class="checkrow" style="padding:4px 2px">
+            <span class="label muted">Cliquer Enregistrer automatiquement</span>
+            <input type="checkbox" checked={data.reglages.autoSaveComment} onChange={(e) => update((d) => { d.reglages.autoSaveComment = (e.target as HTMLInputElement).checked; })} />
+          </label>
           {!connected && <div class="note">Ouvre une Piste Salesforce pour écrire directement dans la fiche.</div>}
         </div>
       )}

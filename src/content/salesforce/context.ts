@@ -2,9 +2,14 @@ import type { Fiche, Genre, SfContext, SfPage } from '../../shared/types';
 import { deepAll, expandSection, fieldValue, sleep, textOf, visibleEl } from './dom';
 
 export function pageInfo(): { page: SfPage; recordId: string } {
-  const m = location.pathname.match(/\/lightning\/r\/(Lead|Opportunity)\/([A-Za-z0-9]+)\//);
-  if (!m) return { page: 'other', recordId: '' };
-  return { page: m[1] === 'Lead' ? 'lead' : 'opportunity', recordId: m[2] };
+  const m = location.href.match(/\/lightning\/r\/([A-Za-z0-9_]+)\/([A-Za-z0-9]{15,18})(?:\/|\?|$)/);
+  if (m) {
+    const obj = m[1].toLowerCase();
+    return { page: obj === 'lead' ? 'lead' : obj === 'opportunity' ? 'opportunity' : 'other', recordId: m[2] };
+  }
+  // URL non standard : le bandeau d'actions a un onglet "Lead" seulement sur une Piste.
+  if (visibleEl(deepAll('[title="Lead"]'))) return { page: 'lead', recordId: 'dom' };
+  return { page: 'other', recordId: '' };
 }
 
 export function isComposerOpen(): boolean {

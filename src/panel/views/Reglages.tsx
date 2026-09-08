@@ -10,10 +10,11 @@ interface Props {
   onChangeFolder: () => void;
   onImport: () => void;
   onExport: () => void;
+  onExportLegacy: () => void;
   version: string;
 }
 
-export function Reglages({ data, update, storage, onChangeFolder, onImport, onExport, version }: Props) {
+export function Reglages({ data, update, storage, onChangeFolder, onImport, onExport, onExportLegacy, version }: Props) {
   const r = data.reglages;
   const set = <K extends keyof AppData['reglages']>(k: K, v: AppData['reglages'][K]) => update((d) => { d.reglages[k] = v; });
   const input = (k: 'nom' | 'telephone' | 'mvComment', placeholder?: string) => (
@@ -44,11 +45,12 @@ export function Reglages({ data, update, storage, onChangeFolder, onImport, onEx
       <div class="section-title">Données</div>
       <div class="card" style="animation:none">
         <div class="stack">
-          <div class="row"><Icon name="folder" /><span class="grow">{storage.mode === 'folder' ? <>Dossier <b>{storage.folderName}</b> · data.json</> : 'Enregistré dans le navigateur'}</span></div>
+          <div class="row"><Icon name="folder" /><span class="grow">{storage.mode === 'folder' ? <>Dossier <b>{storage.folderName}</b> · cockpit.json</> : 'Enregistré dans le navigateur'}</span></div>
           <div class="row wrap">
             {fsSupported && <Btn kind="ghost" icon="folder" onClick={onChangeFolder}>Changer de dossier</Btn>}
-            <Btn kind="ghost" icon="upload" onClick={onImport} title="Ancien data.json du générateur, export du suivi des ventes, ou data.json Cockpit">Importer un fichier</Btn>
-            <Btn kind="ghost" icon="download" onClick={onExport}>Exporter</Btn>
+            <Btn kind="ghost" icon="upload" onClick={onImport} title="data.json de l'ancien générateur, export suivi-ventes-primes-….json, ou cockpit.json">Importer un fichier</Btn>
+            <Btn kind="ghost" icon="download" onClick={onExport}>Exporter cockpit.json</Btn>
+            <Btn kind="ghost" icon="download" onClick={onExportLegacy} title="Écrit un data.json lisible par l'ancien générateur de mails (modèles, textes, signature)">Mettre à jour data.json (ancien générateur)</Btn>
           </div>
           <div class="note">{data.templates.length} modèle(s) · {data.anamnese.situations.length} situation(s) · {Object.values(data.ventes.sales).flat().length} vente(s)</div>
         </div>

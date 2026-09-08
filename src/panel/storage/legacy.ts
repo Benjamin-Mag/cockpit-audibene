@@ -78,6 +78,30 @@ export function mergeGenerateur(data: AppData, raw: unknown): AppData {
   return out;
 }
 
+/** Données Cockpit → format de l'ancien générateur de mails (pour que l'ancienne app reste utilisable). */
+export function toLegacyGenerateur(data: AppData): Record<string, unknown> {
+  const r = data.reglages;
+  const anamnese: Record<string, { text: string }> = {};
+  for (const [id, t] of Object.entries(data.anamnese.textes)) {
+    anamnese[id] = { text: t.replace(new RegExp(`\\n*${RESUME_TAG.replace(/[{}]/g, '\\$&')}\\n*`), '\n\n').replace(/\n{3,}/g, '\n\n').trim() };
+  }
+  return {
+    templates: data.templates,
+    anamnese,
+    customSituations: data.anamnese.situations,
+    customCategories: data.categories,
+    signatureName: r.nom,
+    phone: r.telephone,
+    advisorGenre: r.genre,
+    onboardingDone: true,
+    tutorialDone: true,
+    emailFooter: r.emailFooter,
+    sigPatientMail: r.sigPatientMail,
+    sigPatientSMS: r.sigPatientSMS,
+    sigPartenaireMail: r.sigPartenaireMail,
+  };
+}
+
 /** Fusionne un export JSON de l'ancien Suivi Ventes & Primes. */
 export function mergeVentes(data: AppData, raw: unknown): AppData {
   const old = raw as VentesData;

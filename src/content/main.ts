@@ -1,4 +1,6 @@
 import { CONTENT_VERSION } from '../shared/messages';
+import { initAcuitis } from './acuitis';
+import { initDoctolib } from './doctolib';
 import { initSalesforce } from './salesforce';
 
 // Le script peut être injecté deux fois (manifest + injection à la demande après
@@ -16,6 +18,9 @@ if (!(prev && prev.alive())) {
   const host = location.hostname;
   if (/(salesforce\.com|force\.com)$/.test(host)) {
     if (window === window.top) initSalesforce();
+  } else if (/doctolib\.fr$/.test(host)) {
+    initDoctolib();
+  } else if (/acuitis\.com$/.test(host)) {
+    initAcuitis();
   }
-  // Doctolib et Acuitis : étape 2.
 }

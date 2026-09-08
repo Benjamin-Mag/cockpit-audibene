@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
 import type { ContentRequest } from '../shared/messages';
-import type { Fiche, SfContext } from '../shared/types';
-import { type Site, connectContext, isExtension, onCommand, readFiche, runAction, siteOf, watchActiveTab } from './bridge';
+import type { Fiche, RecentPatient, SfContext } from '../shared/types';
+import { type Site, connectContext, isExtension, loadRecent, onCommand, onRecentChanged, pushRecent, readFiche, runAction, siteOf, watchActiveTab } from './bridge';
 import { Btn, Icon, type IconName, Toast, type ToastMsg } from './components/ui';
-import { type AppData } from './model';
-import { type StorageState, authorize, chooseFolder, initStorage, parseAny, save, useBrowserStorage } from './storage/data';
+import { type AppData, defaultData } from './model';
+import { type StorageState, authorize, chooseFolder, exportLegacy, initStorage, parseAny, save, useBrowserStorage } from './storage/data';
 import { downloadJson, pickJsonFile } from './storage/fs';
 import { Anamnese } from './views/Anamnese';
 import { Commentaire } from './views/Commentaire';
@@ -21,6 +21,7 @@ const TABS: { id: TabId; label: string; icon: IconName }[] = [
   { id: 'reglages', label: '', icon: 'settings' },
 ];
 const VERSION = isExtension ? chrome.runtime.getManifest().version : 'web';
+const RDV_NOTE = 'Rendez-vous Audibene';
 
 export function App() {
   const [storage, setStorage] = useState<StorageState | null>(null);
@@ -35,6 +36,7 @@ export function App() {
   const [fiche, setFiche] = useState<Fiche | null>(null);
   const [ficheState, setFicheState] = useState<'idle' | 'loading' | 'error'>('idle');
   const [ficheTick, setFicheTick] = useState(0);
+  const [recent, setRecent] = useState<RecentPatient[]>([]);
   const [busy, setBusy] = useState<string | null>(null);
   const [toast, setToastState] = useState<ToastMsg | null>(null);
   const [footerEl, setFooterEl] = useState<HTMLElement | null>(null);
@@ -57,13 +59,15 @@ export function App() {
   }, []);
 
   useEffect(() => watchActiveTab((t) => { setSite(siteOf(t?.url)); setTabId(t?.id ?? null); }), []);
+  useEffect(() => { loadRecent().then(setRecent); return onRecentChanged(setRecent); }, []);
 
   useEffect(() => {
     if (site !== 'salesforce' || tabId == null) { setCtx(null); return; }
     return connectContext(tabId, setCtx);
   }, [site, tabId]);
 
-  const recordKey = ctx && ctx.page !== 'other' ? `${ctx.page}:${ctx.recordId}` : '';
+  // Toute page Salesforce est tentée (une fiche non reconnue par l'URL peut quand même se lire).
+  const recordKey = ctx ? (ctx.recordId ? `${ctx.page}:${ctx.recordId}` : ctx.url) : '';
   useEffect(() => {
     if (!recordKey || tabId == null) { setFiche(null); setFicheState('idle'); return; }
     let alive = true;
@@ -74,7 +78,15 @@ export function App() {
         try {
           const f = await readFiche(tabId, false);
           if (!alive) return;
-          if (f.prenom || f.nom || attempt === 3) { setFiche(f); setFicheState('idle'); return; }
+          if (f.prenom || f.nom || attempt === 3) {
+            setFiche(f);
+            setFicheState('idle');
+            if (f.prenom || f.nom) {
+              const { page: _p, partenaire: _pa, adresse: _a, recordId, ...patient } = f;
+              setRecent(await pushRecent({ ...patient, recordId: recordId || f.prenom + f.nom, savedAt: Date.now() }));
+            }
+            return;
+          }
         } catch {
           if (attempt === 3 && alive) setFicheState('error');
         }
@@ -98,6 +110,10 @@ export function App() {
     }
   };
   const runMv = () => act('mv', { type: 'runMv', comment: data?.reglages.mvComment || 'MV' });
+  const pastePatient = (p: RecentPatient) => {
+    const { recordId: _r, savedAt: _s, ...patient } = p;
+    return act('paste', { type: 'pastePatient', data: patient, note: RDV_NOTE });
+  };
 
   useEffect(() => onCommand(async (c) => { if (c === 'run-mv') await runMv(); }), [tabId, data?.reglages.mvComment]);
 
@@ -106,22 +122,29 @@ export function App() {
     if (!r) return;
     setStorage(r.state);
     loadData(r.data);
-    if (r.existed) showToast(r.data.onboardingDone ? 'Données reprises depuis data.json' : 'data.json repris — finis la configuration', 'ok');
+    if (r.existed === 'cockpit') showToast('Données Cockpit retrouvées', 'ok');
+    else if (r.existed === 'legacy') showToast(`${r.data.templates.length} modèle(s) repris de data.json — le fichier reste intact`, 'ok');
   };
 
   const doImport = async () => {
     const f = await pickJsonFile();
-    if (!f || !data) return;
+    if (!f) return;
     try {
-      const { data: merged, kind } = parseAny(f.text, data);
+      const { data: merged, kind } = parseAny(f.text, data ?? defaultData());
       setDataState(merged);
-      showToast(kind === 'ventes' ? 'Ventes importées' : kind === 'generateur' ? 'Modèles et textes importés' : 'Données importées', 'ok');
+      const n = Object.values(merged.ventes.sales).flat().length;
+      showToast(kind === 'ventes' ? `Ventes importées (${n})` : kind === 'generateur' ? `${merged.templates.length} modèle(s) importés` : 'Données importées', 'ok');
     } catch (e) {
       showToast((e as Error).message, 'err');
     }
   };
 
-  const doExport = () => data && downloadJson('data.json', JSON.stringify(data, null, 2));
+  const doExport = () => data && downloadJson('cockpit.json', JSON.stringify(data, null, 2));
+  const doExportLegacy = async () => {
+    if (!data) return;
+    const where = await exportLegacy(data);
+    showToast(where === 'folder' ? 'data.json mis à jour pour l\'ancien générateur' : 'data.json téléchargé', 'ok');
+  };
 
   // ---------------------------------------------------------------- rendu
   if (!storage) return <div class="empty"><div class="skeleton" style="width:40%;margin:40px auto" /></div>;
@@ -142,16 +165,19 @@ export function App() {
     return (
       <Setup data={data} folderName={storage.folderName} onChooseFolder={doChooseFolder}
         onBrowserStorage={async () => { const r = await useBrowserStorage(); setStorage(r.state); loadData(r.data); }}
+        onImport={doImport}
         onFinish={(r) => { update((d) => { Object.assign(d.reglages, r); d.onboardingDone = true; }); showToast(`Bienvenue ${r.nom} !`, 'ok'); }} />
     );
   }
 
-  const connected = site === 'salesforce' && !!ctx && ctx.page !== 'other';
+  // Dès qu'on dialogue avec une page Salesforce, les actions sont proposées : la
+  // page dit elle-même si un champ manque, plutôt que de cacher les boutons.
+  const connected = site === 'salesforce' && !!ctx;
   const goTo = (t: TabId) => setTab(t);
 
   return (
     <>
-      <Header site={site} ctx={ctx} fiche={fiche} ficheState={ficheState} busy={busy} onMv={runMv} onRefresh={() => setFicheTick((n) => n + 1)} goTo={goTo} />
+      <Header site={site} ctx={ctx} fiche={fiche} ficheState={ficheState} recent={recent} busy={busy} onMv={runMv} onPaste={pastePatient} onRefresh={() => setFicheTick((n) => n + 1)} goTo={goTo} />
       <nav class="tabs">
         {TABS.map((t) => (
           <button key={t.id} class={tab === t.id ? 'on' : ''} onClick={() => setTab(t.id)} title={t.label || 'Réglages'} style={t.label ? '' : 'flex:0 0 auto;padding:6px 10px'}>
@@ -161,17 +187,17 @@ export function App() {
       </nav>
       <main class="content">
         {tab === 'anamnese' && (
-          <Anamnese key={recordKey} data={data} update={update} connected={connected && ctx?.page === 'lead'} busy={busy === 'anamnese'} footerEl={footerEl}
+          <Anamnese key={recordKey} data={data} update={update} connected={connected && ctx?.page !== 'opportunity'} busy={busy === 'anamnese'} footerEl={footerEl}
             onApply={(picklists, texts) => act('anamnese', { type: 'fillAnamnese', picklists, texts })}
             onEmpty={() => showToast('Aucune valeur choisie', 'info')} />
         )}
         {tab === 'commentaire' && (
-          <Commentaire key={recordKey} data={data} update={update} fiche={fiche} connected={connected && ctx?.page === 'lead'} busy={busy === 'comment'}
+          <Commentaire key={recordKey} data={data} update={update} fiche={fiche} connected={connected && ctx?.page !== 'opportunity'} busy={busy === 'comment'}
             onWrite={(text) => act('comment', { type: 'writeComment', text, save: data.reglages.autoSaveComment })} toast={showToast} />
         )}
         {tab === 'mails' && <div class="empty"><div class="ico"><Icon name="mail" size={28} /></div>Mails — arrive à l'étape 2.<br /><span class="note">{data.templates.length} modèle(s) déjà repris de ton data.json.</span></div>}
         {tab === 'ventes' && <div class="empty"><div class="ico"><Icon name="coins" size={28} /></div>Ventes — arrive à l'étape 3.</div>}
-        {tab === 'reglages' && <Reglages data={data} update={update} storage={storage} onChangeFolder={doChooseFolder} onImport={doImport} onExport={doExport} version={VERSION} />}
+        {tab === 'reglages' && <Reglages data={data} update={update} storage={storage} onChangeFolder={doChooseFolder} onImport={doImport} onExport={doExport} onExportLegacy={doExportLegacy} version={VERSION} />}
       </main>
       <div class="footer" ref={setFooterEl} />
       <Toast toast={toast} />
