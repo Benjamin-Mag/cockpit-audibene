@@ -1,6 +1,7 @@
 import type { ActionResult, Fiche, PatientData, SfContext } from './types';
 
-export const CONTENT_VERSION = 1;
+/** Change à chaque build : un script de page d'une autre version est remplacé par le panneau. */
+export const CONTENT_VERSION: string = __COCKPIT_BUILD__;
 export const PORT_NAME = 'cockpit-context';
 
 /** Panneau → script de contenu (chrome.tabs.sendMessage). */
@@ -16,7 +17,7 @@ export type ContentRequest =
   | { type: 'pastePatient'; data: PatientData; note: string };
 
 export type ContentResponse =
-  | { type: 'pong'; version: number; site: 'salesforce' | 'doctolib' | 'acuitis' }
+  | { type: 'pong'; version: string; site: 'salesforce' | 'doctolib' | 'acuitis' }
   | { type: 'context'; context: SfContext }
   | { type: 'fiche'; fiche: Fiche }
   | { type: 'result'; result: ActionResult };

@@ -27,7 +27,7 @@ async function paste(data: PatientData, note: string): Promise<ActionResult> {
 // Le widget de RDV (rdv.acuitis.com) est parfois dans une iframe d'une page
 // fr.acuitis.com, parfois en page autonome : seule la frame rdv.acuitis.com
 // répond au panneau.
-export function initAcuitis() {
-  if (!/(^|\.)rdv\.acuitis\.com$/i.test(location.hostname)) return;
-  listen('acuitis', paste);
+export function initAcuitis(): () => void {
+  if (!/(^|\.)rdv\.acuitis\.com$/i.test(location.hostname)) return () => {};
+  return listen('acuitis', paste);
 }

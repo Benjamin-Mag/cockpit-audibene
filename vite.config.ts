@@ -11,6 +11,7 @@ export default defineConfig({
   root: here('./src'),
   publicDir: here('./public'),
   plugins: [preact()],
+  define: { __COCKPIT_BUILD__: JSON.stringify(process.env.COCKPIT_BUILD_ID ?? 'dev') },
   build: {
     outDir: here('./dist'),
     emptyOutDir: true,

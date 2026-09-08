@@ -1,4 +1,4 @@
-import type { ContentRequest, ContentResponse } from '../shared/messages';
+import { CONTENT_VERSION, type ContentRequest, type ContentResponse } from '../shared/messages';
 import type { ActionResult, PatientData } from '../shared/types';
 
 export const REFERRER = 'Audibene';
@@ -24,14 +24,16 @@ export function fillById(doc: Document, id: string, value: string | undefined, w
 
 export const fullName = (p: PatientData) => [p.prenom, p.nom].filter(Boolean).join(' ');
 
-/** Écoute les messages du panneau pour un site de formulaire (Doctolib, Acuitis). */
-export function listen(site: 'doctolib' | 'acuitis', paste: (data: PatientData, note: string) => Promise<ActionResult>) {
-  chrome.runtime.onMessage.addListener((msg: ContentRequest, _sender, sendResponse: (r: ContentResponse) => void) => {
-    if (msg.type === 'ping') { sendResponse({ type: 'pong', version: 1, site }); return; }
+/** Écoute les messages du panneau pour un site de formulaire ; renvoie de quoi se désactiver. */
+export function listen(site: 'doctolib' | 'acuitis', paste: (data: PatientData, note: string) => Promise<ActionResult>): () => void {
+  const onMessage = (msg: ContentRequest, _sender: chrome.runtime.MessageSender, sendResponse: (r: ContentResponse) => void) => {
+    if (msg.type === 'ping') { sendResponse({ type: 'pong', version: CONTENT_VERSION, site }); return; }
     if (msg.type === 'pastePatient') {
       paste(msg.data, msg.note).then((result) => sendResponse({ type: 'result', result }), (e: unknown) => sendResponse({ type: 'result', result: { ok: false, msg: String(e) } }));
       return true;
     }
     return;
-  });
+  };
+  chrome.runtime.onMessage.addListener(onMessage);
+  return () => chrome.runtime.onMessage.removeListener(onMessage);
 }

@@ -25,15 +25,18 @@ async function handle(req: ContentRequest): Promise<ContentResponse> {
   }
 }
 
-export function initSalesforce() {
-  chrome.runtime.onMessage.addListener((msg: ContentRequest, _sender, sendResponse) => {
+/** Installe les écouteurs ; renvoie la fonction qui les retire (remplacement par un build plus récent). */
+export function initSalesforce(): () => void {
+  const onMessage = (msg: ContentRequest, _sender: chrome.runtime.MessageSender, sendResponse: (r: ContentResponse) => void) => {
     handle(msg).then(sendResponse, (e: unknown) => sendResponse({ type: 'result', result: { ok: false, msg: String(e) } }));
     return true;
-  });
+  };
+  chrome.runtime.onMessage.addListener(onMessage);
 
   // Tant qu'un panneau est connecté, on lui pousse les changements de contexte
   // (Salesforce navigue sans recharger la page). Rien ne tourne panneau fermé.
-  chrome.runtime.onConnect.addListener((port) => {
+  const timers = new Set<number>();
+  const onConnect = (port: chrome.runtime.Port) => {
     if (port.name !== PORT_NAME) return;
     let lastKey = '';
     const tick = () => {
@@ -45,7 +48,16 @@ export function initSalesforce() {
       try { port.postMessage(push); } catch { /* port fermé */ }
     };
     tick();
-    const timer = setInterval(tick, 800);
-    port.onDisconnect.addListener(() => clearInterval(timer));
-  });
+    const timer = window.setInterval(tick, 800);
+    timers.add(timer);
+    port.onDisconnect.addListener(() => { clearInterval(timer); timers.delete(timer); });
+  };
+  chrome.runtime.onConnect.addListener(onConnect);
+
+  return () => {
+    chrome.runtime.onMessage.removeListener(onMessage);
+    chrome.runtime.onConnect.removeListener(onConnect);
+    for (const t of timers) clearInterval(t);
+    timers.clear();
+  };
 }

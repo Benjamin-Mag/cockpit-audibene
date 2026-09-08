@@ -1,3 +1,4 @@
+import { CONTENT_VERSION } from '../../shared/messages';
 import type { AppData } from '../model';
 import { Btn, Field, Icon, Seg } from '../components/ui';
 import type { StorageState } from '../storage/data';
@@ -60,7 +61,7 @@ export function Reglages({ data, update, storage, onChangeFolder, onImport, onEx
       <div class="kv"><span>Ouvrir / fermer Cockpit</span><span>Ctrl + Shift + Espace</span></div>
       <div class="kv"><span>MV non joignable</span><span>Ctrl + Shift + M</span></div>
       <div class="note">Modifiables dans <code>chrome://extensions/shortcuts</code> (ou <code>edge://extensions/shortcuts</code>).</div>
-      <div class="note" style="text-align:center;margin-top:8px">Cockpit Audibene v{version}</div>
+      <div class="note" style="text-align:center;margin-top:8px">Cockpit Audibene v{version} · build {CONTENT_VERSION}</div>
     </div>
   );
 }

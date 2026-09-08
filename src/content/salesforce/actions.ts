@@ -45,12 +45,12 @@ export async function writeComment(text: string, save: boolean): Promise<ActionR
   if (!field) return { ok: false, msg: 'champ « Remarques générales profil client » introuvable — la rubrique Commentaire est-elle sur cette page ?' };
   field.scrollIntoView({ block: 'center' });
   setNativeValue(field, text);
-  if (!save) return { ok: true, msg: 'Commentaire écrit — clique Enregistrer sur la fiche' };
+  if (!save) return { ok: true, msg: 'Écrit dans « Remarques générales profil client » — clique Enregistrer sur la fiche' };
   const btn = await waitFor(() => saveButtonNear(field!, 14), 3000);
-  if (!btn) return { ok: true, msg: 'Commentaire écrit, mais bouton Enregistrer introuvable — enregistre à la main' };
+  if (!btn) return { ok: true, msg: 'Écrit dans « Remarques générales profil client », mais bouton Enregistrer introuvable — enregistre à la main' };
   btn.click();
   await sleep(800);
-  return { ok: true, msg: 'Commentaire écrit et enregistré' };
+  return { ok: true, msg: 'Écrit dans « Remarques générales profil client » et enregistré' };
 }
 
 // ---------------------------------------------------------------- Anamnèse

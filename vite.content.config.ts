@@ -5,7 +5,7 @@ const here = (p: string) => fileURLToPath(new URL(p, import.meta.url));
 
 export default defineConfig({
   publicDir: false,
-  define: { 'process.env.NODE_ENV': '"production"' },
+  define: { 'process.env.NODE_ENV': '"production"', __COCKPIT_BUILD__: JSON.stringify(process.env.COCKPIT_BUILD_ID ?? 'dev') },
   build: {
     outDir: here('./dist'),
     emptyOutDir: false,

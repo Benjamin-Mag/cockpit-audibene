@@ -69,8 +69,8 @@ async function paste(data: PatientData, note: string): Promise<ActionResult> {
   return { ok: true, msg: `${fullName(data)} collé sur Doctolib` };
 }
 
-export function initDoctolib() {
-  if (window !== window.top) return; // le front-desk est atteint depuis la page parente
-  listen('doctolib', paste);
+export function initDoctolib(): () => void {
+  if (window !== window.top) return () => {}; // le front-desk est atteint depuis la page parente
+  return listen('doctolib', paste);
 }
 
