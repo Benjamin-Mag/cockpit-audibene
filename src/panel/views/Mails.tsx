@@ -47,7 +47,11 @@ export function Mails({ data, update, fiche, connected, busy, onInsert, onNeedPa
   const vars = useMemo(() => {
     if (!sel) return [];
     let v = extractVars(`${sel.subject ?? ''} ${sel.body} ${sel.smsCompanion ?? ''}`).filter((x) => !SYSTEM_VARS.includes(x));
-    if (v.some(isDateVar) && !v.some(isHeureVar)) v.splice(v.findIndex(isDateVar) + 1, 0, 'heure');
+    // Ordre de saisie : nom d'abord, puis la date suivie immédiatement de l'heure, puis le reste.
+    const heures = v.filter(isHeureVar);
+    v = v.filter((x) => !isHeureVar(x));
+    const di = v.findIndex(isDateVar);
+    if (di !== -1) v.splice(di + 1, 0, ...(heures.length ? heures : ['heure']));
     if (v.includes('nom')) v = ['nom', ...v.filter((x) => x !== 'nom')];
     return v;
   }, [sel]);
