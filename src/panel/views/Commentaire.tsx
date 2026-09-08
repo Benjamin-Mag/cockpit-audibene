@@ -30,9 +30,18 @@ export function Commentaire({ data, update, fiche, connected, busy, onWrite, toa
   const [resume, setResume] = useState('');
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState('');
+  const [genreAlert, setGenreAlert] = useState(0);
 
   const raw = sit ? data.anamnese.textes[sit] ?? '' : '';
   const effectiveGenre = genre ?? fiche?.genre ?? null;
+
+  /** Verrou : pas d'anamnèse sans genre choisi (lu sur la fiche ou cliqué). */
+  const requireGenre = () => {
+    if (effectiveGenre) return true;
+    setGenreAlert((n) => n + 1);
+    toast('Choisis M. ou Mme avant de générer l\'anamnèse', 'err');
+    return false;
+  };
 
   const preview = () => {
     const t = resolveGenre(fillVars(raw, systemValues(data.reglages)), effectiveGenre);
@@ -58,21 +67,21 @@ export function Commentaire({ data, update, fiche, connected, busy, onWrite, toa
   const compose = () => composeComment(raw, resume, data.reglages, effectiveGenre);
 
   const write = () => {
-    if (!sit) return;
+    if (!sit || !requireGenre()) return;
     onWrite(compose());
   };
 
   const copy = async () => {
-    if (!sit) return;
+    if (!sit || !requireGenre()) return;
     const ok = await writeClipboard(compose());
-    toast(ok ? 'Commentaire copié' : 'Copie impossible', ok ? 'ok' : 'err');
+    toast(ok ? 'Anamnèse copiée' : 'Copie impossible', ok ? 'ok' : 'err');
   };
 
   return (
     <div class="view">
-      <div class="row wrap" style="justify-content:space-between">
+      <div key={genreAlert} class={genreAlert ? 'row wrap shake' : 'row wrap'}>
         <Seg options={[{ id: 'M', label: 'M.' }, { id: 'F', label: 'Mme' }]} value={effectiveGenre} onChange={setGenre} />
-        {fiche && !genre && fiche.genre && <span class="note">depuis la fiche</span>}
+        {!effectiveGenre ? <span class="note warn">genre requis</span> : !genre && fiche?.genre ? <span class="note">depuis la fiche</span> : null}
       </div>
 
       <div class="chips">

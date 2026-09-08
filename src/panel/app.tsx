@@ -18,8 +18,8 @@ import { Setup } from './views/Setup';
 
 type TabId = 'anamnese' | 'commentaire' | 'mails' | 'ventes' | 'reglages';
 const TABS: { id: TabId; label: string; icon: IconName }[] = [
-  { id: 'anamnese', label: 'Anamnèse', icon: 'stetho' },
-  { id: 'commentaire', label: 'Commentaire', icon: 'pen' },
+  { id: 'anamnese', label: 'COSI', icon: 'stetho' },
+  { id: 'commentaire', label: 'Anamnèse', icon: 'pen' },
   { id: 'mails', label: 'Mails', icon: 'mail' },
   { id: 'ventes', label: 'Ventes', icon: 'coins' },
   { id: 'reglages', label: '', icon: 'settings' },

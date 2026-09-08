@@ -158,7 +158,7 @@ export function Anamnese({ data, update, connected, busy, footerEl, onApply, onE
 
   return (
     <div class="view">
-      {!connected && <div class="note">Ouvre une Piste Salesforce (onglet Anamnèse) pour appliquer les choix.</div>}
+      {!connected && <div class="note">Ouvre une Piste Salesforce (onglet Anamnèse de la fiche) pour appliquer les choix COSI.</div>}
       {rows}
       {footerEl && createPortal(footer, footerEl)}
     </div>

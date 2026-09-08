@@ -112,8 +112,8 @@ export function Header({ site, ctx, fiche, ficheState, recent, busy, onMv, onRef
             <div class="actions" style="margin-top:8px">
               {page !== 'opportunity' && (
                 <>
-                  <Btn kind="soft" icon="stetho" onClick={() => goTo('anamnese')}>Anamnèse</Btn>
-                  <Btn kind="soft" icon="pen" onClick={() => goTo('commentaire')}>Commentaire</Btn>
+                  <Btn kind="soft" icon="stetho" onClick={() => goTo('anamnese')}>COSI</Btn>
+                  <Btn kind="soft" icon="pen" onClick={() => goTo('commentaire')}>Anamnèse</Btn>
                 </>
               )}
               {page !== 'lead' && <Btn kind="soft" icon="mail" onClick={() => goTo('mails')}>Mail</Btn>}
