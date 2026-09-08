@@ -13,7 +13,7 @@ interface Props {
   onRefresh: () => void;
   onPaste: (p: RecentPatient) => void;
   onAddSale: (cat: 1 | 2) => void;
-  goTo: (tab: 'anamnese' | 'commentaire' | 'mails' | 'chat' | 'ventes') => void;
+  goTo: (tab: 'anamnese' | 'commentaire' | 'mails' | 'chat') => void;
 }
 
 const civ = (g: 'M' | 'F' | null) => (g === 'F' ? 'Mme' : g === 'M' ? 'M.' : '');
@@ -34,7 +34,6 @@ export function Header({ site, ctx, fiche, ficheState, recent, busy, onMv, onRef
     <div class="top">
       <div class="brand">
         <span class={['dot', onSf || isForm ? 'on' : ''].join(' ')} />
-        <b>Cockpit</b>
         <span>{siteLabel}</span>
       </div>
 

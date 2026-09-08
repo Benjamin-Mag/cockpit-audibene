@@ -17,15 +17,15 @@ import { buildMailHtml } from '../shared/mail-html';
 import { monthKey, monthShort } from './ventes';
 import { Setup } from './views/Setup';
 
-type TabId = 'anamnese' | 'commentaire' | 'mails' | 'chat' | 'ventes' | 'reglages';
+type TabId = 'anamnese' | 'commentaire' | 'mails' | 'chat' | 'reglages';
 const TABS: { id: TabId; label: string; icon: IconName }[] = [
   { id: 'anamnese', label: 'COSI', icon: 'stetho' },
   { id: 'commentaire', label: 'Anamnèse', icon: 'pen' },
   { id: 'mails', label: 'Mails', icon: 'mail' },
   { id: 'chat', label: 'Commentaire', icon: 'message' },
-  { id: 'ventes', label: 'Ventes', icon: 'coins' },
   { id: 'reglages', label: '', icon: 'settings' },
 ];
+type PageId = 'cockpit' | 'ventes';
 const VERSION = isExtension ? chrome.runtime.getManifest().version : 'web';
 const RDV_NOTE = 'Rendez-vous Audibene';
 
@@ -36,6 +36,7 @@ export function App() {
   const saveTimer = useRef<number | undefined>(undefined);
 
   const [tab, setTab] = useState<TabId>('anamnese');
+  const [pageMode, setPageMode] = useState<PageId>('cockpit');
   const [site, setSite] = useState<Site>('none');
   const [tabId, setTabId] = useState<number | null>(null);
   const [ctx, setCtx] = useState<SfContext | null>(null);
@@ -201,16 +202,36 @@ export function App() {
   // Dès qu'on dialogue avec une page Salesforce, les actions sont proposées : la
   // page dit elle-même si un champ manque, plutôt que de cacher les boutons.
   const connected = site === 'salesforce' && !!ctx;
-  const goTo = (t: TabId) => setTab(t);
+  const goTo = (t: TabId) => { setPageMode('cockpit'); setTab(t); };
+  const pageSwitch = (
+    <div class="pages">
+      <button type="button" class={pageMode === 'cockpit' ? 'on' : ''} onClick={() => setPageMode('cockpit')}><Icon name="stetho" size={13} /> Cockpit</button>
+      <button type="button" class={pageMode === 'ventes' ? 'on' : ''} onClick={() => setPageMode('ventes')}><Icon name="coins" size={13} /> Ventes</button>
+    </div>
+  );
+
+  if (pageMode === 'ventes') {
+    return (
+      <>
+        <div class="top">{pageSwitch}</div>
+        <main class="content">
+          <Ventes data={data} update={update} prefill={ctx?.page === 'opportunity' ? salePrefill : null} onImport={doImport} toast={showToast} />
+        </main>
+        <Toast toast={toast} />
+      </>
+    );
+  }
 
   // Onglets adaptés à la fiche : une Piste n'envoie pas de mail, une Opportunité n'a pas d'anamnèse.
   const page = connected ? ctx!.page : 'other';
   const hidden: TabId[] = page === 'lead' ? ['mails', 'chat'] : page === 'opportunity' ? ['anamnese', 'commentaire'] : [];
+  // (les Ventes ont leur propre page, via le sélecteur du haut)
   const visibleTabs = TABS.filter((t) => !hidden.includes(t.id));
   const activeTab: TabId = hidden.includes(tab) ? visibleTabs[0].id : tab;
 
   return (
     <>
+      <div class="top" style="padding-bottom:0">{pageSwitch}</div>
       <Header site={site} ctx={ctx} fiche={fiche} ficheState={ficheState} recent={recent} busy={busy} onMv={runMv} onPaste={pastePatient} onAddSale={addSaleFromFiche} onRefresh={() => setFicheTick((n) => n + 1)} goTo={goTo} />
       {storage.sync === 'paused' && (
         <div class="banner" style="margin:8px 12px 0">
@@ -244,7 +265,6 @@ export function App() {
           <ChatPartenaire key={recordKey} data={data} update={update} fiche={fiche} connected={connected && ctx?.page !== 'lead'} busy={busy === 'chat'}
             onWrite={(text) => act('chat', { type: 'writeChatPartenaire', text })} toast={showToast} />
         )}
-        {activeTab === 'ventes' && <Ventes data={data} update={update} prefill={ctx?.page === 'opportunity' ? salePrefill : null} onImport={doImport} toast={showToast} />}
         {activeTab === 'reglages' && <Reglages data={data} update={update} storage={storage} onChangeFolder={doChooseFolder} onAuthorize={doAuthorize} onImport={doImport} onExport={doExport} onExportLegacy={doExportLegacy} version={VERSION} />}
       </main>
       <div class="footer" ref={setFooterEl} />
