@@ -40,6 +40,30 @@ export function Mails({ data, update, fiche, connected, busy, onInsert, onNeedPa
   const [partnerLoading, setPartnerLoading] = useState(false);
   const [catManage, setCatManage] = useState(false);
   const [newCat, setNewCat] = useState('');
+  const [dragId, setDragId] = useState<string | null>(null);
+  const [overId, setOverId] = useState<string | null>(null);
+
+  /** Glisser-déposer : la catégorie déplacée prend la place de celle sur laquelle on la lâche. */
+  const moveCategory = (fromId: string, toId: string) => {
+    if (fromId === toId) return;
+    update((d) => {
+      const list = d.categories[audience];
+      const from = list.findIndex((c) => c.id === fromId);
+      const to = list.findIndex((c) => c.id === toId);
+      if (from === -1 || to === -1) return;
+      const [item] = list.splice(from, 1);
+      list.splice(to, 0, item);
+    });
+  };
+  const dragProps = (id: string) => ({
+    draggable: true,
+    onDragStart: (e: DragEvent) => { setDragId(id); e.dataTransfer?.setData('text/plain', id); if (e.dataTransfer) e.dataTransfer.effectAllowed = 'move'; },
+    onDragOver: (e: DragEvent) => { e.preventDefault(); if (e.dataTransfer) e.dataTransfer.dropEffect = 'move'; if (overId !== id) setOverId(id); },
+    onDragLeave: () => { if (overId === id) setOverId(null); },
+    onDrop: (e: DragEvent) => { e.preventDefault(); const from = dragId ?? e.dataTransfer?.getData('text/plain'); if (from) moveCategory(from, id); setDragId(null); setOverId(null); },
+    onDragEnd: () => { setDragId(null); setOverId(null); },
+  });
+  const dragClass = (id: string) => [dragId === id ? 'dragging' : '', overId === id && dragId !== id ? 'over' : ''].join(' ');
   const [genreAlert, setGenreAlert] = useState(0);
 
   const effectiveGenre = genre ?? fiche?.genre ?? null;
@@ -207,7 +231,11 @@ export function Mails({ data, update, fiche, connected, busy, onInsert, onNeedPa
           <div class="row" style="align-items:flex-start">
             <div class="chips grow">
               <Chip small on={cat === null} onClick={() => setCat(null)}>Tous</Chip>
-              {categories.map((c) => <Chip key={c.id} small on={cat === c.id} onClick={() => setCat(cat === c.id ? null : c.id)}>{c.label}</Chip>)}
+              {categories.map((c) => (
+                <span key={c.id} class={['drag-wrap', dragClass(c.id)].join(' ')} title="Glisser pour réordonner" {...dragProps(c.id)}>
+                  <Chip small on={cat === c.id} onClick={() => setCat(cat === c.id ? null : c.id)}>{c.label}</Chip>
+                </span>
+              ))}
             </div>
             <Btn kind={catManage ? 'soft' : 'ghost'} icon="pen" title="Gérer les catégories" onClick={() => setCatManage((v) => !v)} />
           </div>
@@ -216,7 +244,8 @@ export function Mails({ data, update, fiche, connected, busy, onInsert, onNeedPa
               <div class="stack" style="gap:6px">
                 <span class="label">Catégories {audience}</span>
                 {categories.map((c) => (
-                  <div key={c.id} class="row">
+                  <div key={c.id} class={['row drag-wrap', dragClass(c.id)].join(' ')} {...dragProps(c.id)}>
+                    <span class="drag-handle" title="Glisser pour réordonner">⋮⋮</span>
                     <input value={c.label} style="padding:5px 8px;font-size:12px" onChange={(e) => renameCategory(c.id, (e.target as HTMLInputElement).value)} onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }} />
                     <DeleteBtn title="Supprimer cette catégorie" onConfirm={() => deleteCategory(c.id)} />
                   </div>
@@ -225,7 +254,7 @@ export function Mails({ data, update, fiche, connected, busy, onInsert, onNeedPa
                   <input value={newCat} placeholder="Nouvelle catégorie…" style="padding:5px 8px;font-size:12px" onInput={(e) => setNewCat((e.target as HTMLInputElement).value)} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addCategory(); } }} />
                   <Btn kind="soft" icon="plus" title="Ajouter" onClick={addCategory} />
                 </div>
-                <span class="note">Renommer : modifie le nom puis Entrée — les modèles suivent.</span>
+                <span class="note">Renommer : modifie le nom puis Entrée — les modèles suivent. Réordonner : glisse une ligne (ou une puce) sur une autre.</span>
               </div>
             </div>
           )}
