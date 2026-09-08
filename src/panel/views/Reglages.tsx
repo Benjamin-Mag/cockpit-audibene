@@ -1,7 +1,7 @@
 import { CONTENT_VERSION } from '../../shared/messages';
 import type { AppData } from '../model';
 import { Btn, Field, Icon, Seg } from '../components/ui';
-import { BACKUP_DIR, type StorageState, backupSupported } from '../storage/data';
+import type { StorageState } from '../storage/data';
 import { fsSupported } from '../storage/fs';
 
 interface Props {
@@ -10,14 +10,13 @@ interface Props {
   storage: StorageState;
   onChangeFolder: () => void;
   onAuthorize: () => void;
-  onBackupNow: () => void;
   onImport: () => void;
   onExport: () => void;
   onExportLegacy: () => void;
   version: string;
 }
 
-export function Reglages({ data, update, storage, onChangeFolder, onAuthorize, onBackupNow, onImport, onExport, onExportLegacy, version }: Props) {
+export function Reglages({ data, update, storage, onChangeFolder, onAuthorize, onImport, onExport, onExportLegacy, version }: Props) {
   const r = data.reglages;
   const set = <K extends keyof AppData['reglages']>(k: K, v: AppData['reglages'][K]) => update((d) => { d.reglages[k] = v; });
   const input = (k: 'nom' | 'telephone' | 'mvComment', placeholder?: string) => (
@@ -48,15 +47,14 @@ export function Reglages({ data, update, storage, onChangeFolder, onAuthorize, o
       <div class="section-title">Données</div>
       <div class="card" style="animation:none">
         <div class="stack">
-          <div class="row"><Icon name="download" /><span class="grow">{backupSupported ? <>Sauvegarde automatique : <b>Téléchargements / {BACKUP_DIR} / cockpit.json</b></> : 'Enregistré dans le navigateur'}</span></div>
-          <div class="note">Les données vivent dans le navigateur ; le fichier de sauvegarde est réécrit tout seul (sans aucune autorisation), au plus toutes les 5 min et à la fermeture du panneau.</div>
+          <div class="row"><Icon name="folder" /><span class="grow">{storage.mode === 'folder' ? <>Dossier <b>{storage.folderName}</b> · cockpit.json — {storage.sync === 'synced' ? 'synchronisé' : 'en pause'}</> : 'Enregistré dans le navigateur uniquement'}</span></div>
+          <div class="note">Les données sont toujours gardées dans le navigateur ; le dossier sert de copie de sauvegarde et de passerelle avec l'ancien générateur.</div>
           <div class="row wrap">
-            {backupSupported && <Btn kind="soft" icon="download" onClick={onBackupNow}>Sauvegarder maintenant</Btn>}
-            {storage.mode === 'folder' && storage.sync === 'paused' && <Btn kind="ghost" icon="folder" onClick={onAuthorize} title="Le navigateur redemande l'accès à chaque ouverture du panneau">Dossier {storage.folderName} : autoriser</Btn>}
-            {fsSupported && <Btn kind="ghost" icon="folder" onClick={onChangeFolder} title="Optionnel — le navigateur redemande l'accès à chaque ouverture">{storage.mode === 'folder' ? 'Changer de dossier' : 'Lier un dossier (optionnel)'}</Btn>}
+            {storage.sync === 'paused' && <Btn kind="soft" icon="folder" onClick={onAuthorize}>Autoriser le dossier</Btn>}
+            {fsSupported && <Btn kind="ghost" icon="folder" onClick={onChangeFolder}>{storage.mode === 'folder' ? 'Changer de dossier' : 'Choisir un dossier'}</Btn>}
             <Btn kind="ghost" icon="upload" onClick={onImport} title="data.json de l'ancien générateur, export suivi-ventes-primes-….json, ou cockpit.json">Importer un fichier</Btn>
             <Btn kind="ghost" icon="download" onClick={onExport}>Exporter cockpit.json</Btn>
-            <Btn kind="ghost" icon="download" onClick={onExportLegacy} title="Écrit un data.json lisible par l'ancien générateur de mails, dans Téléchargements / Cockpit Audibene">data.json pour l'ancien générateur</Btn>
+            <Btn kind="ghost" icon="download" onClick={onExportLegacy} title="Écrit un data.json lisible par l'ancien générateur de mails (modèles, textes, signature)">Mettre à jour data.json (ancien générateur)</Btn>
           </div>
           <div class="note">{data.templates.length} modèle(s) · {data.anamnese.situations.length} situation(s) · {Object.values(data.ventes.sales).flat().length} vente(s)</div>
         </div>

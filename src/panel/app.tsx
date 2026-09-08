@@ -4,7 +4,7 @@ import type { Fiche, RecentPatient, SfContext } from '../shared/types';
 import { type Site, connectContext, isExtension, loadRecent, onCommand, onRecentChanged, pushRecent, readFiche, runAction, siteOf, watchActiveTab } from './bridge';
 import { Btn, Icon, type IconName, Toast, type ToastMsg } from './components/ui';
 import { type AppData, defaultData } from './model';
-import { type StorageState, authorize, backupNow, chooseFolder, exportLegacy, flushBackup, initStorage, parseAny, save, useBrowserStorage } from './storage/data';
+import { type StorageState, authorize, chooseFolder, exportLegacy, initStorage, parseAny, save, useBrowserStorage } from './storage/data';
 import { downloadJson, pickJsonFile } from './storage/fs';
 import { Anamnese } from './views/Anamnese';
 import { ChatPartenaire } from './views/ChatPartenaire';
@@ -70,12 +70,6 @@ export function App() {
   }, []);
 
   useEffect(() => watchActiveTab((t) => { setSite(siteOf(t?.url)); setTabId(t?.id ?? null); }), []);
-  useEffect(() => {
-    const flush = () => flushBackup();
-    window.addEventListener('pagehide', flush);
-    document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') flush(); });
-    return () => window.removeEventListener('pagehide', flush);
-  }, []);
   useEffect(() => { loadRecent().then(setRecent); return onRecentChanged(setRecent); }, []);
 
   useEffect(() => {
@@ -186,7 +180,6 @@ export function App() {
   };
 
   const doExport = () => data && downloadJson('cockpit.json', JSON.stringify(data, null, 2));
-  const doBackupNow = async () => { if (data) showToast((await backupNow(data)) ? 'Sauvegarde écrite dans Téléchargements / Cockpit Audibene' : 'Sauvegarde impossible', 'ok'); };
   const doExportLegacy = async () => {
     if (!data) return;
     const where = await exportLegacy(data);
@@ -219,6 +212,13 @@ export function App() {
   return (
     <>
       <Header site={site} ctx={ctx} fiche={fiche} ficheState={ficheState} recent={recent} busy={busy} onMv={runMv} onPaste={pastePatient} onAddSale={addSaleFromFiche} onRefresh={() => setFicheTick((n) => n + 1)} goTo={goTo} />
+      {storage.sync === 'paused' && (
+        <div class="banner" style="margin:8px 12px 0">
+          <Icon name="folder" />
+          <span class="grow">Sauvegarde dans <b>{storage.folderName}</b> en pause — les données sont bien dans le navigateur.</span>
+          <Btn kind="soft" onClick={doAuthorize}>Autoriser</Btn>
+        </div>
+      )}
       <nav class="tabs">
         {visibleTabs.map((t) => (
           <button key={t.id} class={activeTab === t.id ? 'on' : ''} onClick={() => setTab(t.id)} title={t.label || 'Réglages'} style={t.label ? '' : 'flex:0 0 auto;padding:6px 10px'}>
@@ -245,7 +245,7 @@ export function App() {
             onWrite={(text) => act('chat', { type: 'writeChatPartenaire', text })} toast={showToast} />
         )}
         {activeTab === 'ventes' && <Ventes data={data} update={update} prefill={ctx?.page === 'opportunity' ? salePrefill : null} onImport={doImport} toast={showToast} />}
-        {activeTab === 'reglages' && <Reglages data={data} update={update} storage={storage} onChangeFolder={doChooseFolder} onAuthorize={doAuthorize} onBackupNow={doBackupNow} onImport={doImport} onExport={doExport} onExportLegacy={doExportLegacy} version={VERSION} />}
+        {activeTab === 'reglages' && <Reglages data={data} update={update} storage={storage} onChangeFolder={doChooseFolder} onAuthorize={doAuthorize} onImport={doImport} onExport={doExport} onExportLegacy={doExportLegacy} version={VERSION} />}
       </main>
       <div class="footer" ref={setFooterEl} />
       <Toast toast={toast} />

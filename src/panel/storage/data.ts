@@ -133,7 +133,6 @@ export async function save(data: AppData): Promise<SyncStatus> {
   const content = JSON.stringify(data, null, 2);
   await localWrite(content);
   if (typeof chrome !== 'undefined' && chrome.storage?.local) await chrome.storage.local.set({ mvComment: data.reglages.mvComment });
-  scheduleBackup(data);
   if (!handle) return 'none';
   if (!folderGranted) folderGranted = (await permissionState(handle, false)) === 'granted';
   if (!folderGranted) return 'paused';
@@ -146,55 +145,10 @@ export async function save(data: AppData): Promise<SyncStatus> {
   }
 }
 
-// ---------------------------------------------------------------- sauvegarde silencieuse
-// Sans aucune autorisation : le fichier est écrit dans Téléchargements/Cockpit Audibene/
-// (écrasé à chaque fois). Au plus une fois toutes les 5 min, et à la fermeture du panneau.
-export const BACKUP_DIR = 'Cockpit Audibene';
-const BACKUP_MIN_INTERVAL = 5 * 60 * 1000;
-let lastBackupAt = 0;
-let backupTimer: number | undefined;
-let pendingBackup: AppData | null = null;
-
-export const backupSupported = typeof chrome !== 'undefined' && !!chrome.downloads;
-
-async function downloadSilently(name: string, content: string): Promise<boolean> {
-  if (!backupSupported) return false;
-  const url = URL.createObjectURL(new Blob([content], { type: 'application/json' }));
-  try {
-    await chrome.downloads.download({ url, filename: `${BACKUP_DIR}/${name}`, conflictAction: 'overwrite', saveAs: false });
-    return true;
-  } catch {
-    return false;
-  } finally {
-    setTimeout(() => URL.revokeObjectURL(url), 10000);
-  }
-}
-
-export async function backupNow(data: AppData): Promise<boolean> {
-  clearTimeout(backupTimer);
-  pendingBackup = null;
-  lastBackupAt = Date.now();
-  return downloadSilently(DATA_FILE, JSON.stringify(data, null, 2));
-}
-
-function scheduleBackup(data: AppData) {
-  if (!backupSupported) return;
-  pendingBackup = data;
-  const wait = Math.max(0, BACKUP_MIN_INTERVAL - (Date.now() - lastBackupAt));
-  clearTimeout(backupTimer);
-  backupTimer = window.setTimeout(() => { if (pendingBackup) backupNow(pendingBackup); }, wait);
-}
-
-/** À appeler quand le panneau se ferme : écrit tout de suite ce qui est en attente. */
-export function flushBackup() {
-  if (pendingBackup) backupNow(pendingBackup);
-}
-
 /** Écrit un data.json au format de l'ancien générateur dans le dossier (ou le télécharge sans dossier). */
 export async function exportLegacy(data: AppData): Promise<'folder' | 'download'> {
   const content = JSON.stringify(toLegacyGenerateur(data), null, 2);
   if (handle && folderGranted) { await writeText(handle, LEGACY_FILE, content); return 'folder'; }
-  if (await downloadSilently(LEGACY_FILE, content)) return 'download';
   const { downloadJson } = await import('./fs');
   downloadJson(LEGACY_FILE, content);
   return 'download';
