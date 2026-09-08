@@ -3,17 +3,25 @@ import type { VentesData } from './model';
 
 const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
-/** Clé de mois au format de l'ancien suivi : "Septembre 26". */
+/** Clé de mois au format de l'ancien suivi (version en ligne) : "Septembre 2026". */
 export function monthKey(d: Date): string {
-  return `${cap(MONTHS_FR[d.getMonth()])} ${String(d.getFullYear()).slice(2)}`;
+  return `${cap(MONTHS_FR[d.getMonth()])} ${d.getFullYear()}`;
 }
 
+/** Accepte "Janvier 2026" (format actuel) et "Janvier 26" (ancien format court). */
 export function parseMonthKey(key: string): { year: number; month: number } | null {
-  const m = key.match(/^(\S+)\s+(\d{2})$/);
+  const m = key.trim().match(/^(.+?)\s+(\d{2}|\d{4})$/);
   if (!m) return null;
   const mi = MONTHS_FR.indexOf(m[1].toLowerCase());
   if (mi === -1) return null;
-  return { year: 2000 + parseInt(m[2], 10), month: mi };
+  const y = parseInt(m[2], 10);
+  return { year: y < 100 ? 2000 + y : y, month: mi };
+}
+
+/** Clé normalisée ("Janvier 26" → "Janvier 2026") ; inchangée si non reconnue. */
+export function canonicalMonthKey(key: string): string {
+  const p = parseMonthKey(key);
+  return p ? monthKey(new Date(p.year, p.month, 1)) : key;
 }
 
 export const monthLabel = (key: string) => {

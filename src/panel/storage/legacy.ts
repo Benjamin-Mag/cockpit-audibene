@@ -1,4 +1,15 @@
-import { type AppData, DEFAULT_SITUATIONS, DEFAULT_TEXTES, RESUME_TAG, type Situation, type Template, type VentesData, ensurePhoneUnderName } from '../model';
+import { type AppData, DEFAULT_SITUATIONS, DEFAULT_TEXTES, RESUME_TAG, type Situation, type Template, type Vente, type VentesData, ensurePhoneUnderName } from '../model';
+import { canonicalMonthKey } from '../ventes';
+
+/** Regroupe les ventes sous des clés de mois normalisées ("Janvier 26" et "Janvier 2026" fusionnent). */
+export function canonicalizeSales(sales: Record<string, Vente[]>): Record<string, Vente[]> {
+  const out: Record<string, Vente[]> = {};
+  for (const [k, list] of Object.entries(sales)) {
+    if (!Array.isArray(list)) continue;
+    (out[canonicalMonthKey(k)] ??= []).push(...list);
+  }
+  return out;
+}
 
 export type LegacyKind = 'cockpit' | 'generateur' | 'ventes' | 'inconnu';
 
@@ -110,9 +121,9 @@ export function mergeVentes(data: AppData, raw: unknown): AppData {
   if (Array.isArray(old.payslips)) {
     for (const p of old.payslips) if (p && !out.ventes.payslips.some((q) => q.ficheMonth === p.ficheMonth && q.brut === p.brut)) out.ventes.payslips.push(p);
   }
+  out.ventes.sales = canonicalizeSales(out.ventes.sales);
   if (old.sales && typeof old.sales === 'object') {
-    for (const [month, list] of Object.entries(old.sales)) {
-      if (!Array.isArray(list)) continue;
+    for (const [month, list] of Object.entries(canonicalizeSales(old.sales as Record<string, Vente[]>))) {
       const target = (out.ventes.sales[month] ??= []);
       for (const s of list) {
         if (!s || typeof s.name !== 'string') continue;
@@ -138,6 +149,6 @@ export function normalize(raw: unknown, base: AppData): AppData {
   for (const [id, t] of Object.entries(out.anamnese.textes)) out.anamnese.textes[id] = ensurePhoneUnderName(t);
   if (Array.isArray(o.templates)) out.templates = o.templates;
   if (o.categories) out.categories = { patient: o.categories.patient ?? [], partenaire: o.categories.partenaire ?? [] };
-  if (o.ventes) out.ventes = { settings: { ...out.ventes.settings, ...(o.ventes.settings ?? {}) }, payslips: o.ventes.payslips ?? [], sales: o.ventes.sales ?? {} };
+  if (o.ventes) out.ventes = { settings: { ...out.ventes.settings, ...(o.ventes.settings ?? {}) }, payslips: o.ventes.payslips ?? [], sales: canonicalizeSales(o.ventes.sales ?? {}) };
   return out;
 }
