@@ -102,7 +102,9 @@ textarea { resize: vertical; min-height: 90px; line-height: 1.5; }
 .tabs button.on { background: var(--surface); color: var(--accent-strong); box-shadow: var(--shadow); }
 .tabs button:active { transform: scale(0.97); }
 
-.content { flex: 1; overflow-y: auto; padding: 12px 12px 90px; }
+.content { flex: 1; overflow-y: auto; padding: 12px 12px 20px; }
+.footer { flex: 0 0 auto; padding: 10px 12px 12px; background: var(--bg); border-top: 1px solid var(--border); }
+.footer:empty { display: none; }
 .view { animation: fadeUp var(--dur-slow) var(--ease); display: flex; flex-direction: column; gap: 12px; }
 
 /* ---------- boutons ---------- */
@@ -189,11 +191,6 @@ hr { border: 0; border-top: 1px solid var(--border); margin: 4px 0; }
 .kv span:last-child { color: var(--muted); text-align: right; }
 .empty { text-align: center; color: var(--muted); padding: 26px 10px; font-size: 13px; }
 .empty .ico { color: var(--accent); margin-bottom: 8px; }
-
-.sticky-bottom {
-  position: sticky; bottom: 0; margin: 4px -12px -90px; padding: 10px 12px 14px;
-  background: linear-gradient(to top, var(--bg) 70%, rgba(244, 243, 238, 0));
-}
 
 /* ---------- bannière / toast / accueil ---------- */
 .banner {

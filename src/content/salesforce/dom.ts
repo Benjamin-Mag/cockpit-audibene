@@ -83,13 +83,36 @@ export function climbUp(el: Element): Element | null {
   return (root as ShadowRoot).host ?? null;
 }
 
-export function labelledControl(labelText: string): { label: HTMLLabelElement; forId: string; control: Element | null } | null {
-  const labels = deepAll<HTMLLabelElement>('label').filter((l) => textOf(l).replace(/^\*/, '').trim() === labelText);
+export function labelledControlBy(match: (text: string) => boolean): { label: HTMLLabelElement; forId: string; control: Element | null } | null {
+  const labels = deepAll<HTMLLabelElement>('label').filter((l) => match(textOf(l).replace(/^\*/, '').trim()));
   const label = visibleEl(labels);
   if (!label) return null;
   const forId = label.getAttribute('for') || '';
   const control = forId ? deepAll('#' + CSS.escape(forId))[0] ?? null : null;
   return { label, forId, control };
+}
+
+export const labelledControl = (labelText: string) => labelledControlBy((t) => t === labelText);
+
+/** Zone de saisie (input/textarea) derrière un label, même enveloppée dans un composant Lightning. */
+export function inputBehindLabel(match: (text: string) => boolean): HTMLInputElement | HTMLTextAreaElement | null {
+  const lc = labelledControlBy(match);
+  const el = lc?.control;
+  if (!el) return null;
+  const input = el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' ? el : deepAll('input, textarea', el)[0];
+  return input && isRendered(input) ? (input as HTMLInputElement | HTMLTextAreaElement) : null;
+}
+
+/** Bouton "Enregistrer" visible et actif le plus proche d'un élément (en remontant, shadow DOM compris). */
+export function saveButtonNear(el: Element, maxDepth = 8): HTMLButtonElement | null {
+  let ancestor: Element | null = el;
+  for (let depth = 0; depth < maxDepth && ancestor; depth++) {
+    ancestor = climbUp(ancestor);
+    if (!ancestor) break;
+    const btns = deepAll<HTMLButtonElement>('button', ancestor).filter((b) => textOf(b) === 'Enregistrer' && isRendered(b) && !b.disabled);
+    if (btns.length) return btns[btns.length - 1];
+  }
+  return null;
 }
 
 /** Valeur affichée d'un champ en lecture (bloc .slds-form-element). */
@@ -101,11 +124,11 @@ export function fieldValue(labelText: string): string | null {
   return textOf(ctrl).replace('Modifier ' + labelText, '').trim();
 }
 
-/** Ouvre une rubrique repliée (clic sur son titre). */
+/** Ouvre une rubrique repliée (clic sur son titre — seulement s'il est cliquable, pour ne pas confondre avec un simple libellé). */
 export function expandSection(name: string): boolean {
-  const all = deepAll('*').filter((el) => el.children.length === 0 && (el.textContent || '').trim() === name);
-  const target = visibleEl(all);
-  const btn = target?.closest('button') || target?.closest('[role="button"]');
+  const titles = deepAll('*').filter((el) => el.children.length === 0 && (el.textContent || '').trim() === name && !!el.closest('button,[role="button"]'));
+  const target = visibleEl(titles);
+  const btn = target?.closest('button,[role="button"]');
   if (!btn) return false;
   (btn as HTMLElement).click();
   return true;
@@ -134,16 +157,7 @@ export async function fillCommentAndSave(text: string, settleMs = 1200): Promise
 
   setNativeValue(textarea, text);
 
-  const saveBtn = await waitFor(() => {
-    let ancestor: Element | null = textarea;
-    for (let depth = 0; depth < 8 && ancestor; depth++) {
-      ancestor = climbUp(ancestor);
-      if (!ancestor) break;
-      const btns = deepAll<HTMLButtonElement>('button', ancestor).filter((b) => textOf(b) === 'Enregistrer' && isRendered(b) && !b.disabled);
-      if (btns.length) return btns[btns.length - 1];
-    }
-    return null;
-  }, 3000);
+  const saveBtn = await waitFor(() => saveButtonNear(textarea), 3000);
   if (!saveBtn) return { ok: false, msg: 'bouton Enregistrer introuvable' };
   saveBtn.click();
 

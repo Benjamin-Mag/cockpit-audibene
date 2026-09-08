@@ -21,6 +21,8 @@ export interface Reglages {
   telephone: string;
   genre: 'M' | 'F';
   mvComment: string;
+  /** Après « Écrire dans la fiche », cliquer Enregistrer automatiquement. */
+  autoSaveComment: boolean;
   emailFooter: string;
   sigPatientMail: string;
   sigPatientSMS: string;
@@ -64,7 +66,7 @@ export const DEFAULT_SITUATIONS: Situation[] = [
   { id: 'renouvellement_sans_ordonnance', label: 'Renouvellement – Sans ordonnance' },
 ];
 
-const SIGN = `\n\n${RESUME_TAG}\n\nJe vous souhaite une excellente consultation.\nBien à vous,\n{{nom_conseiller}}`;
+const SIGN = `\n\n${RESUME_TAG}\n\nJe vous souhaite une excellente consultation.\nBien à vous,\n{{nom_conseiller}}\n{{tel_conseiller}}`;
 export const DEFAULT_TEXTES: Record<string, string> = {
   depistage_simple: 'Cher partenaire, je vous confie notre patient(e) pour un dépistage auditif.' + SIGN,
   depistage_orl: "Cher partenaire, je vous confie notre patient(e) pour un dépistage auditif, avec orientation vers un ORL de votre réseau. Je vous remercie par avance pour votre prise en charge." + SIGN,
@@ -83,7 +85,7 @@ export function defaultData(): AppData {
   return {
     version: 2,
     onboardingDone: false,
-    reglages: { nom: '', telephone: '', genre: 'M', mvComment: 'MV', emailFooter: DEFAULT_FOOTER, sigPatientMail: '', sigPatientSMS: '', sigPartenaireMail: '' },
+    reglages: { nom: '', telephone: '', genre: 'M', mvComment: 'MV', autoSaveComment: true, emailFooter: DEFAULT_FOOTER, sigPatientMail: '', sigPatientSMS: '', sigPartenaireMail: '' },
     anamnese: { situations: DEFAULT_SITUATIONS.map((s) => ({ ...s })), textes: { ...DEFAULT_TEXTES }, phrases: {} },
     templates: [],
     categories: { patient: [], partenaire: [] },
@@ -127,12 +129,20 @@ export function resolveGenre(text: string, genre: Genre): string {
     .replace(/(\S+?)\(e\)/g, (_m, w: string) => (f ? w + 'e' : w));
 }
 
-/** Texte final du commentaire : variables, genre, résumé inséré (ou balise retirée). */
+/** Ajoute {{tel_conseiller}} sous le nom si le texte signe avec {{nom_conseiller}} sans téléphone. */
+export function ensurePhoneUnderName(text: string): string {
+  if (!text.includes('{{nom_conseiller}}') || text.includes('{{tel_conseiller}}')) return text;
+  const idx = text.lastIndexOf('{{nom_conseiller}}');
+  return text.slice(0, idx) + '{{nom_conseiller}}\n{{tel_conseiller}}' + text.slice(idx + '{{nom_conseiller}}'.length);
+}
+
+/** Texte final du commentaire : variables, genre, résumé inséré (ou balise retirée), variables vides retirées. */
 export function composeComment(raw: string, resume: string, r: Reglages, genre: Genre): string {
   let t = resolveGenre(fillVars(raw, systemValues(r)), genre);
   const clean = resume.trim();
   if (clean) t = t.replace(RESUME_TAG, clean);
   else t = t.replace(new RegExp(`\\n*${RESUME_TAG.replace(/[{}]/g, '\\$&')}\\n*`), '\n\n');
+  t = t.split('\n').filter((line) => !/^\s*\{\{[^}]+\}\}\s*$/.test(line)).join('\n');
   return t.replace(/\n{3,}/g, '\n\n').trim();
 }
 

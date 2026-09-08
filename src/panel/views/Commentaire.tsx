@@ -14,10 +14,14 @@ interface Props {
   toast: (msg: string, kind?: 'ok' | 'err' | 'info') => void;
 }
 
-/** Le presse-papier contient un résumé exploitable (pas vide, pas un JSON technique). */
-function usable(text: string): boolean {
+/** Le presse-papier ressemble à un résumé (pas vide, pas un JSON, pas un simple numéro ou mot). */
+function usable(text: string): string | null {
   const t = text.trim();
-  return t.length > 0 && !(t.startsWith('{') && t.endsWith('}'));
+  if (!t) return 'Le presse-papier est vide.';
+  if (t.startsWith('{') && t.endsWith('}')) return 'Le presse-papier contient des données techniques, pas un résumé.';
+  if (/^[\d\s+().-]+$/.test(t)) return 'Le presse-papier contient un numéro, pas un résumé.';
+  if (t.length < 15) return 'Le presse-papier est trop court pour être un résumé.';
+  return null;
 }
 
 export function Commentaire({ data, update, fiche, connected, busy, onWrite, toast }: Props) {
@@ -44,28 +48,23 @@ export function Commentaire({ data, update, fiche, connected, busy, onWrite, toa
 
   const grabResume = async () => {
     const txt = await readClipboard();
-    if (!usable(txt)) { toast('Le presse-papier ne contient pas de résumé.', 'err'); return false; }
+    const problem = usable(txt);
+    if (problem) { toast(problem, 'err'); return; }
     setResume(txt);
-    return true;
+    toast('Résumé repris — vérifie l\'aperçu', 'ok');
   };
 
-  const compose = async (): Promise<string> => {
-    let r = resume;
-    if (!r.trim()) {
-      const txt = await readClipboard();
-      if (usable(txt)) { r = txt; setResume(txt); }
-    }
-    return composeComment(raw, r, data.reglages, effectiveGenre);
-  };
+  // Seul le résumé explicitement collé est utilisé : jamais le presse-papier en douce.
+  const compose = () => composeComment(raw, resume, data.reglages, effectiveGenre);
 
-  const write = async () => {
+  const write = () => {
     if (!sit) return;
-    onWrite(await compose());
+    onWrite(compose());
   };
 
   const copy = async () => {
     if (!sit) return;
-    const ok = await writeClipboard(await compose());
+    const ok = await writeClipboard(compose());
     toast(ok ? 'Commentaire copié' : 'Copie impossible', ok ? 'ok' : 'err');
   };
 
@@ -103,8 +102,8 @@ export function Commentaire({ data, update, fiche, connected, busy, onWrite, toa
             <Btn kind="ghost" icon="pen" title="Modifier ce texte" onClick={() => { setDraft(raw); setEditing(true); }} />
           </div>
           <div class="row">
-            <Btn big icon="send" busy={busy} disabled={!connected} onClick={write} class="grow" title="Écrit dans Commentaires internes puis Enregistrer">
-              Écrire dans la fiche
+            <Btn big icon="send" busy={busy} disabled={!connected} onClick={write} class="grow" title="Écrit dans « Remarques générales profil client » (rubrique Commentaire, bas de la fiche)">
+              {resume.trim() ? 'Écrire dans la fiche' : 'Écrire sans résumé'}
             </Btn>
             <Btn kind="ghost" icon="copy" title="Copier le texte" onClick={copy} />
           </div>

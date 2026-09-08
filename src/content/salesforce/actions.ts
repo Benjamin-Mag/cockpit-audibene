@@ -1,5 +1,5 @@
 import type { ActionResult, StepResult } from '../../shared/types';
-import { clickTabByTitle, deepAll, deepFirst, fillCommentAndSave, isRendered, labelledControl, setNativeValue, sleep, textOf, visibleEl, waitFor } from './dom';
+import { clickTabByTitle, deepAll, deepFirst, expandSection, fillCommentAndSave, inputBehindLabel, isRendered, labelledControl, saveButtonNear, setNativeValue, sleep, textOf, visibleEl, waitFor } from './dom';
 
 // ---------------------------------------------------------------- MV non joignable
 async function clickPisteNonJoignable(): Promise<StepResult> {
@@ -31,17 +31,26 @@ export async function runMv(comment: string): Promise<ActionResult> {
 }
 
 // ---------------------------------------------------------------- Commentaire
-export async function writeComment(text: string): Promise<ActionResult> {
-  const steps: StepResult[] = [];
-  steps.push(await clickTabByTitle('Commentaires internes'));
-  await sleep(400);
-  steps.push(await fillCommentAndSave(text));
-  await sleep(300);
-  steps.push(await clickTabByTitle('Lead'));
-  const failed = steps.filter((s) => !s.ok);
-  return failed.length
-    ? { ok: false, msg: 'Incomplet : ' + failed.map((s) => s.msg).join(' / '), steps }
-    : { ok: true, msg: 'Commentaire enregistré', steps };
+// Cible : la rubrique "Commentaire" en bas de la fiche, champ "Remarques générales
+// profil client" (formulaire), et non le fil des commentaires internes.
+const REMARQUES_LABEL = /^Remarques générales profil client/i;
+
+export async function writeComment(text: string, save: boolean): Promise<ActionResult> {
+  const find = () => inputBehindLabel((t) => REMARQUES_LABEL.test(t));
+  let field = find();
+  if (!field && expandSection('Commentaire')) {
+    await sleep(500);
+    field = await waitFor(find, 3000);
+  }
+  if (!field) return { ok: false, msg: 'champ « Remarques générales profil client » introuvable — la rubrique Commentaire est-elle sur cette page ?' };
+  field.scrollIntoView({ block: 'center' });
+  setNativeValue(field, text);
+  if (!save) return { ok: true, msg: 'Commentaire écrit — clique Enregistrer sur la fiche' };
+  const btn = await waitFor(() => saveButtonNear(field!, 14), 3000);
+  if (!btn) return { ok: true, msg: 'Commentaire écrit, mais bouton Enregistrer introuvable — enregistre à la main' };
+  btn.click();
+  await sleep(800);
+  return { ok: true, msg: 'Commentaire écrit et enregistré' };
 }
 
 // ---------------------------------------------------------------- Anamnèse

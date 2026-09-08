@@ -30,6 +30,12 @@ export function Reglages({ data, update, storage, onChangeFolder, onImport, onEx
       <div class="section-title">MV non joignable</div>
       <Field label="Commentaire écrit avant « Piste non joignable »">{input('mvComment', 'MV')}</Field>
 
+      <div class="section-title">Commentaire de fiche</div>
+      <label class="checkrow">
+        <span class="label">Cliquer Enregistrer automatiquement après « Écrire dans la fiche »</span>
+        <input type="checkbox" checked={r.autoSaveComment} onChange={(e) => set('autoSaveComment', (e.target as HTMLInputElement).checked)} />
+      </label>
+
       <div class="section-title">Mails</div>
       <Field label="Pied de page des e-mails">
         <textarea rows={6} value={r.emailFooter} onInput={(e) => set('emailFooter', (e.target as HTMLTextAreaElement).value)} />

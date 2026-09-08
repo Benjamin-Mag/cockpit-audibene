@@ -10,7 +10,7 @@ export type ContentRequest =
   | { type: 'readFiche'; withPartner: boolean }
   | { type: 'runMv'; comment: string }
   | { type: 'fillAnamnese'; picklists: { label: string; value: string }[]; texts: { label: string; value: string }[] }
-  | { type: 'writeComment'; text: string }
+  | { type: 'writeComment'; text: string; save: boolean }
   | { type: 'openComposer' }
   | { type: 'insertMail'; subject: string; html: string }
   | { type: 'pastePatient'; data: PatientData; note: string };

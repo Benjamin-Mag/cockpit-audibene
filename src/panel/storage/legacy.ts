@@ -1,4 +1,4 @@
-import { type AppData, DEFAULT_SITUATIONS, DEFAULT_TEXTES, RESUME_TAG, type Situation, type Template, type VentesData } from '../model';
+import { type AppData, DEFAULT_SITUATIONS, DEFAULT_TEXTES, RESUME_TAG, type Situation, type Template, type VentesData, ensurePhoneUnderName } from '../model';
 
 export type LegacyKind = 'cockpit' | 'generateur' | 'ventes' | 'inconnu';
 
@@ -52,7 +52,7 @@ export function mergeGenerateur(data: AppData, raw: unknown): AppData {
   if (old.anamnese) {
     for (const [id, e] of Object.entries(old.anamnese)) {
       const text = typeof e?.text === 'string' ? e.text : [e?.intro, e?.conclusion].filter(Boolean).join('\n\n');
-      if (text) out.anamnese.textes[id] = withResumeTag(nameSubst(text));
+      if (text) out.anamnese.textes[id] = ensurePhoneUnderName(withResumeTag(nameSubst(text)));
     }
   }
   for (const s of out.anamnese.situations) if (!out.anamnese.textes[s.id]) out.anamnese.textes[s.id] = DEFAULT_TEXTES[s.id] ?? `Cher partenaire, je vous confie notre patient(e).\n\n${RESUME_TAG}\n\nBien à vous,\n{{nom_conseiller}}`;
@@ -99,6 +99,7 @@ export function normalize(raw: unknown, base: AppData): AppData {
     out.anamnese.textes = { ...out.anamnese.textes, ...(o.anamnese.textes ?? {}) };
     out.anamnese.phrases = o.anamnese.phrases ?? {};
   }
+  for (const [id, t] of Object.entries(out.anamnese.textes)) out.anamnese.textes[id] = ensurePhoneUnderName(t);
   if (Array.isArray(o.templates)) out.templates = o.templates;
   if (o.categories) out.categories = { patient: o.categories.patient ?? [], partenaire: o.categories.partenaire ?? [] };
   if (o.ventes) out.ventes = { settings: { ...out.ventes.settings, ...(o.ventes.settings ?? {}) }, payslips: o.ventes.payslips ?? [], sales: o.ventes.sales ?? {} };

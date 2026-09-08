@@ -37,6 +37,7 @@ export function App() {
   const [ficheTick, setFicheTick] = useState(0);
   const [busy, setBusy] = useState<string | null>(null);
   const [toast, setToastState] = useState<ToastMsg | null>(null);
+  const [footerEl, setFooterEl] = useState<HTMLElement | null>(null);
 
   const showToast = (msg: string, kind: ToastMsg['kind'] = 'info') => setToastState({ msg, kind, id: Date.now() });
 
@@ -160,18 +161,19 @@ export function App() {
       </nav>
       <main class="content">
         {tab === 'anamnese' && (
-          <Anamnese key={recordKey} data={data} update={update} connected={connected && ctx?.page === 'lead'} busy={busy === 'anamnese'}
+          <Anamnese key={recordKey} data={data} update={update} connected={connected && ctx?.page === 'lead'} busy={busy === 'anamnese'} footerEl={footerEl}
             onApply={(picklists, texts) => act('anamnese', { type: 'fillAnamnese', picklists, texts })}
             onEmpty={() => showToast('Aucune valeur choisie', 'info')} />
         )}
         {tab === 'commentaire' && (
           <Commentaire key={recordKey} data={data} update={update} fiche={fiche} connected={connected && ctx?.page === 'lead'} busy={busy === 'comment'}
-            onWrite={(text) => act('comment', { type: 'writeComment', text })} toast={showToast} />
+            onWrite={(text) => act('comment', { type: 'writeComment', text, save: data.reglages.autoSaveComment })} toast={showToast} />
         )}
         {tab === 'mails' && <div class="empty"><div class="ico"><Icon name="mail" size={28} /></div>Mails — arrive à l'étape 2.<br /><span class="note">{data.templates.length} modèle(s) déjà repris de ton data.json.</span></div>}
         {tab === 'ventes' && <div class="empty"><div class="ico"><Icon name="coins" size={28} /></div>Ventes — arrive à l'étape 3.</div>}
         {tab === 'reglages' && <Reglages data={data} update={update} storage={storage} onChangeFolder={doChooseFolder} onImport={doImport} onExport={doExport} version={VERSION} />}
       </main>
+      <div class="footer" ref={setFooterEl} />
       <Toast toast={toast} />
     </>
   );

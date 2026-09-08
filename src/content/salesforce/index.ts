@@ -13,7 +13,7 @@ async function handle(req: ContentRequest): Promise<ContentResponse> {
     case 'runMv':
       return { type: 'result', result: await runMv(req.comment) };
     case 'writeComment':
-      return { type: 'result', result: await writeComment(req.text) };
+      return { type: 'result', result: await writeComment(req.text, req.save) };
     case 'fillAnamnese':
       return { type: 'result', result: await fillAnamnese(req.picklists, req.texts) };
     case 'openComposer':

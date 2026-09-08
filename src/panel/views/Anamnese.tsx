@@ -1,3 +1,4 @@
+import { createPortal } from 'preact/compat';
 import { useState } from 'preact/hooks';
 import { type AnamField, CONDITIONAL_FIELDS, FIELDS_CATALOG, SITUATION_COMMENT_FIELD, SITUATION_COSI_FIELD } from '../../shared/anamnese-catalog';
 import type { AppData } from '../model';
@@ -10,13 +11,15 @@ interface Props {
   update: (fn: (d: AppData) => void) => void;
   connected: boolean;
   busy: boolean;
+  /** Pied de panneau (hors zone de défilement) où ancrer le bouton Appliquer. */
+  footerEl: HTMLElement | null;
   onApply: (picklists: Pair[], texts: Pair[]) => void;
   onEmpty: () => void;
 }
 
 const isBinaryOuiNon = (f: AnamField) => f.section === 'Antécédents médicaux' && f.options?.length === 2 && f.options.includes('Oui') && f.options.includes('Non');
 
-export function Anamnese({ data, update, connected, busy, onApply, onEmpty }: Props) {
+export function Anamnese({ data, update, connected, busy, footerEl, onApply, onEmpty }: Props) {
   const [picks, setPicks] = useState<Record<string, string>>({});
   const [phrases, setPhrases] = useState<Record<string, string[]>>({});
   const [cosi, setCosi] = useState<Record<string, number>>({});
@@ -144,16 +147,20 @@ export function Anamnese({ data, update, connected, busy, onApply, onEmpty }: Pr
     rows.push(renderField(f));
   }
 
+  const footer = (
+    <div class="row">
+      <Btn big icon="check" busy={busy} disabled={!connected} onClick={apply} class="grow">
+        Appliquer{touched ? ` (${touched})` : ''}
+      </Btn>
+      {touched > 0 && <Btn kind="ghost" icon="x" title="Tout effacer" onClick={reset} />}
+    </div>
+  );
+
   return (
     <div class="view">
       {!connected && <div class="note">Ouvre une Piste Salesforce (onglet Anamnèse) pour appliquer les choix.</div>}
       {rows}
-      <div class="sticky-bottom row">
-        <Btn big icon="check" busy={busy} disabled={!connected} onClick={apply} class="grow">
-          Appliquer{touched ? ` (${touched})` : ''}
-        </Btn>
-        {touched > 0 && <Btn kind="ghost" icon="x" title="Tout effacer" onClick={reset} />}
-      </div>
+      {footerEl && createPortal(footer, footerEl)}
     </div>
   );
 }
