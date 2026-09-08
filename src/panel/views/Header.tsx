@@ -12,6 +12,7 @@ interface Props {
   onMv: () => void;
   onRefresh: () => void;
   onPaste: (p: RecentPatient) => void;
+  onAddSale: (cat: 1 | 2) => void;
   goTo: (tab: 'anamnese' | 'commentaire' | 'mails' | 'ventes') => void;
 }
 
@@ -21,7 +22,7 @@ const ago = (t: number) => {
   return m < 1 ? "à l'instant" : m < 60 ? `il y a ${m} min` : m < 1440 ? `il y a ${Math.round(m / 60)} h` : `il y a ${Math.round(m / 1440)} j`;
 };
 
-export function Header({ site, ctx, fiche, ficheState, recent, busy, onMv, onRefresh, onPaste, goTo }: Props) {
+export function Header({ site, ctx, fiche, ficheState, recent, busy, onMv, onRefresh, onPaste, onAddSale, goTo }: Props) {
   const page = ctx?.page ?? 'other';
   const onSf = site === 'salesforce' && !!ctx;
   const hasFiche = !!fiche && !!(fiche.prenom || fiche.nom);
@@ -115,9 +116,15 @@ export function Header({ site, ctx, fiche, ficheState, recent, busy, onMv, onRef
                   <Btn kind="soft" icon="pen" onClick={() => goTo('commentaire')}>Commentaire</Btn>
                 </>
               )}
-              <Btn kind={page === 'opportunity' ? 'soft' : 'ghost'} icon="mail" onClick={() => goTo('mails')} title="Étape 2">Mail</Btn>
-              {page === 'opportunity' && <Btn kind="ghost" icon="coins" onClick={() => goTo('ventes')} title="Étape 3">Ajouter la vente</Btn>}
+              <Btn kind={page === 'opportunity' ? 'soft' : 'ghost'} icon="mail" onClick={() => goTo('mails')}>Mail</Btn>
+              {page === 'opportunity' && <Btn kind="ghost" icon="coins" onClick={() => goTo('ventes')}>Ventes</Btn>}
             </div>
+            {page === 'opportunity' && hasFiche && (
+              <div class="actions" style="margin-top:8px">
+                <Btn icon="coins" onClick={() => onAddSale(1)} title="Enregistre la vente dans le mois courant">Vente CAT 1</Btn>
+                <Btn icon="coins" onClick={() => onAddSale(2)} title="Enregistre la vente dans le mois courant">Vente CAT 2</Btn>
+              </div>
+            )}
           </div>
         )}
       </div>

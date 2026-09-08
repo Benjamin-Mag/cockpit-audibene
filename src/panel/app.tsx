@@ -11,7 +11,9 @@ import { Commentaire } from './views/Commentaire';
 import { Header } from './views/Header';
 import { Mails } from './views/Mails';
 import { Reglages } from './views/Reglages';
+import { Ventes } from './views/Ventes';
 import { buildMailHtml } from '../shared/mail-html';
+import { monthKey, monthShort } from './ventes';
 import { Setup } from './views/Setup';
 
 type TabId = 'anamnese' | 'commentaire' | 'mails' | 'ventes' | 'reglages';
@@ -117,6 +119,16 @@ export function App() {
     return act('paste', { type: 'pastePatient', data: patient, note: RDV_NOTE });
   };
   const insertMail = (subject: string, body: string) => act('mail', { type: 'insertMail', subject, html: buildMailHtml(body, data?.reglages.emailFooter ?? '') });
+  const ficheName = fiche ? [fiche.prenom, fiche.nom].filter(Boolean).join(' ') : '';
+  const salePrefill = ficheName && ctx ? { name: ficheName, url: ctx.url.split('?')[0] } : null;
+  /** Vente en un clic depuis l'Opportunité ouverte, dans le mois courant. */
+  const addSaleFromFiche = (cat: 1 | 2) => {
+    if (!salePrefill || !data) return;
+    const key = monthKey(new Date());
+    if ((data.ventes.sales[key] ?? []).some((s) => s.url === salePrefill.url)) { showToast(`${salePrefill.name} est déjà dans les ventes de ${monthShort(key)}`, 'info'); return; }
+    update((d) => { (d.ventes.sales[key] ??= []).push({ name: salePrefill.name, cat, url: salePrefill.url }); });
+    showToast(`Vente CAT ${cat} ajoutée : ${salePrefill.name} (${monthShort(key)})`, 'ok');
+  };
   /** Lecture complète de la fiche (partenaire + adresse via le survol du lien Compte, ~2 s). */
   const readPartner = async (): Promise<Fiche | null> => {
     if (tabId == null) return null;
@@ -191,7 +203,7 @@ export function App() {
 
   return (
     <>
-      <Header site={site} ctx={ctx} fiche={fiche} ficheState={ficheState} recent={recent} busy={busy} onMv={runMv} onPaste={pastePatient} onRefresh={() => setFicheTick((n) => n + 1)} goTo={goTo} />
+      <Header site={site} ctx={ctx} fiche={fiche} ficheState={ficheState} recent={recent} busy={busy} onMv={runMv} onPaste={pastePatient} onAddSale={addSaleFromFiche} onRefresh={() => setFicheTick((n) => n + 1)} goTo={goTo} />
       <nav class="tabs">
         {TABS.map((t) => (
           <button key={t.id} class={tab === t.id ? 'on' : ''} onClick={() => setTab(t.id)} title={t.label || 'Réglages'} style={t.label ? '' : 'flex:0 0 auto;padding:6px 10px'}>
@@ -213,7 +225,7 @@ export function App() {
           <Mails key={recordKey} data={data} update={update} fiche={fiche} connected={connected} busy={busy === 'mail'}
             onInsert={insertMail} onNeedPartner={readPartner} toast={showToast} />
         )}
-        {tab === 'ventes' && <div class="empty"><div class="ico"><Icon name="coins" size={28} /></div>Ventes — arrive à l'étape 3.</div>}
+        {tab === 'ventes' && <Ventes data={data} update={update} prefill={ctx?.page === 'opportunity' ? salePrefill : null} toast={showToast} />}
         {tab === 'reglages' && <Reglages data={data} update={update} storage={storage} onChangeFolder={doChooseFolder} onImport={doImport} onExport={doExport} onExportLegacy={doExportLegacy} version={VERSION} />}
       </main>
       <div class="footer" ref={setFooterEl} />

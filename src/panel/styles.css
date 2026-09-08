@@ -206,6 +206,7 @@ hr { border: 0; border-top: 1px solid var(--border); margin: 4px 0; }
 .badge { font-size: 10px; font-weight: 600; padding: 1px 7px; border-radius: 999px; background: var(--surface-2); color: var(--muted); border: 1px solid var(--border); white-space: nowrap; }
 .badge.sms { background: var(--warn-soft); color: var(--warn); border-color: transparent; }
 .preview .subj { font-weight: 600; margin-bottom: 8px; padding-bottom: 6px; border-bottom: 1px dashed var(--border); }
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 input[type="date"], input[type="time"] { cursor: pointer; }
 
 /* ---------- bannière / toast / accueil ---------- */
