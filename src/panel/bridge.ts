@@ -111,21 +111,21 @@ export function onCommand(cb: (command: string) => Promise<void>): () => void {
 // ---------------------------------------------------------------- cadres tiers (ex. Hearo, application Canvas)
 const OWN_HOSTS = /(salesforce\.com|force\.com|doctolib\.fr|acuitis\.com)$/;
 
-export interface FrameInfo { frameId: number; url: string; host: string }
+export interface FrameInfo { frameId: number; url: string; host: string; own: boolean }
 
-/** Cadres de l'onglet hébergés hors Salesforce (candidats pour une application intégrée). */
-export async function foreignFrames(tabId: number): Promise<FrameInfo[]> {
+/** Tous les cadres secondaires de l'onglet (une application intégrée peut être n'importe où). */
+export async function subFrames(tabId: number): Promise<FrameInfo[]> {
   if (!isExtension || !chrome.webNavigation) return [];
   const frames = (await chrome.webNavigation.getAllFrames({ tabId })) ?? [];
   return frames
     .filter((f) => f.frameId !== 0 && /^https:/.test(f.url))
-    .map((f) => ({ frameId: f.frameId, url: f.url, host: new URL(f.url).hostname }))
-    .filter((f) => !OWN_HOSTS.test(f.host) && !/twilio\.com$|audibene\.fr$/.test(f.host));
+    .map((f) => { const host = new URL(f.url).hostname; return { frameId: f.frameId, url: f.url, host, own: OWN_HOSTS.test(host) }; });
 }
 
 /** Accès à un domaine tiers : mémorisé par le navigateur après une première confirmation. */
 export async function ensureOrigin(url: string): Promise<boolean> {
   const origin = new URL(url).origin + '/*';
+  if (OWN_HOSTS.test(new URL(url).hostname)) return true;
   if (await chrome.permissions.contains({ origins: [origin] })) return true;
   try {
     return await chrome.permissions.request({ origins: [origin] });

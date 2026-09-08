@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
 import type { ContentRequest } from '../shared/messages';
 import type { ActionResult, Fiche, RecentPatient, SfContext } from '../shared/types';
-import { type Site, connectContext, ensureOrigin, foreignFrames, isExtension, loadRecent, onCommand, onRecentChanged, pushRecent, readFiche, runAction, sendToFrame, siteOf, watchActiveTab, writeClipboard } from './bridge';
+import { type Site, connectContext, ensureOrigin, subFrames, isExtension, loadRecent, onCommand, onRecentChanged, pushRecent, readFiche, runAction, sendToFrame, siteOf, watchActiveTab, writeClipboard } from './bridge';
 import { Btn, Icon, type IconName, Toast, type ToastMsg } from './components/ui';
 import { type AppData, defaultData } from './model';
 import { type StorageState, authorize, chooseFolder, exportLegacy, initStorage, parseAny, save, useBrowserStorage } from './storage/data';
@@ -133,8 +133,8 @@ export function App() {
     try {
       // Hearo est une application Canvas : son cadre a son propre domaine, découvert ici.
       // L'accès est demandé au navigateur pendant le clic (une seule fois, puis mémorisé).
-      let frames = await foreignFrames(tabId);
-      for (const f of frames) await ensureOrigin(f.url);
+      let frames = await subFrames(tabId);
+      for (const f of frames) if (!f.own && !/twilio\.com$/.test(f.host)) await ensureOrigin(f.url);
 
       const opened = await runAction(tabId, { type: 'openSms' });
       if (!opened.ok) { showToast(opened.msg, 'err'); return; }
@@ -142,8 +142,9 @@ export function App() {
       let filled: ActionResult | null = null;
       for (let attempt = 0; attempt < 6 && !filled?.ok; attempt++) {
         await new Promise((r) => setTimeout(r, attempt === 0 ? 600 : 800));
-        frames = await foreignFrames(tabId);
+        frames = await subFrames(tabId);
         for (const f of frames) {
+          if (/twilio\.com$/.test(f.host)) continue;
           if (!(await ensureOrigin(f.url))) continue;
           try {
             const r = await sendToFrame(tabId, f.frameId, { type: 'fillSmsSearch', text: ficheName });
@@ -161,9 +162,9 @@ export function App() {
       if (filled?.ok) showToast(filled.msg, 'ok');
       else {
         const diag = await runAction(tabId, { type: 'diagSms' });
-        const list = frames.map((f) => `  - cadre ${f.frameId}: ${f.host}`).join('\n');
-        await writeClipboard(`Diagnostic SMS Cockpit\n${diag.msg}\ncadres tiers (webNavigation):\n${list || '  aucun'}`);
-        showToast(frames.length ? `Recherche introuvable dans ${frames.map((f) => f.host).join(', ')} — diagnostic copié, colle-le à Claude` : 'Aucun cadre tiers détecté — diagnostic copié, colle-le à Claude', 'err');
+        const list = frames.map((f) => `  - cadre ${f.frameId}: ${f.host}${f.url.length > f.host.length + 9 ? new URL(f.url).pathname.slice(0, 40) : ''}`).join('\n');
+        await writeClipboard(`Diagnostic SMS Cockpit\n${diag.msg}\ncadres (webNavigation, ${chrome.webNavigation ? 'ok' : 'API absente'}):\n${list || '  aucun'}`);
+        showToast(frames.length ? `Recherche introuvable dans ${frames.map((f) => f.host).join(', ')} — diagnostic copié, colle-le à Claude` : 'Aucun cadre détecté — diagnostic copié, colle-le à Claude', 'err');
       }
     } finally {
       setBusy(null);
