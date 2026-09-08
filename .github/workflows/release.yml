@@ -1,0 +1,29 @@
+name: Release (zip de l'extension)
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - run: npm run zip
+      - uses: softprops/action-gh-release@v2
+        with:
+          name: Cockpit Audibene ${{ github.ref_name }}
+          body: |
+            Extension Chrome / Edge — décompresser le zip, puis « Charger l'extension non empaquetée » dans edge://extensions (mode développeur).
+            Notice complète : https://benjamin-mag.github.io/cockpit-audibene/
+          files: |
+            release/cockpit-audibene.zip
+            release/cockpit-audibene-*.zip

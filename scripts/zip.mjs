@@ -1,5 +1,5 @@
 import archiver from 'archiver';
-import { createWriteStream, mkdirSync, readFileSync } from 'node:fs';
+import { copyFileSync, createWriteStream, mkdirSync, readFileSync } from 'node:fs';
 
 const { version } = JSON.parse(readFileSync('public/manifest.json', 'utf8'));
 mkdirSync('release', { recursive: true });
@@ -10,4 +10,6 @@ zip.pipe(out);
 zip.directory('dist/', false);
 await zip.finalize();
 await new Promise((r) => out.on('close', r));
-console.log(`${file} (${(zip.pointer() / 1024).toFixed(0)} Ko)`);
+// Nom stable pour le lien « dernière version » du site.
+copyFileSync(file, 'release/cockpit-audibene.zip');
+console.log(`${file} (${(zip.pointer() / 1024).toFixed(0)} Ko) + release/cockpit-audibene.zip`);

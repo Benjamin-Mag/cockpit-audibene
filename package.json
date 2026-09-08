@@ -1,6 +1,6 @@
 {
   "name": "cockpit-audibene",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "",
   "main": "index.js",
   "scripts": {
@@ -9,7 +9,8 @@
     "build": "node scripts/build.mjs",
     "zip": "npm run build && node scripts/zip.mjs",
     "typecheck": "tsc --noEmit",
-    "icons": "node scripts/icons.mjs"
+    "icons": "node scripts/icons.mjs",
+    "build:site": "node scripts/build-site.mjs"
   },
   "keywords": [],
   "author": "",

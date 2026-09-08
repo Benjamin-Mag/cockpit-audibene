@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Cockpit Audibene — installation</title>
+  <link rel="icon" href="./icons/icon48.png" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" />
+  <style>
+    :root { --bg:#eaf3fb; --surface:#fff; --text:#1a2b4a; --muted:#5b7a99; --accent:#1b4f9b; --accent-strong:#154080; --accent-soft:#d0e8f7; --border:#cfe0ef; --success:#2e7d5a; }
+    * { box-sizing: border-box; }
+    body { margin:0; background:var(--bg); color:var(--text); font: 15px/1.55 "Poppins","Segoe UI",system-ui,sans-serif; }
+    main { max-width: 820px; margin: 0 auto; padding: 48px 20px 80px; }
+    .hero { display:flex; align-items:center; gap:18px; margin-bottom: 10px; }
+    .hero img { width:64px; height:64px; border-radius:16px; box-shadow: 0 8px 24px rgba(26,43,74,.12); }
+    h1 { margin:0; font-size: 30px; letter-spacing:-.01em; }
+    .sub { color:var(--muted); margin: 0 0 28px; font-size: 16px; }
+    .card { background:var(--surface); border:1px solid var(--border); border-radius:16px; padding: 22px 24px; margin: 16px 0; box-shadow: 0 1px 2px rgba(26,43,74,.04), 0 10px 30px rgba(26,43,74,.06); }
+    h2 { font-size: 18px; margin: 0 0 12px; }
+    .btn { display:inline-flex; align-items:center; gap:8px; background:var(--accent); color:#fff; text-decoration:none; padding: 12px 20px; border-radius: 12px; font-weight:600; transition: background .25s, transform .25s, box-shadow .25s; }
+    .btn:hover { background:var(--accent-strong); box-shadow: 0 6px 18px rgba(27,79,155,.28); transform: translateY(-1px); }
+    .btn.ghost { background: var(--accent-soft); color: var(--accent-strong); }
+    .btn.ghost:hover { background:#b8d4e8; box-shadow:none; }
+    .row { display:flex; flex-wrap:wrap; gap:12px; align-items:center; }
+    ol { padding-left: 22px; margin: 0; } ol li { margin: 8px 0; }
+    code { background: var(--accent-soft); padding: 2px 7px; border-radius: 6px; font-size: 13.5px; }
+    .grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
+    .feat { background: var(--surface); border:1px solid var(--border); border-radius: 12px; padding: 14px 16px; }
+    .feat b { display:block; margin-bottom: 4px; }
+    .feat span { color: var(--muted); font-size: 14px; }
+    .note { color: var(--muted); font-size: 14px; }
+    footer { color: var(--muted); font-size: 13px; text-align:center; margin-top: 40px; }
+    footer a { color: var(--accent); }
+  </style>
+</head>
+<body>
+<main>
+  <div class="hero">
+    <img src="./icons/icon128.png" alt="" />
+    <div>
+      <h1>Cockpit Audibene</h1>
+      <p class="sub" style="margin:0">Le panneau latéral qui fait en un clic ce qui en prenait quinze dans Salesforce.</p>
+    </div>
+  </div>
+  <p class="sub">Extension Chrome / Edge — anamnèse, message vocal, mails, prise de RDV Doctolib / Acuitis, suivi des ventes. Rien ne quitte ton poste.</p>
+
+  <div class="card">
+    <h2>1 · Télécharger</h2>
+    <div class="row">
+      <a class="btn" id="dl" href="https://github.com/Benjamin-Mag/cockpit-audibene/releases/latest/download/cockpit-audibene.zip">⬇ Télécharger l'extension (.zip)</a>
+      <a class="btn ghost" href="./panel.html">Ouvrir la version web</a>
+    </div>
+    <p class="note" style="margin:12px 0 0">Dernière version : <span id="ver">…</span>. La version web fonctionne sans extension (copier / coller) mais ne dialogue pas avec Salesforce.</p>
+  </div>
+
+  <div class="card">
+    <h2>2 · Installer (une seule fois)</h2>
+    <ol>
+      <li>Décompresse le zip dans un dossier que tu gardes (par ex. <code>Documents\Cockpit Audibene</code>) — ne le supprime pas ensuite.</li>
+      <li>Ouvre <code>edge://extensions</code> (ou <code>chrome://extensions</code>) et active le <b>Mode développeur</b> (en haut à droite / à gauche).</li>
+      <li>Clique <b>Charger l'extension non empaquetée</b> et choisis ce dossier.</li>
+      <li>Sur une fiche Salesforce, appuie sur <b>Ctrl + Shift + Espace</b> (ou clique l'icône bleue) : le panneau s'ouvre à droite.</li>
+    </ol>
+    <p class="note" style="margin:12px 0 0">Mise à jour : remplace le contenu du dossier par celui du nouveau zip, puis ↻ sur la carte de l'extension.</p>
+  </div>
+
+  <div class="card">
+    <h2>3 · Premier lancement</h2>
+    <ol>
+      <li><b>Choisir mon dossier</b> : prends le dossier où se trouve le <code>data.json</code> de l'ancien générateur de mails — tes modèles sont repris, le fichier reste intact.</li>
+      <li>Indique ton nom, ton téléphone, et importe si tu veux ton export du suivi des ventes (<code>suivi-ventes-primes-….json</code>).</li>
+      <li>Quand le navigateur demande l'accès au dossier, autorise-le (c'est la copie de sauvegarde ; tes données sont aussi dans le navigateur).</li>
+    </ol>
+  </div>
+
+  <h2 style="margin:28px 0 12px">Ce que fait le panneau</h2>
+  <div class="grid">
+    <div class="feat"><b>Fiche lue automatiquement</b><span>Nom, genre, téléphone, naissance, partenaire — plus rien à copier.</span></div>
+    <div class="feat"><b>Message vocal → non joignable</b><span>Commentaire + Enregistrer + statut, en un clic ou Ctrl+Shift+M.</span></div>
+    <div class="feat"><b>COSI</b><span>Les champs de l'anamnèse Salesforce par puces, puis Appliquer.</span></div>
+    <div class="feat"><b>Anamnèse</b><span>Intro + résumé Salesforce + signature, écrits dans la fiche et enregistrés.</span></div>
+    <div class="feat"><b>Mails</b><span>Modèles préremplis depuis la fiche, insérés dans le composeur Salesforce.</span></div>
+    <div class="feat"><b>Doctolib / Acuitis</b><span>« Coller Marie Dupont » sur le formulaire de RDV.</span></div>
+    <div class="feat"><b>Ventes</b><span>Vente CAT 1 / CAT 2 en un clic depuis l'Opportunité, primes et salaire estimé.</span></div>
+    <div class="feat"><b>Vos données, chez vous</b><span>Fichier cockpit.json dans un dossier de votre choix, jamais envoyé nulle part.</span></div>
+  </div>
+
+  <footer>
+    <a href="./privacy.html">Politique de confidentialité</a> · <a href="https://github.com/Benjamin-Mag/cockpit-audibene">Code source</a>
+  </footer>
+</main>
+<script>
+  fetch('https://api.github.com/repos/Benjamin-Mag/cockpit-audibene/releases/latest').then(r => r.json()).then(r => {
+    if (r && r.tag_name) document.getElementById('ver').textContent = r.tag_name + (r.published_at ? ' — ' + new Date(r.published_at).toLocaleDateString('fr-FR') : '');
+    else document.getElementById('ver').textContent = 'voir GitHub';
+  }).catch(() => { document.getElementById('ver').textContent = 'voir GitHub'; });
+</script>
+</body>
+</html>
