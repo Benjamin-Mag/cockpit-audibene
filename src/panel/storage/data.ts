@@ -1,6 +1,6 @@
 import { type AppData, defaultData } from '../model';
 import { clearHandle, fsSupported, permissionState, pickFolder, readText, savedHandle, writeText } from './fs';
-import { detectKind, mergeGenerateur, mergeVentes, normalize, toLegacyGenerateur } from './legacy';
+import { detectKind, mergeData, mergeGenerateur, mergeVentes, normalize, toLegacyGenerateur } from './legacy';
 
 /**
  * Stockage « navigateur d'abord » : la copie de travail vit dans chrome.storage.local
@@ -63,11 +63,11 @@ async function readFolder(h: FileSystemDirectoryHandle): Promise<AppData | null>
   return legacy;
 }
 
-/** La plus récente des deux copies (navigateur / dossier). */
-function newest(local: AppData | null, folder: AppData | null): AppData | null {
+/** Réunion des deux copies (navigateur / dossier) — jamais de perte, voir mergeData. */
+function reconcile(local: AppData | null, folder: AppData | null): AppData | null {
   if (!local) return folder;
   if (!folder) return local;
-  return (folder.updatedAt ?? 0) > (local.updatedAt ?? 0) ? folder : local;
+  return mergeData(local, folder);
 }
 
 function state(sync: SyncStatus, status: StorageState['status'] = 'ready'): StorageState {
@@ -86,8 +86,9 @@ export async function initStorage(): Promise<{ state: StorageState; data: AppDat
   folderGranted = (await permissionState(handle, false)) === 'granted';
   if (!folderGranted) return { state: state('paused'), data: local };
   const folder = await readFolder(handle);
-  const data = newest(local, folder) ?? defaultData();
-  if (folder !== data) await writeText(handle, DATA_FILE, JSON.stringify(data, null, 2)).catch(() => {});
+  const data = reconcile(local, folder) ?? defaultData();
+  await writeText(handle, DATA_FILE, JSON.stringify(data, null, 2)).catch(() => {});
+  await localWrite(JSON.stringify(data));
   return { state: state('synced'), data };
 }
 
@@ -97,8 +98,9 @@ export async function authorize(current: AppData | null): Promise<{ state: Stora
   folderGranted = (await permissionState(handle, true)) === 'granted';
   if (!folderGranted) return { state: state('paused'), data: current };
   const folder = await readFolder(handle);
-  const data = newest(current, folder) ?? defaultData();
-  if (folder !== data) await writeText(handle, DATA_FILE, JSON.stringify(data, null, 2)).catch(() => {});
+  const data = reconcile(current, folder) ?? defaultData();
+  await writeText(handle, DATA_FILE, JSON.stringify(data, null, 2)).catch(() => {});
+  await localWrite(JSON.stringify(data));
   return { state: state('synced'), data };
 }
 
@@ -111,9 +113,7 @@ export async function chooseFolder(current: AppData | null): Promise<{ state: St
   try { localStorage.removeItem(MODE_KEY); } catch { /* indisponible */ }
   const existed = (await readText(h, DATA_FILE)) !== null ? 'cockpit' : (await readText(h, LEGACY_FILE)) !== null ? 'legacy' : null;
   const folder = await readFolder(h);
-  // Un dossier qui contient déjà des données prime sur la copie locale (changement de poste) ;
-  // sinon on garde ce qu'on a et on l'y écrit.
-  const data = folder ?? current ?? defaultData();
+  const data = reconcile(current, folder) ?? defaultData();
   await writeText(h, DATA_FILE, JSON.stringify(data, null, 2)).catch(() => {});
   return { state: state('synced'), data, existed };
 }
