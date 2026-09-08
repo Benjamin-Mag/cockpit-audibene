@@ -116,7 +116,7 @@ export function Header({ site, ctx, fiche, ficheState, recent, busy, onMv, onRef
                 </>
               )}
               {page !== 'lead' && <Btn kind="soft" icon="mail" onClick={() => goTo('mails')}>Mail</Btn>}
-              {page !== 'lead' && <Btn kind="soft" icon="message" onClick={() => goTo('chat')}>Commentaire</Btn>}
+              {page !== 'lead' && <Btn kind="soft" icon="message" onClick={() => goTo('chat')}>Chat partenaire</Btn>}
             </div>
             {page === 'opportunity' && hasFiche && (
               <div class="actions" style="margin-top:8px">

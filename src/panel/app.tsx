@@ -22,7 +22,7 @@ const TABS: { id: TabId; label: string; icon: IconName }[] = [
   { id: 'anamnese', label: 'COSI', icon: 'stetho' },
   { id: 'commentaire', label: 'Anamnèse', icon: 'pen' },
   { id: 'mails', label: 'Mails', icon: 'mail' },
-  { id: 'chat', label: 'Commentaire', icon: 'message' },
+  { id: 'chat', label: 'Chat partenaire', icon: 'message' },
   { id: 'reglages', label: '', icon: 'settings' },
 ];
 type PageId = 'cockpit' | 'ventes';
