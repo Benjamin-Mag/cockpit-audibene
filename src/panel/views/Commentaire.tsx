@@ -2,7 +2,7 @@ import { useEffect, useState } from 'preact/hooks';
 import type { Fiche, Genre } from '../../shared/types';
 import { readClipboard, writeClipboard } from '../bridge';
 import { type AppData, RESUME_TAG, composeComment, fillVars, resolveGenre, systemValues, uid } from '../model';
-import { Btn, Chip, EditablePreview, Seg, previewHtml } from '../components/ui';
+import { Btn, Chip, DeleteBtn, EditablePreview, Seg, previewHtml } from '../components/ui';
 
 interface Props {
   data: AppData;
@@ -48,9 +48,9 @@ export function Commentaire({ data, update, fiche, connected, busy, onWrite, toa
     update((d) => { const s = d.anamnese.situations.find((x) => x.id === id); if (s) s.label = l; });
   };
   const deleteSituation = (id: string, label: string) => {
-    if (!confirm(`Supprimer la situation « ${label} » et son texte ?`)) return;
     update((d) => { d.anamnese.situations = d.anamnese.situations.filter((x) => x.id !== id); delete d.anamnese.textes[id]; });
     if (sit === id) setSit(data.anamnese.situations.find((x) => x.id !== id)?.id ?? null);
+    toast(`Situation « ${label} » supprimée`, 'ok');
   };
 
   const raw = sit ? data.anamnese.textes[sit] ?? '' : '';
@@ -121,7 +121,7 @@ export function Commentaire({ data, update, fiche, connected, busy, onWrite, toa
             {data.anamnese.situations.map((s) => (
               <div key={s.id} class="row">
                 <input value={s.label} style="padding:5px 8px;font-size:12px" onChange={(e) => renameSituation(s.id, (e.target as HTMLInputElement).value)} onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }} />
-                <Btn kind="ghost" icon="x" title="Supprimer" onClick={() => deleteSituation(s.id, s.label)} />
+                <DeleteBtn title="Supprimer cette situation et son texte" onConfirm={() => deleteSituation(s.id, s.label)} />
               </div>
             ))}
             <div class="row">

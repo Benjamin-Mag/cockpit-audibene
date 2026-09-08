@@ -75,6 +75,31 @@ export function Btn({ kind = 'primary', big, busy, disabled, icon, title, onClic
   );
 }
 
+/**
+ * Suppression en deux temps, sans boîte de dialogue du navigateur (bloquée dans un
+ * panneau d'extension) : 1er clic → « Confirmer ? » pendant 4 s, 2e clic → suppression.
+ */
+export function DeleteBtn({ onConfirm, label, title }: { onConfirm: () => void; label?: string; title?: string }) {
+  const [armed, setArmed] = useState(false);
+  useEffect(() => {
+    if (!armed) return;
+    const t = setTimeout(() => setArmed(false), 4000);
+    return () => clearTimeout(t);
+  }, [armed]);
+  if (armed) {
+    return (
+      <button type="button" class="btn danger" onClick={() => { setArmed(false); onConfirm(); }} title="Cliquer à nouveau pour supprimer">
+        <Icon name="alert" /> Confirmer ?
+      </button>
+    );
+  }
+  return (
+    <button type="button" class={['btn ghost', label ? '' : 'icon'].join(' ')} title={title ?? 'Supprimer'} onClick={() => setArmed(true)}>
+      <Icon name="x" size={label ? 14 : 12} />{label}
+    </button>
+  );
+}
+
 export function Chip({ on, onClick, children, small, onRemove }: { on?: boolean; onClick?: () => void; children: ComponentChildren; small?: boolean; onRemove?: () => void }) {
   return (
     <button type="button" class={['chip', on ? 'on' : '', small ? 'small' : ''].join(' ')} onClick={onClick}>

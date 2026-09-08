@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'preact/hooks';
 import type { Fiche, Genre } from '../../shared/types';
 import { writeClipboard } from '../bridge';
-import { Btn, Chip, EditablePreview, Field, Icon, Seg, previewHtml } from '../components/ui';
+import { Btn, Chip, DeleteBtn, EditablePreview, Field, Icon, Seg, previewHtml } from '../components/ui';
 import { frToIso, frToTime, isDateVar, isHeureVar, isoToFr, timeToFr } from '../dates';
 import { type AppData, type Template, fillVars, resolveGenre, systemValues, uid } from '../model';
 
@@ -68,12 +68,19 @@ export function Mails({ data, update, fiche, connected, busy, onInsert, onNeedPa
     const n = data.templates.filter((t) => t.audience === audience && t[catField] === id).length;
     const fallback = audience === 'patient' ? 'all' : categories.find((c) => c.id !== id)?.id;
     if (audience === 'partenaire' && !fallback) { toast('Garde au moins une catégorie partenaire', 'err'); return; }
-    if (!confirm(`Supprimer la catégorie « ${id} » ?${n ? `\n${n} modèle(s) passeront en « ${fallback === 'all' ? 'Toutes' : fallback} ».` : ''}`)) return;
     update((d) => {
       d.categories[audience] = d.categories[audience].filter((c) => c.id !== id);
       for (const t of d.templates) if (t.audience === audience && t[catField] === id) t[catField] = fallback;
     });
     if (cat === id) setCat(null);
+    toast(n ? `Catégorie supprimée — ${n} modèle(s) passés en « ${fallback === 'all' ? 'Toutes' : fallback} »` : 'Catégorie supprimée', 'ok');
+  };
+  const deleteTemplate = (id: string, title: string) => {
+    update((d) => { d.templates = d.templates.filter((t) => t.id !== id); });
+    setEditing(null);
+    setSelId(null);
+    setListOpen(true);
+    toast(`Modèle « ${title} » supprimé`, 'ok');
   };
 
   /** Verrou : pas de mail sans genre choisi (lu sur la fiche ou cliqué). */
@@ -176,7 +183,7 @@ export function Mails({ data, update, fiche, connected, busy, onInsert, onNeedPa
         <div class="note">Variables : {'{{nom}}'}, {'{{date}}'}, {'{{heure}}'}, {'{{nom partenaire}}'}, {'{{adresse}}'}, {'{{nom_conseiller}}'}, {'{{tel_conseiller}}'}, {'{{titre_conseiller}}'} — et patient(e), il(elle), conseiller(ère) s'accordent au genre.</div>
         <div class="row">
           <Btn icon="check" onClick={saveTpl} class="grow">Enregistrer le modèle</Btn>
-          {!isNew && <Btn kind="danger" icon="x" title="Supprimer ce modèle" onClick={() => { if (confirm(`Supprimer « ${e.title} » ?`)) { update((d) => { d.templates = d.templates.filter((t) => t.id !== e.id); }); setEditing(null); setSelId(null); setListOpen(true); } }} />}
+          {!isNew && <DeleteBtn label="Supprimer" title="Supprimer ce modèle" onConfirm={() => deleteTemplate(e.id, e.title)} />}
         </div>
       </div>
     );
@@ -211,7 +218,7 @@ export function Mails({ data, update, fiche, connected, busy, onInsert, onNeedPa
                 {categories.map((c) => (
                   <div key={c.id} class="row">
                     <input value={c.label} style="padding:5px 8px;font-size:12px" onChange={(e) => renameCategory(c.id, (e.target as HTMLInputElement).value)} onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }} />
-                    <Btn kind="ghost" icon="x" title="Supprimer" onClick={() => deleteCategory(c.id)} />
+                    <DeleteBtn title="Supprimer cette catégorie" onConfirm={() => deleteCategory(c.id)} />
                   </div>
                 ))}
                 <div class="row">
@@ -251,7 +258,10 @@ export function Mails({ data, update, fiche, connected, busy, onInsert, onNeedPa
                   <Seg options={[{ id: 'M', label: 'M.' }, { id: 'F', label: 'Mme' }]} value={effectiveGenre} onChange={setGenre} />
                   {!effectiveGenre ? <span class="note warn">genre requis</span> : !genre && fiche?.genre ? <span class="note">depuis la fiche</span> : null}
                 </div>
-                <Btn kind="ghost" icon="pen" title="Modifier ce modèle" onClick={() => setEditing({ ...sel })} />
+                <div class="row">
+                  <Btn kind="ghost" icon="pen" title="Modifier ce modèle" onClick={() => setEditing({ ...sel })} />
+                  <DeleteBtn title="Supprimer ce modèle" onConfirm={() => deleteTemplate(sel.id, sel.title)} />
+                </div>
               </div>
               {vars.map((v) => {
                 const fromFiche = v in auto && !(v in values) && !!auto[v];

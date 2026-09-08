@@ -1,5 +1,5 @@
 import { useState } from 'preact/hooks';
-import { Btn, Chip, Field, Icon, Seg } from '../components/ui';
+import { Btn, Chip, DeleteBtn, Field, Icon, Seg } from '../components/ui';
 import type { AppData, Payslip } from '../model';
 import { computeMonth, computeRates, euro, euro2, listMonths, listYears, monthKey, monthLabel, monthShort, parseMonthKey, pct } from '../ventes';
 
@@ -119,7 +119,7 @@ export function Ventes({ data, update, prefill, onImport, toast }: Props) {
                   <span class="t" style="font-weight:400">{s.name}</span>
                   <span class={['badge', s.cat === 2 ? 'sms' : ''].join(' ')}>CAT {s.cat}</span>
                   {s.url && <a href={s.url} target="_blank" rel="noreferrer" title="Ouvrir dans Salesforce" style="color:var(--accent);display:inline-flex"><Icon name="send" size={13} /></a>}
-                  <button type="button" class="btn ghost icon" title="Supprimer" onClick={() => { if (confirm(`Supprimer la vente « ${s.name} » ?`)) update((d) => { d.ventes.sales[month].splice(i, 1); }); }}><Icon name="x" size={12} /></button>
+                  <DeleteBtn title="Supprimer cette vente" onConfirm={() => { update((d) => { d.ventes.sales[month].splice(i, 1); }); toast(`Vente « ${s.name} » supprimée`, 'ok'); }} />
                 </div>
               ))}
             </div>
@@ -164,7 +164,7 @@ export function Ventes({ data, update, prefill, onImport, toast }: Props) {
                   <label class="row" style="gap:4px;font-size:11px;color:var(--muted)" title="Inclure dans les moyennes">
                     <input type="checkbox" checked={p.includeInAverage !== false} onChange={(e) => update((d) => { d.ventes.payslips[i].includeInAverage = (e.target as HTMLInputElement).checked; })} style="width:14px;height:14px;margin:0" /> moy.
                   </label>
-                  <button type="button" class="btn ghost icon" title="Supprimer" onClick={() => { if (confirm(`Supprimer la fiche ${p.ficheMonth} ?`)) update((d) => { d.ventes.payslips.splice(i, 1); }); }}><Icon name="x" size={12} /></button>
+                  <DeleteBtn title="Supprimer cette fiche" onConfirm={() => { update((d) => { d.ventes.payslips.splice(i, 1); }); toast(`Fiche ${p.ficheMonth} supprimée`, 'ok'); }} />
                 </div>
               ))}
             </div>

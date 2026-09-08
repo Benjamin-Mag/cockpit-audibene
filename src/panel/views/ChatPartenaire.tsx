@@ -2,7 +2,7 @@ import { useEffect, useState } from 'preact/hooks';
 import type { Fiche, Genre } from '../../shared/types';
 import { writeClipboard } from '../bridge';
 import { type AppData, fillVars, resolveGenre, systemValues, uid } from '../model';
-import { Btn, Chip, EditablePreview, Seg, previewHtml } from '../components/ui';
+import { Btn, Chip, DeleteBtn, EditablePreview, Seg, previewHtml } from '../components/ui';
 
 interface Props {
   data: AppData;
@@ -44,9 +44,9 @@ export function ChatPartenaire({ data, update, fiche, connected, busy, onWrite, 
     toast('Texte enregistré', 'ok');
   };
   const remove = (id: string, label: string) => {
-    if (!confirm(`Supprimer « ${label} » ?`)) return;
     update((d) => { d.chatPartenaire = d.chatPartenaire.filter((t) => t.id !== id); });
     if (selId === id) setSelId(list.find((t) => t.id !== id)?.id ?? null);
+    toast(`Texte « ${label} » supprimé`, 'ok');
   };
 
   if (editing) {
@@ -78,7 +78,21 @@ export function ChatPartenaire({ data, update, fiche, connected, busy, onWrite, 
         <div class="empty">Aucun texte. Le + en crée un.</div>
       ) : (
         <div class="chips">
-          {list.map((t) => <Chip key={t.id} on={selId === t.id} onClick={() => setSelId(t.id)} onRemove={manage ? () => remove(t.id, t.label) : undefined}>{t.label}</Chip>)}
+          {list.map((t) => <Chip key={t.id} on={selId === t.id} onClick={() => setSelId(t.id)}>{t.label}</Chip>)}
+        </div>
+      )}
+      {manage && list.length > 0 && (
+        <div class="card" style="animation:none">
+          <div class="stack" style="gap:6px">
+            <span class="label">Textes du Chat partenaire</span>
+            {list.map((t) => (
+              <div key={t.id} class="row">
+                <span class="grow" style="font-size:12.5px">{t.label}</span>
+                <Btn kind="ghost" icon="pen" title="Modifier" onClick={() => { setSelId(t.id); setDraft({ label: t.label, text: t.text }); setEditing(true); }} />
+                <DeleteBtn title="Supprimer ce texte" onConfirm={() => remove(t.id, t.label)} />
+              </div>
+            ))}
+          </div>
         </div>
       )}
 
