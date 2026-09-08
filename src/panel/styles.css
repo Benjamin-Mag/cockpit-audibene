@@ -1,16 +1,19 @@
+/* Palette reprise du générateur de mails d'origine (papier bleu clair, encre marine, accent #1B4F9B). */
 :root {
-  --bg: #f4f3ee;
+  --bg: #eaf3fb;
   --surface: #ffffff;
-  --surface-2: #faf9f5;
-  --border: #e4e2d9;
-  --border-strong: #cfccc1;
-  --text: #2b3634;
-  --muted: #6f7a77;
-  --faint: #9aa39f;
-  --accent: #3e8c7b;
-  --accent-strong: #2f7263;
-  --accent-soft: #e4f1ec;
-  --accent-soft-2: #d2e8df;
+  --surface-2: #f3f8fc;
+  --border: #cfe0ef;
+  --border-strong: #b8d4e8;
+  --text: #1a2b4a;
+  --muted: #5b7a99;
+  --faint: #8fa8cc;
+  --accent: #1b4f9b;
+  --accent-strong: #154080;
+  --accent-soft: #d0e8f7;
+  --accent-soft-2: #b8d4e8;
+  --success: #2e7d5a;
+  --success-soft: #d0ead8;
   --warn: #b98a3b;
   --warn-soft: #f7efdd;
   --danger: #b5564c;
@@ -20,7 +23,7 @@
   --ease: cubic-bezier(0.4, 0, 0.2, 1);
   --dur: 280ms;
   --dur-slow: 440ms;
-  --shadow: 0 1px 2px rgba(43, 54, 52, 0.05), 0 8px 24px rgba(43, 54, 52, 0.06);
+  --shadow: 0 1px 2px rgba(26, 43, 74, 0.05), 0 8px 24px rgba(26, 43, 74, 0.07);
   color-scheme: light;
 }
 
@@ -30,7 +33,7 @@ body {
   margin: 0;
   background: var(--bg);
   color: var(--text);
-  font: 13.5px/1.45 "Segoe UI", system-ui, -apple-system, sans-serif;
+  font: 13.5px/1.45 "Poppins", "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
   -webkit-font-smoothing: antialiased;
 }
 button, input, textarea, select { font: inherit; color: inherit; }
@@ -53,7 +56,7 @@ textarea { resize: vertical; min-height: 90px; line-height: 1.5; }
 /* ---------- entête ---------- */
 .top {
   position: sticky; top: 0; z-index: 5;
-  background: linear-gradient(to bottom, var(--bg) 85%, rgba(244, 243, 238, 0));
+  background: linear-gradient(to bottom, var(--bg) 85%, rgba(234, 243, 251, 0));
   padding: 12px 12px 6px;
 }
 .brand { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 11.5px; letter-spacing: 0.02em; margin: 0 2px 8px; }
@@ -80,7 +83,7 @@ textarea { resize: vertical; min-height: 90px; line-height: 1.5; }
 .skeleton { position: relative; overflow: hidden; background: var(--surface-2); border-radius: 6px; height: 12px; }
 .skeleton::after {
   content: ""; position: absolute; inset: 0;
-  background: linear-gradient(90deg, transparent, rgba(62, 140, 123, 0.12), transparent);
+  background: linear-gradient(90deg, transparent, rgba(27, 79, 155, 0.12), transparent);
   animation: shimmer 1.6s var(--ease) infinite;
 }
 
@@ -115,7 +118,7 @@ textarea { resize: vertical; min-height: 90px; line-height: 1.5; }
   background: var(--accent); color: #fff;
   transition: background var(--dur) var(--ease), transform var(--dur) var(--ease), box-shadow var(--dur) var(--ease), opacity var(--dur) var(--ease), border-color var(--dur) var(--ease);
 }
-.btn:hover { background: var(--accent-strong); box-shadow: 0 4px 14px rgba(62, 140, 123, 0.25); }
+.btn:hover { background: var(--accent-strong); box-shadow: 0 4px 14px rgba(27, 79, 155, 0.25); }
 .btn:active { transform: translateY(1px) scale(0.985); }
 .btn:disabled { opacity: 0.55; cursor: default; box-shadow: none; transform: none; }
 .btn.soft { background: var(--accent-soft); color: var(--accent-strong); }
@@ -184,7 +187,7 @@ textarea { resize: vertical; min-height: 90px; line-height: 1.5; }
   padding: 10px 12px; font-size: 12.8px; line-height: 1.5; color: var(--text);
 }
 .preview mark { background: var(--warn-soft); color: var(--warn); border-radius: 4px; padding: 0 4px; font-style: italic; }
-.preview mark.ok { background: var(--accent-soft); color: var(--accent-strong); font-style: normal; }
+.preview mark.ok { background: var(--success-soft); color: var(--success); font-style: normal; }
 .note { font-size: 12px; color: var(--muted); }
 .note.warn { color: var(--warn); }
 hr { border: 0; border-top: 1px solid var(--border); margin: 4px 0; }
@@ -223,7 +226,7 @@ input[type="date"], input[type="time"] { cursor: pointer; }
   animation: toastIn var(--dur-slow) var(--ease);
   display: flex; align-items: center; gap: 8px;
 }
-.toast.ok { background: var(--accent-strong); }
+.toast.ok { background: var(--success); }
 .toast.err { background: var(--danger); }
 .toast.out { animation: toastOut var(--dur-slow) var(--ease) forwards; }
 

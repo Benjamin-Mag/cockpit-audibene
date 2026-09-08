@@ -1,4 +1,4 @@
-// Génère public/icons/icon{16,48,128}.png (jauge blanche sur carré arrondi teal),
+// Génère public/icons/icon{16,48,128}.png (jauge blanche sur carré arrondi bleu #1B4F9B),
 // sans dépendance : encodeur PNG minimal + rendu par sur-échantillonnage.
 import { deflateSync } from 'node:zlib';
 import { writeFileSync, mkdirSync } from 'node:fs';
@@ -32,7 +32,7 @@ const png = (w, h, rgba) => {
   ]);
 };
 
-const BG = [15, 111, 102];
+const BG = [27, 79, 155];
 const FG = [255, 255, 255];
 const deg = (a) => (a * Math.PI) / 180;
 
