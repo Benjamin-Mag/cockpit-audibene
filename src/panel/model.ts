@@ -19,6 +19,7 @@ export interface Categorie { id: string; label: string }
 export interface Reglages {
   nom: string;
   telephone: string;
+  email: string;
   genre: 'M' | 'F';
   mvComment: string;
   /** Après « Écrire dans la fiche », cliquer Enregistrer automatiquement. */
@@ -92,7 +93,7 @@ export function defaultData(): AppData {
   return {
     version: 2,
     onboardingDone: false,
-    reglages: { nom: '', telephone: '', genre: 'M', mvComment: 'MV', autoSaveComment: true, emailFooter: DEFAULT_FOOTER, sigPatientMail: '', sigPatientSMS: '', sigPartenaireMail: '' },
+    reglages: { nom: '', telephone: '', email: '', genre: 'M', mvComment: 'MV', autoSaveComment: true, emailFooter: DEFAULT_FOOTER, sigPatientMail: '', sigPatientSMS: '', sigPartenaireMail: '' },
     anamnese: { situations: DEFAULT_SITUATIONS.map((s) => ({ ...s })), textes: { ...DEFAULT_TEXTES }, phrases: {} },
     chatPartenaire: [{ id: 'chat-merci', label: 'Merci', text: 'Bonjour,\nMerci pour cette mise à jour.\nAu plaisir de vous lire,\n{{nom_conseiller}}' }],
     templates: [],
@@ -109,6 +110,7 @@ export function systemValues(r: Reglages): Record<string, string> {
   return {
     nom_conseiller: r.nom,
     tel_conseiller: r.telephone,
+    email_conseiller: r.email,
     titre_conseiller: (r.genre === 'F' ? 'Conseillère' : 'Conseiller') + ' audibene',
   };
 }

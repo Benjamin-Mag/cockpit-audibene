@@ -6,7 +6,7 @@ import { frToIso, frToTime, isDateVar, isHeureVar, isoToFr, timeToFr } from '../
 import { type AppData, type Template, fillVars, resolveGenre, systemValues, uid } from '../model';
 
 type Audience = 'patient' | 'partenaire';
-const SYSTEM_VARS = ['nom_conseiller', 'tel_conseiller', 'titre_conseiller'];
+const SYSTEM_VARS = ['nom_conseiller', 'tel_conseiller', 'email_conseiller', 'titre_conseiller'];
 const FIELD_LABELS: Record<string, string> = { nom: 'Nom du patient', heure: 'Heure du RDV', date: 'Date du RDV', 'nom partenaire': 'Nom du partenaire', adresse: 'Adresse du partenaire' };
 
 interface Props {
@@ -66,8 +66,9 @@ export function Mails({ data, update, fiche, connected, busy, onInsert, onNeedPa
     { snippet: '{{heure}}', label: 'Heure', hint: 'Heure du RDV (sélecteur)' },
     { snippet: '{{nom partenaire}}', label: 'Partenaire', hint: 'Nom du partenaire, lu sur la fiche' },
     { snippet: '{{adresse}}', label: 'Adresse', hint: 'Adresse du partenaire, lue sur la fiche' },
-    { snippet: '{{nom_conseiller}}', label: 'Mon nom', hint: 'Réglages → Signature' },
-    { snippet: '{{tel_conseiller}}', label: 'Mon téléphone', hint: 'Réglages → Signature' },
+    { snippet: '{{nom_conseiller}}', label: 'Nom conseiller', hint: 'Réglages → Signature' },
+    { snippet: '{{tel_conseiller}}', label: 'Téléphone conseiller', hint: 'Réglages → Signature' },
+    { snippet: '{{email_conseiller}}', label: 'Adresse mail conseiller', hint: 'Réglages → Signature' },
     { snippet: '{{titre_conseiller}}', label: 'Conseiller/ère audibene', hint: 'Selon le titre choisi dans Réglages' },
     { snippet: 'patient(e)', label: 'patient(e)', hint: 'S\'accorde au genre choisi' },
     { snippet: 'il(elle)', label: 'il(elle)', hint: 'S\'accorde au genre choisi' },

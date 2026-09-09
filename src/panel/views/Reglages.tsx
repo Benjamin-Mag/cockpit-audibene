@@ -19,7 +19,7 @@ interface Props {
 export function Reglages({ data, update, storage, onChangeFolder, onAuthorize, onImport, onExport, onExportLegacy, version }: Props) {
   const r = data.reglages;
   const set = <K extends keyof AppData['reglages']>(k: K, v: AppData['reglages'][K]) => update((d) => { d.reglages[k] = v; });
-  const input = (k: 'nom' | 'telephone' | 'mvComment', placeholder?: string) => (
+  const input = (k: 'nom' | 'telephone' | 'email' | 'mvComment', placeholder?: string) => (
     <input value={r[k]} placeholder={placeholder} onInput={(e) => set(k, (e.target as HTMLInputElement).value)} />
   );
 
@@ -27,6 +27,7 @@ export function Reglages({ data, update, storage, onChangeFolder, onAuthorize, o
     <div class="view">
       <div class="section-title">Signature</div>
       <Field label="Prénom et nom">{input('nom')}</Field>
+      <Field label="Adresse e-mail">{input('email', 'prenom.nom@audibene.fr')}</Field>
       <Field label="Téléphone">{input('telephone', '06 …')}</Field>
       <Field label="Titre"><Seg options={[{ id: 'M', label: 'Conseiller' }, { id: 'F', label: 'Conseillère' }]} value={r.genre} onChange={(g) => set('genre', g)} /></Field>
 
