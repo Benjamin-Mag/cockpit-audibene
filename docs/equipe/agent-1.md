@@ -75,7 +75,7 @@ Worktree : `Documents\Claude\Projects\Cockpit Audibene - partner-search` · bran
 **Découpage** (branche `feature/orl-finder` depuis `main`, une PR par étape) :
 1. Retrait Partner Search + onglet ORL Finder : recherche GPS, liste triée avec distance, prochain créneau, Prendre RDV / Itinéraire / Ouvrir sur Doctolib (téléphone « à l'étape suivante »). → **livré, PR #4** (parseur validé sur une vraie réponse Doctolib depuis Node ; à confirmer depuis le panneau).
 2. Fiche praticien : téléphone (pas de téléphone = pas de ligne), secteur en clair, Audiométrie, message type, TOP 3. → **livré, PR #6**, branche `feature/orl-finder-2`.
-3. Filtres (délai, secteur, rayon auto), cache 10 min, finitions. → **livré, PR #8**, branche `feature/orl-finder-3`.
+3. Filtres (délai, secteur, rayon auto), cache 10 min, finitions. → **livré, PR #9**, branche `feature/orl-finder-3`.
 
 - 2026-09-09 : PR #4 mergée (squash #5), **v1.0.21** publiée. Worktree recréé sur `feature/orl-finder-2` depuis `main` (5d38336). Étape 2 : `ficheOrl` (`/profiles/<slug>.json?pid=practice-<id>&locale=fr` → téléphone du lieu, adresse, secteur en clair, actes → « audiom »), `secteurLabel`, `MESSAGE_TYPE` ; vue : lecture des fiches des 12 retenus (créneaux les plus proches d'abord, puis ordre de tri), règle « pas de téléphone = pas de ligne » + compteurs (sans numéro / non vérifiés), TOP 3, `tel:` + copier, Audiométrie ✅/⚠️, message type (global + par ligne) ; ménage `partenairesCache` au démarrage. Fiches testées sur 3 vrais praticiens depuis Node (numéro du lieu parfois `null` alors qu'un autre lieu du même médecin en a un → règle stricte appliquée : c'est le numéro du cabinet affiché qui compte).
 
