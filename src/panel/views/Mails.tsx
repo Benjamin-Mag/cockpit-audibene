@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'preact/hooks';
+import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import type { Fiche, Genre } from '../../shared/types';
 import { writeClipboard } from '../bridge';
 import { Btn, Chip, DeleteBtn, EditablePreview, Field, Icon, Seg, previewHtml } from '../components/ui';
@@ -42,6 +42,36 @@ export function Mails({ data, update, fiche, connected, busy, onInsert, onNeedPa
   const [newCat, setNewCat] = useState('');
   const [dragId, setDragId] = useState<string | null>(null);
   const [overId, setOverId] = useState<string | null>(null);
+
+  // Éditeur : insertion d'une variable à l'endroit du curseur, dans le dernier champ utilisé.
+  type EditField = 'subject' | 'body' | 'smsCompanion';
+  const fieldRefs = { subject: useRef<HTMLInputElement>(null), body: useRef<HTMLTextAreaElement>(null), smsCompanion: useRef<HTMLTextAreaElement>(null) };
+  const [activeField, setActiveField] = useState<EditField>('body');
+  const insertVar = (snippet: string) => {
+    const el = fieldRefs[activeField].current;
+    setEditing((e) => {
+      if (!e) return e;
+      const current = (e[activeField] ?? '') as string;
+      const start = el?.selectionStart ?? current.length;
+      const end = el?.selectionEnd ?? current.length;
+      const next = current.slice(0, start) + snippet + current.slice(end);
+      const caret = start + snippet.length;
+      setTimeout(() => { if (el) { el.focus(); el.setSelectionRange(caret, caret); } }, 0);
+      return { ...e, [activeField]: next };
+    });
+  };
+  const VARIABLES: { snippet: string; label: string; hint: string }[] = [
+    { snippet: '{{nom}}', label: 'Nom du patient', hint: 'Civilité + prénom + nom, lus sur la fiche' },
+    { snippet: '{{date}}', label: 'Date', hint: 'Date du RDV (sélecteur)' },
+    { snippet: '{{heure}}', label: 'Heure', hint: 'Heure du RDV (sélecteur)' },
+    { snippet: '{{nom partenaire}}', label: 'Partenaire', hint: 'Nom du partenaire, lu sur la fiche' },
+    { snippet: '{{adresse}}', label: 'Adresse', hint: 'Adresse du partenaire, lue sur la fiche' },
+    { snippet: '{{nom_conseiller}}', label: 'Mon nom', hint: 'Réglages → Signature' },
+    { snippet: '{{tel_conseiller}}', label: 'Mon téléphone', hint: 'Réglages → Signature' },
+    { snippet: '{{titre_conseiller}}', label: 'Conseiller/ère audibene', hint: 'Selon le titre choisi dans Réglages' },
+    { snippet: 'patient(e)', label: 'patient(e)', hint: 'S\'accorde au genre choisi' },
+    { snippet: 'il(elle)', label: 'il(elle)', hint: 'S\'accorde au genre choisi' },
+  ];
 
   /** Glisser-déposer : la catégorie déplacée prend la place de celle sur laquelle on la lâche. */
   const moveCategory = (aud: Audience, fromId: string, toId: string) => {
@@ -229,14 +259,19 @@ export function Mails({ data, update, fiche, connected, busy, onInsert, onNeedPa
             </div>
           )}
         </Field>
-        {e.type === 'email' && <Field label="Objet"><input value={e.subject ?? ''} onInput={(ev) => set({ subject: (ev.target as HTMLInputElement).value })} placeholder="Objet du mail" /></Field>}
+        {e.type === 'email' && <Field label="Objet"><input ref={fieldRefs.subject} value={e.subject ?? ''} onFocus={() => setActiveField('subject')} onInput={(ev) => set({ subject: (ev.target as HTMLInputElement).value })} placeholder="Objet du mail" /></Field>}
+        <Field label="Variables — un clic l'insère dans le champ en cours">
+          <div class="chips">
+            {VARIABLES.map((v) => <Chip key={v.snippet} small onClick={() => insertVar(v.snippet)}><span title={v.hint}>{v.label}</span></Chip>)}
+          </div>
+        </Field>
         <Field label={e.type === 'email' ? 'Texte du mail' : 'Texte du SMS'}>
-          <textarea rows={10} value={e.body} onInput={(ev) => set({ body: (ev.target as HTMLTextAreaElement).value })} />
+          <textarea ref={fieldRefs.body} rows={10} value={e.body} onFocus={() => setActiveField('body')} onInput={(ev) => set({ body: (ev.target as HTMLTextAreaElement).value })} />
         </Field>
         {e.audience === 'patient' && e.type === 'email' && (
-          <Field label="SMS accompagnateur (optionnel)"><textarea rows={5} value={e.smsCompanion ?? ''} onInput={(ev) => set({ smsCompanion: (ev.target as HTMLTextAreaElement).value })} /></Field>
+          <Field label="SMS accompagnateur (optionnel)"><textarea ref={fieldRefs.smsCompanion} rows={5} value={e.smsCompanion ?? ''} onFocus={() => setActiveField('smsCompanion')} onInput={(ev) => set({ smsCompanion: (ev.target as HTMLTextAreaElement).value })} /></Field>
         )}
-        <div class="note">Variables : {'{{nom}}'}, {'{{date}}'}, {'{{heure}}'}, {'{{nom partenaire}}'}, {'{{adresse}}'}, {'{{nom_conseiller}}'}, {'{{tel_conseiller}}'}, {'{{titre_conseiller}}'} — et patient(e), il(elle), conseiller(ère) s'accordent au genre.</div>
+        <div class="note">Les formes patient(e), il(elle), conseiller(ère) s'accordent automatiquement au genre M./Mme choisi au moment de générer.</div>
         <div class="row">
           <Btn icon="check" onClick={saveTpl} class="grow">Enregistrer le modèle</Btn>
           {!isNew && <DeleteBtn label="Supprimer" title="Supprimer ce modèle" onConfirm={() => deleteTemplate(e.id, e.title)} />}
