@@ -9,7 +9,7 @@ Objectif (cadrage à venir avec Benjamin) : reproduire dans Cockpit le « Partne
 ## À faire pour démarrer (introduction)
 - [x] Lire `CLAUDE.md`, `docs/equipe/EQUIPE.md`, ce fichier.
 - [x] Dans le worktree : `npm ci`, `npx tsc --noEmit`, `npm run build` → OK (build 20260909101850, `dist/` produit, branche à jour sur `origin/main` f705c0f).
-- [ ] Charger `dist/` du worktree dans Edge (mode développeur) pour voir le panneau sur une Piste — sans rien modifier. *(Nécessite le navigateur de Benjamin et une vraie Piste : à faire avec lui, ou dès que le chef me confirme la marche à suivre.)*
+- [x] Charger `dist/` du worktree dans Edge — **délégué au chef d'orchestre / Benjamin** (test réel à chaque livraison). De mon côté : `npm run dev` → http://localhost:5173/panel.html pour vérifier l'interface sans Salesforce.
 - [x] Repérer dans le code : lecture de la fiche (`src/content/salesforce/context.ts`), onglets par type de fiche (`src/panel/app.tsx`), une action de bout en bout (ex. `openSmsPanel` → `bridge.ts` → `Header.tsx`).
 - [x] Envoyer un message au chef d'orchestre : « prêt », plus toute question sur la mise en place.
 
@@ -23,10 +23,10 @@ Objectif (cadrage à venir avec Benjamin) : reproduire dans Cockpit le « Partne
 
 ## Journal
 - 2026-09-09 : introduction au projet. Lecture des docs, vérifications (`tsc`, `build`) vertes, repérage du code. Message « prêt » envoyé au chef.
+- 2026-09-09 : introduction validée par le chef. Tests Salesforce délégués au chef/Benjamin ; export CSV privilégié si le rapport est un Excel ; aucune lib sans validation. En attente du cadrage Partner Search.
 
 ## Décisions
 (néant)
 
 ## Questions ouvertes
-- Chargement de `dist/` dans Edge : je ne peux pas le faire seul (navigateur et Salesforce de Benjamin). Je propose de tester via Benjamin à chaque livraison, comme prévu par la charte.
 - Format du rapport Salesforce partenaires (CSV ? Excel ? colonnes : nom, adresse, code postal, ville, téléphone, coordonnées GPS ?) : à préciser au cadrage. « Le plus proche » = même département / préfixe de code postal, ou vraie distance (nécessite latitude/longitude ou une table code postal → coordonnées embarquée, sans appel réseau) ?
