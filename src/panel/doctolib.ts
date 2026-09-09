@@ -2,7 +2,11 @@
 // présente). Appels vérifiés par le chef d'orchestre le 2026-09-09 ; c'est, avec
 // l'itinéraire Google Maps (ouvert seulement au clic), une exception assumée à la
 // règle « pas d'appel réseau » : rien du patient n'est envoyé, seulement un point GPS.
+import { type ProxyResponse, fetchViaTab, isExtension } from './bridge';
+
 const BASE = 'https://www.doctolib.fr';
+/** Onglets utilisables pour porter les appels (site patient uniquement). */
+const ONGLET = 'https://www.doctolib.fr/*';
 export const SPECIALITE = 'orl-oto-rhino-laryngologie';
 /** Pause entre deux lectures de créneaux : Doctolib n'aime pas les rafales. */
 export const PAUSE_MS = 150;
@@ -62,22 +66,51 @@ interface RawProvider {
   onlineBooking?: { agendaIds?: number[] } | null;
 }
 
-async function call(path: string, init: RequestInit = {}): Promise<Response> {
-  const res = await fetch(`${BASE}${path}`, { ...init, credentials: 'include', headers: { Accept: 'application/json', ...(init.headers ?? {}) } });
-  if (res.status === 403 || res.status === 429 || (res.headers.get('content-type') ?? '').includes('text/html')) {
-    throw new DoctolibRefus(res.status);
-  }
-  if (!res.ok) throw new Error(`Doctolib a répondu ${res.status}.`);
-  return res;
+interface CallInit { method?: string; headers?: Record<string, string>; body?: string }
+
+/** Depuis l'extension, l'appel part de l'onglet Doctolib (voir fetchViaTab) ; en mode web, appel direct. */
+async function transport(path: string, init: CallInit): Promise<ProxyResponse> {
+  if (isExtension) return fetchViaTab(ONGLET, `${BASE}/`, `${BASE}${path}`, init);
+  const r = await fetch(`${BASE}${path}`, { ...init, credentials: 'include' });
+  return { status: r.status, contentType: r.headers.get('content-type') ?? '', body: await r.text() };
 }
 
-/** Doctolib bloque (anti-robot, trop de demandes) : le panneau propose alors d'ouvrir la recherche dans un onglet. */
+async function call(path: string, init: CallInit = {}): Promise<{ json: () => Promise<unknown> }> {
+  const r = await transport(path, { ...init, headers: { Accept: 'application/json', ...(init.headers ?? {}) } });
+  if (r.status === 0) throw new Error(`Doctolib injoignable (${r.body || 'pas de réponse'}).`);
+  if (r.status === 403 || r.status === 429 || r.contentType.includes('text/html')) throw new DoctolibRefus(r.status);
+  if (r.status < 200 || r.status >= 300) throw new Error(`Doctolib a répondu ${r.status}.`);
+  return {
+    json: async () => {
+      try { return JSON.parse(r.body) as unknown; } catch { throw new Error('Réponse Doctolib illisible.'); }
+    },
+  };
+}
+
+/**
+ * Doctolib bloque (vérification anti-robot dans l'onglet, ou trop de demandes) : le panneau
+ * propose alors de voir l'onglet Doctolib (pour valider la vérification) ou d'ouvrir la recherche.
+ */
 export class DoctolibRefus extends Error {
   status: number;
   constructor(status: number) {
-    super(status === 429 ? 'Doctolib demande de ralentir (trop de demandes). Réessaie dans une minute, ou ouvre la recherche sur Doctolib.' : 'Doctolib refuse la demande depuis le panneau (vérification anti-robot). Ouvre la recherche sur Doctolib, ou connecte-toi sur doctolib.fr dans un onglet puis réessaie.');
+    super(status === 429
+      ? 'Doctolib demande de ralentir (trop de demandes). Réessaie dans une minute, ou ouvre la recherche sur Doctolib.'
+      : "Doctolib bloque la recherche (vérification anti-robot). Ouvre l'onglet Doctolib, valide la vérification si elle s'affiche, puis relance avec ↻.");
     this.name = 'DoctolibRefus';
     this.status = status;
+  }
+}
+
+/** Met l'onglet Doctolib au premier plan (celui qui porte les appels), ou en ouvre un. */
+export async function voirOngletDoctolib(): Promise<void> {
+  if (!isExtension) { window.open(`${BASE}/`, '_blank', 'noopener'); return; }
+  const [tab] = (await chrome.tabs.query({ url: ONGLET })).filter((t) => t.id !== undefined);
+  if (tab?.id !== undefined) {
+    await chrome.tabs.update(tab.id, { active: true });
+    if (tab.windowId !== undefined) await chrome.windows.update(tab.windowId, { focused: true });
+  } else {
+    await chrome.tabs.create({ url: `${BASE}/`, active: true });
   }
 }
 

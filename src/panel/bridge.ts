@@ -196,3 +196,75 @@ export async function writeClipboard(text: string): Promise<boolean> {
     return false;
   }
 }
+
+// ---- Appels réseau exécutés depuis un onglet du site (anti-robot) ----
+
+export interface ProxyInit { method?: string; headers?: Record<string, string>; body?: string }
+export interface ProxyResponse { status: number; contentType: string; body: string }
+
+function waitLoaded(tabId: number, timeoutMs: number): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const done = (err?: Error) => {
+      clearTimeout(timer);
+      chrome.tabs.onUpdated.removeListener(on);
+      err ? reject(err) : resolve();
+    };
+    const timer = setTimeout(() => done(new Error("L'onglet met trop de temps à charger.")), timeoutMs);
+    const on = (id: number, info: { status?: string }) => {
+      if (id === tabId && info.status === 'complete') done();
+    };
+    chrome.tabs.onUpdated.addListener(on);
+    chrome.tabs.get(tabId).then((t) => { if (t.status === 'complete' && !t.discarded) done(); }).catch(() => done(new Error('Onglet fermé.')));
+  });
+}
+
+/** Un onglet chargé sur le site : celui déjà ouvert (réveillé s'il dort), sinon un nouvel onglet en arrière-plan. */
+async function tabOn(match: string, home: string): Promise<number> {
+  const tabs = (await chrome.tabs.query({ url: match })).filter((t) => t.id !== undefined);
+  const awake = tabs.find((t) => !t.discarded && t.status === 'complete') ?? tabs.find((t) => !t.discarded);
+  if (awake?.id !== undefined) {
+    if (awake.status !== 'complete') await waitLoaded(awake.id, 20000);
+    return awake.id;
+  }
+  const asleep = tabs[0];
+  if (asleep?.id !== undefined) {
+    await chrome.tabs.reload(asleep.id);
+    await waitLoaded(asleep.id, 25000);
+    await new Promise((r) => setTimeout(r, 1200));
+    return asleep.id;
+  }
+  const tab = await chrome.tabs.create({ url: home, active: false });
+  if (tab.id === undefined) throw new Error("Impossible d'ouvrir l'onglet.");
+  await waitLoaded(tab.id, 25000);
+  await new Promise((r) => setTimeout(r, 1500));
+  return tab.id;
+}
+
+/**
+ * Exécute un `fetch` DANS la page du site (monde principal de l'onglet) : mêmes cookies,
+ * mêmes en-têtes et même origine que le site lui-même, ce qui passe la vérification
+ * anti-robot qui bloque un appel parti du panneau.
+ */
+export async function fetchViaTab(match: string, home: string, url: string, init: ProxyInit): Promise<ProxyResponse> {
+  const tabId = await tabOn(match, home);
+  const [res] = await chrome.scripting.executeScript({
+    target: { tabId },
+    world: 'MAIN',
+    func: async (u: string, i: ProxyInit): Promise<ProxyResponse> => {
+      const ctl = new AbortController();
+      const timer = setTimeout(() => ctl.abort(), 20000);
+      try {
+        const r = await fetch(u, { method: i.method ?? 'GET', headers: i.headers, body: i.body, credentials: 'include', signal: ctl.signal });
+        return { status: r.status, contentType: r.headers.get('content-type') ?? '', body: await r.text() };
+      } catch (e) {
+        return { status: 0, contentType: '', body: String((e as Error)?.message ?? e) };
+      } finally {
+        clearTimeout(timer);
+      }
+    },
+    args: [url, init],
+  });
+  const r = res?.result as ProxyResponse | undefined;
+  if (!r) throw new Error("Pas de réponse de l'onglet.");
+  return r;
+}
