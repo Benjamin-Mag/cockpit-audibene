@@ -33,7 +33,7 @@ src/background.ts            service worker : ouverture du panneau, raccourcis (
 src/content/main.ts          point d'entrée unique du script de contenu, routé par domaine ; marqueur window.__cockpit (version, dispose)
 src/content/salesforce/
   dom.ts                     traversée du shadow DOM Lightning (deepAll/deepFirst), visibleEl, waitFor, setNativeValue, labels, Enregistrer
-  context.ts                 type de page (Piste/Opportunité), lecture de la fiche (nom, genre, tél, naissance, partenaire, adresse)
+  context.ts                 type de page (Piste/Opportunité), lecture de la fiche (nom, genre, tél, naissance, code postal + ville, partenaire, adresse)
   actions.ts                 MV, commentaire (Remarques générales profil client), Chat Partenaire (Chatter), SMS Hearo, COSI, mail
   index.ts                   écouteur de messages du cadre principal + port de contexte
   frame.ts                   cadres secondaires (dont l'app Canvas Hearo) : ping + recherche SMS

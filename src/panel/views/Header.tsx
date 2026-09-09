@@ -91,6 +91,7 @@ export function Header({ site, ctx, fiche, ficheState, recent, busy, onMv, onRef
                     {fiche!.telephone && <span>{fiche!.telephone}</span>}
                     {fiche!.naissance && <span><Icon name="calendar" size={12} />{fiche!.naissance}</span>}
                     {fiche!.email && <span>{fiche!.email}</span>}
+                    {fiche!.codePostal && <span><Icon name="pin" size={12} />{fiche!.codePostal} {fiche!.ville}</span>}
                     {fiche!.partenaire && <span><Icon name="building" size={12} />{fiche!.partenaire}</span>}
                   </div>
                 </div>
