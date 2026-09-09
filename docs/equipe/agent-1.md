@@ -45,6 +45,8 @@ Worktree : `Documents\Claude\Projects\Cockpit Audibene - partner-search` · bran
 - 2026-09-09 : branche rebasée sur `origin/main` (v1.0.19, code postal + ville lus sur la fiche). `tsc` vert. Toujours en attente du cadrage.
 - 2026-09-09 : cadrage reçu (recopié ci-dessus). **Étape 1 livrée : PR #2** (commit 6f76968) — permission `cookies`, `src/panel/partenaires.ts` (lecture + parseur), `AppData.partenaires`, `views/Partenaires.tsx`, onglet dans `app.tsx`. Parseur testé sur un faux rapport (Node) ; interface vérifiée en mode web (`npm run dev`) avec des données injectées. Reste à confirmer la forme réelle de la réponse Salesforce au premier test du chef.
 
+- 2026-09-09 : relecture du chef sur la PR #2 → 3 ajustements poussés : cache `partenairesCache` dans `chrome.storage.local` (repli `localStorage`), hors `AppData` ; onglet Partenaires masqué hors Piste ; 50 lignes max sans filtre. `tsc` + `build` verts, parseur re-testé, onglet vérifié absent en mode web. Étape 2 → nouvelle branche `feature/partner-search-proximite` depuis `main` après merge.
+
 ## Reste à faire
 - Étape 2 : script `scripts/` code postal → lat/long (data.gouv), JSON compact chargé à la demande, haversine, 5 plus proches, exclusion des non actifs + interrupteur.
 - Étape 3 : adresse patient préremplie, iframe Google Maps, « Ouvrir dans Google Maps », « Ouvrir la fiche Salesforce », « Copier l'adresse ».
@@ -54,10 +56,10 @@ Worktree : `Documents\Claude\Projects\Cockpit Audibene - partner-search` · bran
 - Lignes lues dans **toutes** les clés du `factMap` avec dédoublonnage par ID : marche pour un rapport tabulaire (`T!T`) comme pour un rapport groupé.
 - Adresse : `value` objet `{street, postalCode, city}` si Salesforce le fournit, sinon découpage du texte (ligne `05000 Gap`, région/pays ignorés) ; repli sur « Code postal de facturation ».
 - Étape 1 : tous les statuts affichés (badge si ≠ « Actif ») ; l'exclusion par défaut arrive avec la proximité (étape 2).
-- Onglet Partenaires visible aussi sur les pages Salesforce sans fiche (hypothèse la plus simple ; à arbitrer, voir Questions).
-- Cache stocké dans `AppData` (donc `cockpit.json` si dossier synchronisé) pour suivre la règle « nouvelle donnée = AppData ».
+- Onglet Partenaires **uniquement sur une Piste** (décision du chef : règle les 6 onglets serrés).
+- Cache **hors `AppData`** (décision du chef) : `chrome.storage.local` clé `partenairesCache`, comme `recentPatients` — chaque frappe dans le panneau réécrit tout `AppData`, 250 Ko de plus à chaque fois aurait gonflé `cockpit.json`.
+- Une branche par étape, PR figées : étape 2 sur `feature/partner-search-proximite` créée depuis `main` après le merge de la PR #2.
 
 ## Questions ouvertes
-- Onglet Partenaires hors Piste : le garder (6 onglets serrés sur une page sans fiche) ou le masquer ?
-- Cache dans `cockpit.json` (≈ 250 Ko) : OK, ou navigateur seul ?
+(néant)
 - Format du rapport Salesforce partenaires (CSV ? Excel ? colonnes : nom, adresse, code postal, ville, téléphone, coordonnées GPS ?) : à préciser au cadrage. « Le plus proche » = même département / préfixe de code postal, ou vraie distance (nécessite latitude/longitude ou une table code postal → coordonnées embarquée, sans appel réseau) ?
