@@ -11,11 +11,12 @@ export function canonicalizeSales(sales: Record<string, Vente[]>): Record<string
   return out;
 }
 
-export type LegacyKind = 'cockpit' | 'generateur' | 'ventes' | 'inconnu';
+export type LegacyKind = 'cockpit' | 'partage' | 'generateur' | 'ventes' | 'inconnu';
 
 export function detectKind(obj: unknown): LegacyKind {
   if (!obj || typeof obj !== 'object') return 'inconnu';
   const o = obj as Record<string, unknown>;
+  if (o.share === true) return 'partage';
   if (o.version === 2 && o.reglages) return 'cockpit';
   if (Array.isArray(o.templates) || o.anamnese || typeof o.signatureName === 'string') return 'generateur';
   if (o.sales && o.settings && Array.isArray(o.payslips)) return 'ventes';
@@ -159,6 +160,47 @@ export function mergeData(a: AppData, b: AppData): AppData {
   for (const t of older.templates) if (!out.templates.some((x) => x.id === t.id)) out.templates.push(t);
   for (const aud of ['patient', 'partenaire'] as const) for (const c of older.categories[aud]) if (!out.categories[aud].some((x) => x.id === c.id)) out.categories[aud].push(c);
   return mergeVentes(out, older.ventes);
+}
+
+/**
+ * Remplace un nom écrit en dur (celui de l'auteur des textes) par la variable
+ * {{nom_conseiller}} dans les modèles, textes d'anamnèse et textes du chat.
+ */
+export function substituteName(data: AppData, name: string): AppData {
+  const n = name.trim();
+  if (n.length < 4) return data;
+  const out: AppData = structuredClone(data);
+  const sub = (t: string | undefined) => (t && t.includes(n) ? t.split(n).join('{{nom_conseiller}}') : t);
+  for (const t of out.templates) { t.subject = sub(t.subject); t.body = sub(t.body) ?? t.body; t.smsCompanion = sub(t.smsCompanion); }
+  for (const [id, t] of Object.entries(out.anamnese.textes)) out.anamnese.textes[id] = sub(t) ?? t;
+  for (const c of out.chatPartenaire) c.text = sub(c.text) ?? c.text;
+  return out;
+}
+
+/** Fichier de partage : modèles, catégories, situations/textes/phrases, textes du chat — ni réglages ni ventes. */
+export function toPartage(data: AppData): Record<string, unknown> {
+  const clean = substituteName(data, data.reglages.nom);
+  return {
+    share: true,
+    version: 2,
+    templates: clean.templates,
+    categories: { patient: clean.categories.patient, partenaire: clean.categories.partenaire },
+    anamnese: clean.anamnese,
+    chatPartenaire: clean.chatPartenaire,
+  };
+}
+
+/** Fusionne un fichier de partage dans les données courantes (union, sans doublon). */
+export function mergePartage(data: AppData, raw: unknown): AppData {
+  const p = raw as Partial<AppData>;
+  const out: AppData = structuredClone(data);
+  for (const t of p.templates ?? []) if (t?.id && !out.templates.some((x) => x.id === t.id)) out.templates.push(t);
+  for (const aud of ['patient', 'partenaire'] as const) for (const c of p.categories?.[aud] ?? []) if (c?.id && !out.categories[aud].some((x) => x.id === c.id)) out.categories[aud].push(c);
+  for (const s of p.anamnese?.situations ?? []) if (s?.id && !out.anamnese.situations.some((x) => x.id === s.id)) out.anamnese.situations.push(s);
+  for (const [id, t] of Object.entries(p.anamnese?.textes ?? {})) if (!out.anamnese.textes[id]) out.anamnese.textes[id] = t;
+  for (const [k, list] of Object.entries(p.anamnese?.phrases ?? {})) { const arr = (out.anamnese.phrases[k] ??= []); for (const ph of list) if (!arr.includes(ph)) arr.push(ph); }
+  for (const c of p.chatPartenaire ?? []) if (c?.id && !out.chatPartenaire.some((x) => x.id === c.id)) out.chatPartenaire.push(c);
+  return out;
 }
 
 /** Complète des données Cockpit éventuellement incomplètes (ancienne version, champs manquants). */

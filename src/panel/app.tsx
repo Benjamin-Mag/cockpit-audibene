@@ -5,6 +5,7 @@ import { type Site, connectContext, ensureOrigin, subFrames, isExtension, loadRe
 import { Btn, Icon, type IconName, Toast, type ToastMsg } from './components/ui';
 import { type AppData, defaultData } from './model';
 import { type StorageState, authorize, chooseFolder, exportLegacy, initStorage, parseAny, save, useBrowserStorage } from './storage/data';
+import { mergeData, substituteName, toPartage } from './storage/legacy';
 import { downloadJson, pickJsonFile } from './storage/fs';
 import { Anamnese } from './views/Anamnese';
 import { ChatPartenaire } from './views/ChatPartenaire';
@@ -216,16 +217,26 @@ export function App() {
     const f = await pickJsonFile();
     if (!f) return;
     try {
-      const { data: merged, kind } = parseAny(f.text, data ?? defaultData());
+      const base = data ?? defaultData();
+      let { data: merged, kind } = parseAny(f.text, base);
+      if (kind === 'cockpit' && data) {
+        // Fichier complet d'un collègue : on garde ses propres réglages, on réunit le reste,
+        // et le nom de l'auteur écrit en dur devient la variable {{nom_conseiller}}.
+        const foreign = merged.reglages.nom;
+        merged = mergeData({ ...data, updatedAt: Date.now() }, merged);
+        merged.reglages = data.reglages;
+        if (foreign && foreign !== data.reglages.nom) merged = substituteName(merged, foreign);
+      }
       setDataState(merged);
       const n = Object.values(merged.ventes.sales).flat().length;
-      showToast(kind === 'ventes' ? `Ventes importées (${n})` : kind === 'generateur' ? `${merged.templates.length} modèle(s) importés` : 'Données importées', 'ok');
+      showToast(kind === 'ventes' ? `Ventes importées (${n})` : kind === 'generateur' || kind === 'partage' ? `Modèles importés (${merged.templates.length} au total)` : 'Données réunies', 'ok');
     } catch (e) {
       showToast((e as Error).message, 'err');
     }
   };
 
   const doExport = () => data && downloadJson('cockpit.json', JSON.stringify(data, null, 2));
+  const doExportShare = () => { if (data) { downloadJson('cockpit-modeles.json', JSON.stringify(toPartage(data), null, 2)); showToast('Fichier de partage prêt (modèles, textes, catégories — sans tes réglages ni tes ventes)', 'ok'); } };
   const doExportLegacy = async () => {
     if (!data) return;
     const where = await exportLegacy(data);
@@ -240,7 +251,18 @@ export function App() {
       <Setup data={data} folderName={storage.folderName} onChooseFolder={doChooseFolder}
         onBrowserStorage={async () => { const r = await useBrowserStorage(data); setStorage(r.state); loadData(r.data); }}
         onImport={doImport}
-        onFinish={(r) => { update((d) => { Object.assign(d.reglages, r); d.onboardingDone = true; }); showToast(`Bienvenue ${r.nom} !`, 'ok'); }} />
+        onFinish={(r) => {
+          // Dossier repris d'un collègue : son nom écrit en dur dans les textes devient la variable.
+          const previous = data?.reglages.nom ?? '';
+          setDataState((prev) => {
+            if (!prev) return prev;
+            const next = previous && previous !== r.nom ? substituteName(prev, previous) : structuredClone(prev);
+            Object.assign(next.reglages, r);
+            next.onboardingDone = true;
+            return next;
+          });
+          showToast(`Bienvenue ${r.nom} !`, 'ok');
+        }} />
     );
   }
 
@@ -310,7 +332,7 @@ export function App() {
           <ChatPartenaire key={recordKey} data={data} update={update} fiche={fiche} connected={connected && ctx?.page !== 'lead'} busy={busy === 'chat'}
             onWrite={(text) => act('chat', { type: 'writeChatPartenaire', text })} toast={showToast} />
         )}
-        {activeTab === 'reglages' && <Reglages data={data} update={update} storage={storage} onChangeFolder={doChooseFolder} onAuthorize={doAuthorize} onImport={doImport} onExport={doExport} onExportLegacy={doExportLegacy} version={VERSION} />}
+        {activeTab === 'reglages' && <Reglages data={data} update={update} storage={storage} onChangeFolder={doChooseFolder} onAuthorize={doAuthorize} onImport={doImport} onExport={doExport} onExportShare={doExportShare} onExportLegacy={doExportLegacy} version={VERSION} />}
       </main>
       <div class="footer" ref={setFooterEl} />
       <Toast toast={toast} />

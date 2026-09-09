@@ -12,11 +12,12 @@ interface Props {
   onAuthorize: () => void;
   onImport: () => void;
   onExport: () => void;
+  onExportShare: () => void;
   onExportLegacy: () => void;
   version: string;
 }
 
-export function Reglages({ data, update, storage, onChangeFolder, onAuthorize, onImport, onExport, onExportLegacy, version }: Props) {
+export function Reglages({ data, update, storage, onChangeFolder, onAuthorize, onImport, onExport, onExportShare, onExportLegacy, version }: Props) {
   const r = data.reglages;
   const set = <K extends keyof AppData['reglages']>(k: K, v: AppData['reglages'][K]) => update((d) => { d.reglages[k] = v; });
   const input = (k: 'nom' | 'telephone' | 'email' | 'mvComment', placeholder?: string) => (
@@ -54,6 +55,7 @@ export function Reglages({ data, update, storage, onChangeFolder, onAuthorize, o
             {storage.sync === 'paused' && <Btn kind="soft" icon="folder" onClick={onAuthorize}>Autoriser le dossier</Btn>}
             {fsSupported && <Btn kind="ghost" icon="folder" onClick={onChangeFolder}>{storage.mode === 'folder' ? 'Changer de dossier' : 'Choisir un dossier'}</Btn>}
             <Btn kind="ghost" icon="upload" onClick={onImport} title="data.json de l'ancien générateur, export suivi-ventes-primes-….json, ou cockpit.json">Importer un fichier</Btn>
+            <Btn kind="soft" icon="download" onClick={onExportShare} title="Modèles, textes, catégories — sans tes réglages ni tes ventes, ton nom remplacé par la variable">Partager mes modèles</Btn>
             <Btn kind="ghost" icon="download" onClick={onExport}>Exporter cockpit.json</Btn>
             <Btn kind="ghost" icon="download" onClick={onExportLegacy} title="Écrit un data.json lisible par l'ancien générateur de mails (modèles, textes, signature)">Mettre à jour data.json (ancien générateur)</Btn>
           </div>

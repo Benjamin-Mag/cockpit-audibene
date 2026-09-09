@@ -1,6 +1,6 @@
 import { type AppData, defaultData } from '../model';
 import { clearHandle, fsSupported, permissionState, pickFolder, readText, savedHandle, writeText } from './fs';
-import { detectKind, mergeData, mergeGenerateur, mergeVentes, normalize, toLegacyGenerateur } from './legacy';
+import { detectKind, mergeData, mergeGenerateur, mergePartage, mergeVentes, normalize, toLegacyGenerateur } from './legacy';
 
 /**
  * Stockage « navigateur d'abord » : la copie de travail vit dans chrome.storage.local
@@ -40,6 +40,7 @@ export function parseAny(text: string, base: AppData): { data: AppData; kind: Re
   const raw: unknown = JSON.parse(text);
   const kind = detectKind(raw);
   if (kind === 'cockpit') return { data: normalize(raw, base), kind };
+  if (kind === 'partage') return { data: mergePartage(base, raw), kind };
   if (kind === 'generateur') return { data: mergeGenerateur(base, raw), kind };
   if (kind === 'ventes') return { data: mergeVentes(base, raw), kind };
   throw new Error('Format de fichier non reconnu');
