@@ -14,7 +14,7 @@ Objectif (cadrage à venir avec Benjamin) : reproduire dans Cockpit le « Partne
 - [x] Envoyer un message au chef d'orchestre : « prêt », plus toute question sur la mise en place.
 
 ## Ce que j'ai compris du code (repères pour le chantier)
-- **Lecture de la fiche** : `readFiche(withPartner)` dans `src/content/salesforce/context.ts` lit nom, genre, téléphone, e-mail, naissance via `fieldValue(label)` (libellés Lightning, `visibleEl` obligatoire), et le partenaire + son adresse via le panneau de survol du lien Account. **Le code postal du patient n'est pas lu aujourd'hui** : ni dans `Fiche` (`src/shared/types.ts`) ni dans `readFiche`. Il faudra l'ajouter (champ `codePostal` dans `Fiche`, lecture par libellé de l'adresse de la Piste — libellé exact à confirmer sur une vraie Piste).
+- **Lecture de la fiche** : `readFiche(withPartner)` dans `src/content/salesforce/context.ts` lit nom, genre, téléphone, e-mail, naissance via `fieldValue(label)` (libellés Lightning, `visibleEl` obligatoire), et le partenaire + son adresse via le panneau de survol du lien Account. **Code postal et ville** : depuis v1.0.19 (PR #1 du chef), `Fiche` expose `codePostal` et `ville`, lus par `codePostalEtVille()` dans `context.ts` (champ « Adresse » de la Piste, ex. « 33510 ANDERNOS LES BAINS », repli sur le titre de l'Opportunité) et affichés dans `Header.tsx` (icône `pin`). Partner Search partira de `fiche.codePostal`.
 - **Onglets selon la fiche** : `src/panel/app.tsx` → tableau `TABS` + `hidden` (Piste : cache Mails/Chat ; Opportunité : cache COSI/Anamnèse). Un onglet « Partenaires » se branche là, visible sur Piste (et peut-être Opportunité).
 - **Action de bout en bout** : `Header.tsx` (bouton) → `app.tsx` (`openSms`) → `bridge.ts` (`runAction`/`send` avec `ensureContent` + ping/injection) → `chrome.tabs.sendMessage` → `src/content/salesforce/index.ts` (`handle`, switch sur `req.type`) → `actions.ts` (`openSmsPanel`). Nouvelle action = type dans `messages.ts` + cas dans `index.ts` + fonction dans `actions.ts`.
 - **Shadow DOM** : `dom.ts` → `deepAll`/`deepFirst` (`.shadowRoot` d'abord, puis `chrome.dom.openOrClosedShadowRoot`), `visibleEl` (dernier candidat rendu, jamais un invisible), `waitFor`, `setNativeValue`, `fieldValue`, `expandSection`.
@@ -24,6 +24,7 @@ Objectif (cadrage à venir avec Benjamin) : reproduire dans Cockpit le « Partne
 ## Journal
 - 2026-09-09 : introduction au projet. Lecture des docs, vérifications (`tsc`, `build`) vertes, repérage du code. Message « prêt » envoyé au chef.
 - 2026-09-09 : introduction validée par le chef. Tests Salesforce délégués au chef/Benjamin ; export CSV privilégié si le rapport est un Excel ; aucune lib sans validation. En attente du cadrage Partner Search.
+- 2026-09-09 : branche rebasée sur `origin/main` (v1.0.19, code postal + ville lus sur la fiche). `tsc` vert. Toujours en attente du cadrage.
 
 ## Décisions
 (néant)
