@@ -112,13 +112,17 @@ export async function writeChatPartenaire(text: string): Promise<ActionResult> {
 }
 
 // ---------------------------------------------------------------- SMS (utilitaire Hearo)
-const SMS_LABEL = /^(hearo|nouveau message|approbation en attente)/i;
+const SMS_LABEL = /hearo|nouveau message|approbation en attente/i;
+/** Libellé complet d'un bouton : texte visible + titre + libellé d'accessibilité. */
+const labelOf = (el: Element) => `${textOf(el)} ${el.getAttribute('title') || ''} ${el.getAttribute('aria-label') || ''}`;
+/** Boutons de la barre d'utilitaires (Salesforce peut les rendre en <button> ou en lien). */
+const smsButtons = () => deepAll<HTMLElement>('button, a, [role="button"]').filter((b) => SMS_LABEL.test(labelOf(b)) && b.closest('[class*="utility"], [class*="Utility"], footer, .slds-utility-bar, [data-aura-class*="utility"]') !== null);
 
 /** Ouvre l'utilitaire Hearo de la barre du bas s'il ne l'est pas déjà ; renvoie les adresses des cadres du panneau. */
 export async function openSmsPanel(): Promise<ActionResult> {
   const panelOpen = () => visibleEl(deepAll<HTMLElement>('.slds-utility-panel, [class*="utilityPanel"]').filter((p) => /hearo/i.test(textOf(p).slice(0, 200))));
   if (!panelOpen()) {
-    const btn = visibleEl(deepAll<HTMLButtonElement>('button').filter((b) => SMS_LABEL.test(textOf(b))));
+    const btn = visibleEl(smsButtons()) ?? visibleEl(deepAll<HTMLElement>('button, a, [role="button"]').filter((b) => SMS_LABEL.test(labelOf(b))));
     if (!btn) return { ok: false, msg: 'bouton Hearo / Nouveau message introuvable dans la barre du bas' };
     btn.click();
     await waitFor(panelOpen, 4000, 200);
@@ -145,7 +149,7 @@ export function diagSms(): ActionResult {
   lines.push(`iframes canvas: ${canvasFrames.map((f) => `name="${f.name}" id="${f.id}"`).join(', ') || 'aucun'}`);
   const inputs = deepAll<HTMLInputElement>('input').filter((i) => /recherch|search/i.test(i.placeholder || i.getAttribute('aria-label') || ''));
   lines.push(`champs recherche (page principale): ${inputs.map((i) => `"${i.placeholder || i.getAttribute('aria-label')}"${isRendered(i) ? '' : ' (caché)'}`).join(', ') || 'aucun'}`);
-  const utils = deepAll<HTMLButtonElement>('button').filter((b) => SMS_LABEL.test(textOf(b)));
+  const utils = deepAll<HTMLElement>('button, a, [role="button"]').filter((b) => SMS_LABEL.test(labelOf(b)));
   lines.push(`bouton utilitaire: ${utils.map((b) => `"${textOf(b).slice(0, 30)}"`).join(', ') || 'introuvable'}`);
   const panels = deepAll<HTMLElement>('[class*="utility"], [class*="Utility"]').filter((p) => isRendered(p) && p.getBoundingClientRect().height > 150);
   lines.push(`panneaux utilitaires visibles: ${panels.slice(0, 5).map((p) => `[${p.className.toString().slice(0, 40)}] ${textOf(p).slice(0, 60).replace(/\s+/g, ' ')}`).join(' | ') || 'aucun'}`);
