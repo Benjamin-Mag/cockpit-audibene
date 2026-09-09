@@ -71,7 +71,7 @@ export function Anamnese({ data, update, connected, busy, footerEl, onApply, onE
     );
   };
 
-  const phraseBlock = (situationValue: string, commentLabel: string) => {
+  const phraseBlock = (situationValue: string, commentLabel: string, withAddRow = true) => {
     const saved = data.anamnese.phrases[situationValue] ?? [];
     const sel = phrases[commentLabel] ?? [];
     const draft = drafts[situationValue] ?? '';
@@ -94,14 +94,25 @@ export function Anamnese({ data, update, connected, busy, footerEl, onApply, onE
             ))}
           </div>
         )}
-        <div class="row">
-          <input placeholder={`Nouvelle phrase pour « ${situationValue} »…`} value={draft} style="padding:6px 9px;font-size:12px"
-            onInput={(e) => setDrafts((x) => ({ ...x, [situationValue]: (e.target as HTMLInputElement).value }))}
-            onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); add(); } }} />
-          <Btn kind="soft" icon="plus" onClick={add} title="Enregistrer cette phrase" />
-        </div>
+        {withAddRow && (
+          <div class="row">
+            <input placeholder={`Nouvelle phrase pour « ${situationValue} »…`} value={draft} style="padding:6px 9px;font-size:12px"
+              onInput={(e) => setDrafts((x) => ({ ...x, [situationValue]: (e.target as HTMLInputElement).value }))}
+              onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); add(); } }} />
+            <Btn kind="soft" icon="plus" onClick={add} title="Enregistrer cette phrase" />
+          </div>
+        )}
       </div>
     );
+  };
+
+  /** Texte libre + « + » : le texte tapé devient une puce réutilisable (et reste coché pour cette fiche). */
+  const savePhrase = (label: string) => {
+    const t = (free[label] ?? '').trim();
+    if (!t) return;
+    update((d) => { const arr = (d.anamnese.phrases[label] ??= []); if (!arr.includes(t)) arr.push(t); });
+    setPhrases((x) => ({ ...x, [label]: [...(x[label] ?? []).filter((s) => s !== t), t] }));
+    setFree((x) => ({ ...x, [label]: '' }));
   };
 
   const renderField = (f: AnamField) => {
@@ -109,9 +120,14 @@ export function Anamnese({ data, update, connected, busy, footerEl, onApply, onE
       return (
         <div key={f.label} class="stack" style="gap:6px">
           <Field label={f.displayLabel ?? f.label}>
-            <input value={free[f.label] ?? ''} placeholder={f.reusable ? 'Texte du moment (en plus des phrases cochées)…' : '…'} onInput={(e) => setFree((x) => ({ ...x, [f.label]: (e.target as HTMLInputElement).value }))} />
+            <div class="row">
+              <input value={free[f.label] ?? ''} placeholder={f.reusable ? 'Texte du moment…' : '…'}
+                onInput={(e) => setFree((x) => ({ ...x, [f.label]: (e.target as HTMLInputElement).value }))}
+                onKeyDown={(e) => { if (f.reusable && e.key === 'Enter') { e.preventDefault(); savePhrase(f.label); } }} />
+              {f.reusable && <Btn kind="soft" icon="plus" title="Garder ce texte en puce réutilisable" onClick={() => savePhrase(f.label)} disabled={!(free[f.label] ?? '').trim()} />}
+            </div>
           </Field>
-          {f.reusable && phraseBlock(f.label, f.label)}
+          {f.reusable && (data.anamnese.phrases[f.label]?.length ?? 0) > 0 && phraseBlock(f.label, f.label, false)}
         </div>
       );
     }
