@@ -293,7 +293,8 @@ export function App() {
 
   // Onglets adaptés à la fiche : une Piste n'envoie pas de mail, une Opportunité n'a pas d'anamnèse.
   const page = connected ? ctx!.page : 'other';
-  const hidden: TabId[] = page === 'lead' ? ['mails', 'chat'] : page === 'opportunity' ? ['anamnese', 'commentaire', 'partenaires'] : [];
+  // Les Partenaires (proches du code postal du patient) n'ont de sens que sur une Piste.
+  const hidden: TabId[] = page === 'lead' ? ['mails', 'chat'] : page === 'opportunity' ? ['anamnese', 'commentaire', 'partenaires'] : ['partenaires'];
   // (les Ventes ont leur propre page, via le sélecteur du haut)
   const visibleTabs = TABS.filter((t) => !hidden.includes(t.id));
   const activeTab: TabId = hidden.includes(tab) ? visibleTabs[0].id : tab;
@@ -326,7 +327,7 @@ export function App() {
           <Commentaire key={recordKey} data={data} update={update} fiche={fiche} connected={connected && ctx?.page !== 'opportunity'} busy={busy === 'comment'}
             onWrite={(text) => act('comment', { type: 'writeComment', text, save: data.reglages.autoSaveComment })} toast={showToast} />
         )}
-        {activeTab === 'partenaires' && <Partenaires data={data} update={update} toast={showToast} />}
+        {activeTab === 'partenaires' && <Partenaires toast={showToast} />}
         {activeTab === 'mails' && (
           <Mails key={recordKey} data={data} update={update} fiche={fiche} connected={connected} busy={busy === 'mail'}
             onInsert={insertMail} onNeedPartner={readPartner} toast={showToast} />

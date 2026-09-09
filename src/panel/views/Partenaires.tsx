@@ -1,18 +1,18 @@
 import { useEffect, useState } from 'preact/hooks';
-import type { AppData, Partenaire } from '../model';
 import { Btn, Icon } from '../components/ui';
-import { REPORT_URL, canFetch, fetchedLabel, isActif, isStale, loadPartenaires } from '../partenaires';
+import { type Partenaire, type PartenairesCache, REPORT_URL, canFetch, emptyCache, fetchedLabel, isActif, isStale, loadCache, loadPartenaires } from '../partenaires';
 
 interface Props {
-  data: AppData;
-  update: (fn: (d: AppData) => void) => void;
   toast: (msg: string, kind?: 'ok' | 'err' | 'info') => void;
 }
 
+/** Sans filtre, on ne dessine pas les ~1 200 lignes d'un coup. */
+const MAX_SHOWN = 50;
+
 const adresseComplete = (p: Partenaire) => [p.adresse, [p.codePostal, p.ville].filter(Boolean).join(' ')].filter(Boolean).join(', ');
 
-export function Partenaires({ data, update, toast }: Props) {
-  const { fetchedAt, items } = data.partenaires;
+export function Partenaires({ toast }: Props) {
+  const [cache, setCache] = useState<PartenairesCache | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState('');
@@ -23,7 +23,7 @@ export function Partenaires({ data, update, toast }: Props) {
     setError(null);
     try {
       const fresh = await loadPartenaires();
-      update((d) => { d.partenaires = fresh; });
+      setCache(fresh);
       if (!silent) toast(`${fresh.items.length} partenaires lus`, 'ok');
     } catch (e) {
       setError((e as Error).message ?? String(e));
@@ -32,11 +32,18 @@ export function Partenaires({ data, update, toast }: Props) {
     }
   };
 
-  // Première ouverture ou liste vieille de plus d'un jour : lecture automatique, sans clic.
-  useEffect(() => { if (isStale(data.partenaires)) void refresh(true); }, []);
+  // Cache du navigateur d'abord ; première ouverture ou liste vieille de plus d'un jour → lecture automatique, sans clic.
+  useEffect(() => {
+    let alive = true;
+    loadCache().then((c) => { if (!alive) return; setCache(c); if (isStale(c)) void refresh(true); });
+    return () => { alive = false; };
+  }, []);
 
+  const { fetchedAt, items } = cache ?? emptyCache();
   const needle = filter.trim().toLowerCase();
-  const shown = needle ? items.filter((p) => `${p.nom} ${p.ville} ${p.codePostal} ${p.comptePrincipal}`.toLowerCase().includes(needle)) : items;
+  const matching = needle ? items.filter((p) => `${p.nom} ${p.ville} ${p.codePostal} ${p.comptePrincipal}`.toLowerCase().includes(needle)) : items;
+  const shown = needle ? matching : matching.slice(0, MAX_SHOWN);
+  const rest = matching.length - shown.length;
 
   return (
     <div class="view">
@@ -57,7 +64,7 @@ export function Partenaires({ data, update, toast }: Props) {
 
       {items.length > 0 && <input placeholder="Filtrer par nom, ville ou code postal" value={filter} onInput={(e) => setFilter((e.target as HTMLInputElement).value)} />}
 
-      {items.length === 0 && !loading && !error && (
+      {cache && items.length === 0 && !loading && !error && (
         <div class="empty">
           <div class="ico"><Icon name="building" size={22} /></div>
           Aucun partenaire en mémoire. Clique ↻ pour lire le rapport <a href={REPORT_URL} target="_blank" rel="noreferrer">FRA Partenaires Actifs</a>.
@@ -77,7 +84,8 @@ export function Partenaires({ data, update, toast }: Props) {
           ))}
         </div>
       )}
-      {needle && shown.length === 0 && items.length > 0 && <div class="empty">Aucun partenaire ne correspond.</div>}
+      {rest > 0 && <div class="note" style="text-align:center">… et {rest} autres — filtre pour affiner.</div>}
+      {needle && matching.length === 0 && items.length > 0 && <div class="empty">Aucun partenaire ne correspond.</div>}
     </div>
   );
 }

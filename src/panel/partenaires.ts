@@ -1,18 +1,58 @@
-import type { Partenaire, PartenairesData } from './model';
-
 // Rapport Salesforce « FRA Partenaires Actifs », lu avec le jeton de session du
 // navigateur (Benjamin est connecté à Salesforce dans un onglet). C'est, avec la
 // carte Google, la seule exception à la règle « pas d'appel réseau ».
+// La liste est un cache technique, pas une donnée utilisateur : elle vit dans le
+// navigateur seul (comme les fiches récentes), jamais dans cockpit.json ni le partage.
+
+/** Partenaire audioprothésiste, ligne du rapport. */
+export interface Partenaire {
+  /** ID du compte Salesforce (fiche : /lightning/r/Account/<id>/view). */
+  id: string;
+  nom: string;
+  comptePrincipal: string;
+  /** Rue (sans code postal ni ville). */
+  adresse: string;
+  codePostal: string;
+  ville: string;
+  statut: string;
+  email: string;
+}
+/** Copie locale du rapport ; `fetchedAt` = 0 tant qu'il n'a jamais été lu. */
+export interface PartenairesCache { fetchedAt: number; items: Partenaire[] }
+
 const SF_HOST = 'https://betterhearing.my.salesforce.com';
 const API_VERSION = 'v62.0';
 export const REPORT_ID = '00O3V000000rs59UAA';
 export const REPORT_URL = `https://betterhearing.lightning.force.com/lightning/r/Report/${REPORT_ID}/view`;
 /** Salesforce limite à 500 exécutions de rapport par heure : on ne relit qu'une fois par jour, ou sur demande. */
 export const CACHE_MS = 24 * 3600 * 1000;
+const CACHE_KEY = 'partenairesCache';
 
-export const isStale = (p: PartenairesData) => Date.now() - p.fetchedAt > CACHE_MS;
-export const canFetch = typeof chrome !== 'undefined' && !!chrome.cookies && !!chrome.runtime?.id;
+const isExtension = typeof chrome !== 'undefined' && !!chrome.runtime?.id;
+export const canFetch = isExtension && !!chrome.cookies;
+export const emptyCache = (): PartenairesCache => ({ fetchedAt: 0, items: [] });
+export const isStale = (c: PartenairesCache) => Date.now() - c.fetchedAt > CACHE_MS;
 
+// ---------------------------------------------------------------- cache navigateur
+export async function loadCache(): Promise<PartenairesCache> {
+  try {
+    const raw = isExtension ? (await chrome.storage.local.get(CACHE_KEY))[CACHE_KEY] : JSON.parse(localStorage.getItem(CACHE_KEY) || 'null');
+    const c = raw as Partial<PartenairesCache> | null;
+    if (!c || !Array.isArray(c.items)) return emptyCache();
+    return { fetchedAt: typeof c.fetchedAt === 'number' ? c.fetchedAt : 0, items: c.items.filter((p) => p && typeof p.id === 'string' && typeof p.nom === 'string') };
+  } catch {
+    return emptyCache();
+  }
+}
+
+async function saveCache(c: PartenairesCache): Promise<void> {
+  try {
+    if (isExtension) await chrome.storage.local.set({ [CACHE_KEY]: c });
+    else localStorage.setItem(CACHE_KEY, JSON.stringify(c));
+  } catch { /* stockage indisponible : la liste reste en mémoire le temps du panneau */ }
+}
+
+// ---------------------------------------------------------------- lecture du rapport
 interface ReportJson {
   reportMetadata?: { detailColumns?: string[] };
   reportExtendedMetadata?: { detailColumnInfo?: Record<string, { label?: string }> };
@@ -101,10 +141,10 @@ export function parsePartenaires(json: ReportJson): Partenaire[] {
   return out;
 }
 
-let inflight: Promise<PartenairesData> | null = null;
+let inflight: Promise<PartenairesCache> | null = null;
 
-/** Relit le rapport (une seule lecture à la fois, même si plusieurs vues le demandent). */
-export async function loadPartenaires(): Promise<PartenairesData> {
+/** Relit le rapport et met le cache à jour (une seule lecture à la fois, même si plusieurs vues le demandent). */
+export async function loadPartenaires(): Promise<PartenairesCache> {
   if (inflight) return inflight;
   inflight = (async () => {
     if (!canFetch) throw new Error('Lecture du rapport disponible seulement dans l\'extension.');
@@ -112,7 +152,9 @@ export async function loadPartenaires(): Promise<PartenairesData> {
     if (!sid) throw new Error('Pas de session Salesforce — ouvre Salesforce dans un onglet et connecte-toi, puis réessaie.');
     const items = parsePartenaires(await fetchReport(sid));
     if (!items.length) throw new Error('Le rapport ne contient aucune ligne.');
-    return { fetchedAt: Date.now(), items };
+    const cache = { fetchedAt: Date.now(), items };
+    await saveCache(cache);
+    return cache;
   })();
   try {
     return await inflight;
@@ -123,7 +165,7 @@ export async function loadPartenaires(): Promise<PartenairesData> {
 
 export const isActif = (p: Partenaire) => /^actif$/i.test(p.statut.trim());
 
-/** « il y a 5 min », « hier à 10:18 », « le 3 sept. à 09:02 ». */
+/** « il y a 5 min », « aujourd'hui à 10:18 », « le 3 sept. à 09:02 ». */
 export function fetchedLabel(t: number): string {
   const m = Math.round((Date.now() - t) / 60000);
   if (m < 1) return "à l'instant";
