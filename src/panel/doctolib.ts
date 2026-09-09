@@ -151,6 +151,57 @@ export async function prochainCreneau(o: Orl): Promise<Creneau> {
   return { next: json.next_slot ?? fromList ?? null, raison: json.reason ?? '' };
 }
 
+/** Ce que la fiche publique d'un praticien apporte pour un lieu donné. */
+export interface FicheOrl {
+  /** Numéro du cabinet à ce lieu ; vide = « pas de téléphone = pas de ligne ». */
+  telephone: string;
+  adresse: string;
+  /** Secteur en clair (« Conventionné secteur 2 avec OPTAM »), vide si absent. */
+  secteurClair: string;
+  /** Un acte de la fiche contient « audiom ». */
+  audiometrie: boolean;
+  actes: string[];
+}
+
+interface RawProfile {
+  data?: {
+    places?: { id?: string; landline_number?: string | null; full_address?: string | null; name?: string }[];
+    details?: { practice_id?: number | string; regulation_sector?: string | null }[];
+    profile?: { skills_by_practice?: Record<string, { name?: string }[]> };
+  };
+}
+
+/** Fiche praticien pour un lieu (un appel ; à espacer de PAUSE_MS). Ne pas appeler pour tout le monde : seulement les retenus. */
+export async function ficheOrl(o: Orl): Promise<FicheOrl> {
+  if (!o.slug || !o.practiceId) throw new Error('Fiche introuvable (pas de lien Doctolib).');
+  const res = await call(`/profiles/${encodeURIComponent(o.slug)}.json?pid=practice-${encodeURIComponent(o.practiceId)}&locale=fr`);
+  const json = (await res.json()) as RawProfile;
+  const d = json.data ?? {};
+  const place = d.places?.find((p) => p.id === `practice-${o.practiceId}`);
+  const detail = d.details?.find((x) => String(x.practice_id) === o.practiceId);
+  const actes = (d.profile?.skills_by_practice?.[o.practiceId] ?? []).map((s) => s.name ?? '').filter(Boolean);
+  return {
+    telephone: (place?.landline_number ?? '').trim(),
+    adresse: (place?.full_address ?? '').trim(),
+    secteurClair: (detail?.regulation_sector ?? '').trim(),
+    audiometrie: actes.some((a) => /audiom/i.test(a)),
+    actes,
+  };
+}
+
+/** Libellé court du secteur, depuis la fiche (en clair) ou la recherche (code). */
+export function secteurLabel(clair: string, brut: string | null): string {
+  const s = clair || brut || '';
+  if (!s) return '';
+  const optam = /optam/i.test(s) ? ' OPTAM' : '';
+  if (/secteur 1|^contracted_1/i.test(s)) return `secteur 1${optam}`;
+  if (/secteur 2|^contracted_2/i.test(s)) return `secteur 2${optam}`;
+  if (/non conventionn|^non_contracted/i.test(s)) return 'non conventionné';
+  return s;
+}
+
+export const MESSAGE_TYPE = "Bonjour, je souhaite prendre rendez-vous pour un bilan auditif complet incluant une audiométrie tonale et vocale, dans le cadre d'un projet d'appareillage. Pouvez-vous me confirmer que ce bilan est bien réalisé dans votre cabinet ? Merci.";
+
 /** Recherche Doctolib pré-remplie, pour l'ouvrir dans un onglet. */
 export const lienRechercheDoctolib = (codePostal: string) => `${BASE}/search?speciality=${SPECIALITE}&location=${encodeURIComponent(codePostal)}`;
 

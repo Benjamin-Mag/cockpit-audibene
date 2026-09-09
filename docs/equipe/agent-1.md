@@ -74,12 +74,13 @@ Worktree : `Documents\Claude\Projects\Cockpit Audibene - partner-search` · bran
 
 **Découpage** (branche `feature/orl-finder` depuis `main`, une PR par étape) :
 1. Retrait Partner Search + onglet ORL Finder : recherche GPS, liste triée avec distance, prochain créneau, Prendre RDV / Itinéraire / Ouvrir sur Doctolib (téléphone « à l'étape suivante »). → **livré, PR #4** (parseur validé sur une vraie réponse Doctolib depuis Node ; à confirmer depuis le panneau).
-2. Fiche praticien : téléphone (pas de téléphone = pas de ligne), secteur en clair, Audiométrie, message type, TOP 3.
+2. Fiche praticien : téléphone (pas de téléphone = pas de ligne), secteur en clair, Audiométrie, message type, TOP 3. → **livré, PR #6**, branche `feature/orl-finder-2`.
 3. Filtres (délai, secteur, rayon auto), cache 10 min, finitions.
 
+- 2026-09-09 : PR #4 mergée (squash #5), **v1.0.21** publiée. Worktree recréé sur `feature/orl-finder-2` depuis `main` (5d38336). Étape 2 : `ficheOrl` (`/profiles/<slug>.json?pid=practice-<id>&locale=fr` → téléphone du lieu, adresse, secteur en clair, actes → « audiom »), `secteurLabel`, `MESSAGE_TYPE` ; vue : lecture des fiches des 12 retenus (créneaux les plus proches d'abord, puis ordre de tri), règle « pas de téléphone = pas de ligne » + compteurs (sans numéro / non vérifiés), TOP 3, `tel:` + copier, Audiométrie ✅/⚠️, message type (global + par ligne) ; ménage `partenairesCache` au démarrage. Fiches testées sur 3 vrais praticiens depuis Node (numéro du lieu parfois `null` alors qu'un autre lieu du même médecin en a un → règle stricte appliquée : c'est le numéro du cabinet affiché qui compte).
+
 ## Reste à faire
-- Étape 1 : PR + message au chef.
-- Étapes 2 et 3 (voir découpage).
+- Étape 3 : filtres délai 7/14/30 j (`availabilitiesBefore` accepte 1/3/7/14 : 30 = sans filtre côté Doctolib + filtre local), secteur S1 seul / tous, rayon 20 → 40 → 60 automatique, cache 10 min par code postal, finitions.
 - Étape 3 : adresse patient préremplie, iframe Google Maps, « Ouvrir dans Google Maps », « Ouvrir la fiche Salesforce », « Copier l'adresse ».
 
 ## Décisions

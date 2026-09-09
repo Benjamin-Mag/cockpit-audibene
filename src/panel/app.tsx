@@ -71,6 +71,8 @@ export function App() {
 
   useEffect(() => {
     initStorage().then(({ state, data }) => { setStorage(state); loadData(data); });
+    // Ménage : le cache des partenaires de la v1.0.20 (chantier abandonné) n'a plus d'usage.
+    if (isExtension) chrome.storage.local.remove('partenairesCache').catch(() => { /* rien à nettoyer */ });
   }, []);
 
   useEffect(() => watchActiveTab((t) => { setSite(siteOf(t?.url)); setTabId(t?.id ?? null); }), []);
