@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'preact/hooks';
 import type { Fiche } from '../../shared/types';
-import { isExtension } from '../bridge';
+import { isExtension, writeClipboard } from '../bridge';
 import { Btn, Icon } from '../components/ui';
-import { type Creneau, type Orl, PAUSE_MS, creneauLabel, lienItineraire, lienRechercheDoctolib, prochainCreneau, rechercherOrl, trierOrl } from '../doctolib';
+import { type Creneau, type FicheOrl, MESSAGE_TYPE, type Orl, PAUSE_MS, creneauLabel, ficheOrl, lienItineraire, lienRechercheDoctolib, prochainCreneau, rechercherOrl, secteurDe, secteurLabel, trierOrl } from '../doctolib';
 import { type GeoTable, type Origine, kmLabel, loadGeo, localiser } from '../geo';
 
 interface Props {
@@ -14,9 +14,12 @@ interface Props {
 const RAYON_KM = 20;
 /** Pages Doctolib lues au maximum (16 praticiens par page, déjà triés par distance). */
 const MAX_PAGES = 2;
+/** Fiches praticien lues au maximum (téléphone, secteur, actes) : les créneaux les plus proches d'abord, puis l'ordre de tri. */
+const MAX_FICHES = 12;
+const TOP = 3;
 
-interface Ligne { orl: Orl; creneau: Creneau | null }
-type Etape = 'attente' | 'recherche' | 'creneaux' | 'fini' | 'erreur';
+interface Ligne { orl: Orl; creneau: Creneau | null; fiche: FicheOrl | null | undefined; ficheErreur?: string }
+type Etape = 'attente' | 'recherche' | 'creneaux' | 'fiches' | 'fini' | 'erreur';
 
 function openUrl(url: string) {
   if (isExtension) void chrome.tabs.create({ url });
@@ -24,11 +27,13 @@ function openUrl(url: string) {
 }
 
 const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
+const adresseDe = (l: Ligne) => l.fiche?.adresse || [l.orl.adresse, [l.orl.codePostal, l.orl.ville].filter(Boolean).join(' ')].filter(Boolean).join(', ');
 
-function SecteurBadge({ o }: { o: Orl }) {
-  if (o.secteur === 'S1') return <span class="badge" style="background:var(--success-soft);color:var(--success);border-color:transparent">secteur 1</span>;
-  if (o.secteur === 'S2') return <span class="badge sms" title={o.secteurBrut ?? ''}>secteur 2</span>;
-  return <span class="badge" title="Secteur non renseigné sur Doctolib">secteur ⚠️ à confirmer</span>;
+function SecteurBadge({ l }: { l: Ligne }) {
+  const label = secteurLabel(l.fiche?.secteurClair ?? '', l.orl.secteurBrut);
+  if (!label) return <span class="badge" title="Secteur non renseigné sur Doctolib">secteur ⚠️ à confirmer</span>;
+  const s1 = label.startsWith('secteur 1');
+  return <span class={['badge', s1 ? '' : 'sms'].join(' ')} style={s1 ? 'background:var(--success-soft);color:var(--success);border-color:transparent' : ''} title={l.fiche?.secteurClair || l.orl.secteurBrut || ''}>{label}</span>;
 }
 
 export function OrlFinder({ fiche, toast }: Props) {
@@ -59,6 +64,7 @@ export function OrlFinder({ fiche, toast }: Props) {
       setError(null);
       setLignes([]);
       try {
+        // 1. Praticiens dans le rayon (Doctolib les renvoie déjà triés par distance).
         const vus = new Set<string>();
         const trouves: Orl[] = [];
         for (let page = 0; page < MAX_PAGES; page++) {
@@ -72,8 +78,10 @@ export function OrlFinder({ fiche, toast }: Props) {
           const dernier = items[items.length - 1];
           if (!items.length || (dernier && dernier.distanceKm > RAYON_KM) || (page + 1) * 16 >= total) break;
         }
-        const base: Ligne[] = trouves.map((orl) => ({ orl, creneau: null }));
+        const base: Ligne[] = trouves.map((orl) => ({ orl, creneau: null, fiche: undefined }));
         setLignes(trierOrl(base));
+
+        // 2. Prochain créneau de chacun, un appel à la fois.
         setEtape('creneaux');
         setProgress({ fait: 0, total: base.length });
         for (let i = 0; i < base.length; i++) {
@@ -86,6 +94,27 @@ export function OrlFinder({ fiche, toast }: Props) {
           setProgress({ fait: i + 1, total: base.length });
           if (i < base.length - 1) await sleep(PAUSE_MS);
         }
+
+        // 3. Fiche (téléphone, secteur en clair, actes) des retenus : créneaux les plus proches d'abord, puis l'ordre de tri.
+        const parCreneau = base.filter((l) => l.creneau?.next).sort((a, b) => a.creneau!.next!.localeCompare(b.creneau!.next!));
+        const retenus: Ligne[] = [];
+        for (const l of [...parCreneau, ...trierOrl(base)]) if (!retenus.includes(l) && retenus.length < MAX_FICHES) retenus.push(l);
+        setEtape('fiches');
+        setProgress({ fait: 0, total: retenus.length });
+        for (let i = 0; i < retenus.length; i++) {
+          if (!alive) return;
+          const idx = base.indexOf(retenus[i]);
+          try {
+            const f = await ficheOrl(retenus[i].orl);
+            base[idx] = { ...base[idx], fiche: f, orl: { ...base[idx].orl, secteur: secteurDe(f.secteurClair) ?? base[idx].orl.secteur } };
+          } catch (e) {
+            base[idx] = { ...base[idx], fiche: null, ficheErreur: (e as Error).message };
+          }
+          if (!alive) return;
+          setLignes(trierOrl(base));
+          setProgress({ fait: i + 1, total: retenus.length });
+          if (i < retenus.length - 1) await sleep(PAUSE_MS);
+        }
         setEtape('fini');
       } catch (e) {
         if (!alive) return;
@@ -96,12 +125,27 @@ export function OrlFinder({ fiche, toast }: Props) {
     return () => { alive = false; };
   }, [geo, cpPatient, tick]);
 
-  const avecCreneau = lignes.filter((l) => l.creneau?.next).length;
-  const enCours = etape === 'recherche' || etape === 'creneaux';
+  const enCours = etape === 'recherche' || etape === 'creneaux' || etape === 'fiches';
+  // Règle du prompt : pas de téléphone = pas de ligne. Tant que la fiche n'est pas lue, la ligne reste visible (en attente).
+  const affichees = lignes.filter((l) => l.fiche === undefined || (l.fiche && l.fiche.telephone));
+  const sansTel = lignes.filter((l) => l.fiche !== undefined && !(l.fiche && l.fiche.telephone)).length;
+  const nonVerifies = etape === 'fini' ? lignes.filter((l) => l.fiche === undefined).length : 0;
+  const finales = etape === 'fini' ? affichees.filter((l) => l.fiche) : affichees;
+  const top = finales.filter((l) => l.creneau?.next).sort((a, b) => a.creneau!.next!.localeCompare(b.creneau!.next!)).slice(0, TOP);
+
   const statut = etape === 'recherche' ? 'Recherche des ORL sur Doctolib…'
     : etape === 'creneaux' ? `${lignes.length} ORL trouvés, lecture des créneaux… ${progress.fait}/${progress.total}`
-    : etape === 'fini' && lignes.length ? `${lignes.length} ORL à moins de ${RAYON_KM} km, ${avecCreneau} avec un créneau en ligne`
+    : etape === 'fiches' ? `Lecture des fiches (téléphone, secteur)… ${progress.fait}/${progress.total}`
+    : etape === 'fini' && lignes.length ? `${finales.length} ORL avec téléphone à moins de ${RAYON_KM} km, ${finales.filter((l) => l.creneau?.next).length} avec un créneau en ligne`
     : '';
+
+  const copier = async (text: string, ok: string) => toast((await writeClipboard(text)) ? ok : 'Copie impossible', 'ok');
+  const itineraire = (l: Ligne) => {
+    if (!adressePatient.trim()) { toast('Renseigne l\'adresse du patient', 'err'); return; }
+    openUrl(lienItineraire(adressePatient.trim(), adresseDe(l)));
+  };
+
+  const carte = (l: Ligne, rang?: number) => <Carte key={rang !== undefined ? `top-${l.orl.key}` : l.orl.key} l={l} rang={rang} onCopier={copier} onItineraire={itineraire} />;
 
   return (
     <div class="view">
@@ -121,42 +165,40 @@ export function OrlFinder({ fiche, toast }: Props) {
 
       {cpPatient && (
         <div class="field">
-          <div class="field-head"><span class="label">Adresse du patient (pour l'itinéraire)</span></div>
+          <div class="field-head">
+            <span class="label">Adresse du patient (pour l'itinéraire)</span>
+            <Btn kind="ghost" icon="message" title="Copier le message type à envoyer au cabinet" onClick={() => copier(MESSAGE_TYPE, 'Message type copié')}>Message type</Btn>
+          </div>
           <input value={adressePatient} placeholder="Rue, code postal, ville" onInput={(e) => setAdressePatient((e.target as HTMLInputElement).value)} />
         </div>
       )}
 
-      {lignes.length > 0 && (
-        <div class="tpl-list">
-          {lignes.map(({ orl, creneau }) => (
-            <div key={orl.key} class="tpl" style="flex-direction:column;align-items:stretch;gap:4px">
-              <div class="row" style="justify-content:space-between;align-items:flex-start">
-                <span class="t">{orl.nom}</span>
-                <span class="row" style="gap:4px;flex-wrap:wrap;justify-content:flex-end">
-                  <SecteurBadge o={orl} />
-                  <span class="badge" style="background:var(--accent-soft);color:var(--accent-strong);border-color:transparent">{kmLabel(orl.distanceKm)}</span>
-                </span>
-              </div>
-              <span class="note">{[orl.adresse, [orl.codePostal, orl.ville].filter(Boolean).join(' ')].filter(Boolean).join(', ')}</span>
-              <span class="note" style={creneau?.next ? 'color:var(--success);font-weight:600' : ''}>
-                <Icon name="calendar2" size={12} />{' '}
-                {creneau === null ? 'Prochain RDV : lecture…' : creneau.next ? `Prochain RDV : ${creneauLabel(creneau.next)}` : `Pas de créneau en ligne${creneau.raison ? ` (${creneau.raison})` : ''}`}
-              </span>
-              <span class="note" style="font-size:11px">Téléphone : à l'étape suivante</span>
-              <div class="row" style="gap:6px;margin-top:2px">
-                <Btn kind="soft" icon="calendar2" disabled={!orl.lien} onClick={() => openUrl(orl.lien)} title="Ouvre la page de prise de rendez-vous Doctolib">Prendre RDV</Btn>
-                <Btn kind="ghost" icon="route" title="Itinéraire Google Maps depuis l'adresse du patient (envoyée à Google seulement maintenant)"
-                  onClick={() => { if (!adressePatient.trim()) { toast('Renseigne l\'adresse du patient', 'err'); return; } openUrl(lienItineraire(adressePatient.trim(), [orl.adresse, orl.codePostal, orl.ville].filter(Boolean).join(', '))); }}>
-                  Itinéraire
-                </Btn>
-              </div>
-            </div>
-          ))}
+      {etape === 'fini' && top.length > 0 && (
+        <div class="stack" style="gap:6px">
+          <span class="label"><Icon name="star" size={13} /> TOP {top.length} · les créneaux les plus rapides</span>
+          <div class="tpl-list">{top.map((l, i) => carte(l, i))}</div>
+        </div>
+      )}
+
+      {finales.length > 0 && (
+        <div class="stack" style="gap:6px">
+          {etape === 'fini' && top.length > 0 && <span class="label">Tous, secteur 1 d'abord puis distance</span>}
+          <div class="tpl-list">{finales.map((l) => carte(l))}</div>
+        </div>
+      )}
+
+      {etape === 'fini' && (sansTel > 0 || nonVerifies > 0) && (
+        <div class="note" style="font-size:11px">
+          {sansTel > 0 && `${sansTel} ORL sans numéro sur Doctolib, non affiché${sansTel > 1 ? 's' : ''}. `}
+          {nonVerifies > 0 && `${nonVerifies} autre${nonVerifies > 1 ? 's' : ''} non vérifié${nonVerifies > 1 ? 's' : ''} (fiche non lue, au-delà des ${MAX_FICHES} retenus).`}
         </div>
       )}
 
       {etape === 'fini' && cpPatient && origine && lignes.length === 0 && !error && (
         <div class="empty"><div class="ico"><Icon name="ear" size={22} /></div>Aucun ORL trouvé à moins de {RAYON_KM} km sur Doctolib.</div>
+      )}
+      {etape === 'fini' && lignes.length > 0 && finales.length === 0 && (
+        <div class="empty">Aucun ORL avec un numéro de téléphone parmi les {lignes.length} trouvés.</div>
       )}
 
       {cpPatient && (
@@ -164,6 +206,45 @@ export function OrlFinder({ fiche, toast }: Props) {
           Ouvrir sur Doctolib
         </Btn>
       )}
+    </div>
+  );
+}
+
+interface CarteProps { l: Ligne; rang?: number; onCopier: (text: string, ok: string) => void; onItineraire: (l: Ligne) => void }
+
+/** Une ligne ORL (hors du composant parent pour ne pas être recréée à chaque rendu). */
+function Carte({ l, rang, onCopier, onItineraire }: CarteProps) {
+
+
+  return (
+    <div class="tpl" style="flex-direction:column;align-items:stretch;gap:4px">
+      <div class="row" style="justify-content:space-between;align-items:flex-start">
+        <span class="t">{rang !== undefined && <span class="badge" style="margin-right:6px;background:var(--warn-soft);color:var(--warn);border-color:transparent">TOP {rang + 1}</span>}{l.orl.nom}</span>
+        <span class="row" style="gap:4px;flex-wrap:wrap;justify-content:flex-end">
+          <SecteurBadge l={l} />
+          <span class="badge" style="background:var(--accent-soft);color:var(--accent-strong);border-color:transparent">{kmLabel(l.orl.distanceKm)}</span>
+        </span>
+      </div>
+      <span class="note">{adresseDe(l)}</span>
+      <span class="note" style={l.creneau?.next ? 'color:var(--success);font-weight:600' : ''}>
+        <Icon name="calendar2" size={12} />{' '}
+        {l.creneau === null ? 'Prochain RDV : lecture…' : l.creneau.next ? `Prochain RDV : ${creneauLabel(l.creneau.next)}` : `Pas de créneau en ligne${l.creneau.raison ? ` (${l.creneau.raison})` : ''}`}
+      </span>
+      <span class="note">
+        {l.fiche === undefined ? (l.ficheErreur ? `Fiche non lue (${l.ficheErreur})` : 'Fiche : lecture…')
+          : l.fiche?.audiometrie ? 'Audiométrie ✅ (indiquée sur la fiche Doctolib)' : 'Audiométrie ⚠️ à confirmer par téléphone'}
+      </span>
+      {l.fiche?.telephone && (
+        <div class="row" style="gap:6px">
+          <a href={`tel:${l.fiche.telephone.replace(/\s+/g, '')}`} class="btn soft" style="text-decoration:none" title="Appeler"><Icon name="phone" /> {l.fiche.telephone}</a>
+          <Btn kind="ghost" icon="copy" title="Copier le numéro" onClick={() => onCopier(l.fiche!.telephone, 'Numéro copié')} />
+          <Btn kind="ghost" icon="message" title="Copier le message type (bilan auditif avec audiométrie tonale et vocale)" onClick={() => onCopier(MESSAGE_TYPE, 'Message type copié')} />
+        </div>
+      )}
+      <div class="row" style="gap:6px;margin-top:2px">
+        <Btn kind="soft" icon="calendar2" disabled={!l.orl.lien} onClick={() => openUrl(l.orl.lien)} title="Ouvre la page de prise de rendez-vous Doctolib">Prendre RDV</Btn>
+        <Btn kind="ghost" icon="route" title="Itinéraire Google Maps depuis l'adresse du patient (envoyée à Google seulement maintenant)" onClick={() => onItineraire(l)}>Itinéraire</Btn>
+      </div>
     </div>
   );
 }
