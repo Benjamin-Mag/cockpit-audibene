@@ -73,7 +73,7 @@ Worktree : `Documents\Claude\Projects\Cockpit Audibene - partner-search` · bran
 **Code** : retirer Partner Search (`partenaires.ts`, `views/Partenaires.tsx`, onglet, permission `cookies`) ; nouveaux `src/panel/doctolib.ts`, `src/panel/views/OrlFinder.tsx`, onglet `orl` « ORL Finder » (icône oreille) **uniquement sur Piste** ; cache résultats 10 min en mémoire ; déclenchement automatique ; progression « 12 ORL trouvés, lecture des créneaux… 4/12 ». Pas de dépendance.
 
 **Découpage** (branche `feature/orl-finder` depuis `main`, une PR par étape) :
-1. Retrait Partner Search + onglet ORL Finder : recherche GPS, liste triée avec distance, prochain créneau, Prendre RDV / Itinéraire / Ouvrir sur Doctolib (téléphone « à l'étape suivante »). → **en cours.**
+1. Retrait Partner Search + onglet ORL Finder : recherche GPS, liste triée avec distance, prochain créneau, Prendre RDV / Itinéraire / Ouvrir sur Doctolib (téléphone « à l'étape suivante »). → **livré, PR #4** (parseur validé sur une vraie réponse Doctolib depuis Node ; à confirmer depuis le panneau).
 2. Fiche praticien : téléphone (pas de téléphone = pas de ligne), secteur en clair, Audiométrie, message type, TOP 3.
 3. Filtres (délai, secteur, rayon auto), cache 10 min, finitions.
 
