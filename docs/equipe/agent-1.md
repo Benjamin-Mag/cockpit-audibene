@@ -50,8 +50,13 @@ Worktree : `Documents\Claude\Projects\Cockpit Audibene - partner-search` · bran
 - 2026-09-09 : PR #2 mergée par le chef (squash #3), **v1.0.20** publiée. Mon worktree avait été supprimé au merge : recréé sur `feature/partner-search-proximite` depuis `origin/main` (fa1acfd), `npm ci`, `tsc` vert.
 - 2026-09-09 : **étape 2 codée** — `scripts/codes-postaux.mjs` (génère `public/data/codes-postaux.json`, rejouable, source + date en tête ; testé sur un mini CSV), `src/panel/geo.ts` (chargement de la table, `localiser` avec repli département, haversine, `plusProches` ; testé sous Node : Andernos → Arès 4 km, Bordeaux 44 km, Paris 527 km), vue Partenaires : bloc « Les plus proches de <CP ville> » (5, distance en km, désactivés exclus + case « inclure les désactivés »), messages si code postal absent / inconnu / table absente, liste complète repliée derrière « Toute la liste ». **Reste : générer la table réelle** (téléchargement de la base La Poste ≈ 1,5 Mo — en attente de l'accord de Benjamin, une autorisation du chef ne vaut pas pour un téléchargement), vérifier la taille du JSON (< 1 Mo visé), PR.
 
+- **2026-09-09 : Partner Search abandonné, remplacé par ORL Finder (cadrage à venir).** Décision de Benjamin transmise par le chef. Pas de table des codes postaux générée, pas de PR pour l'étape 2. La branche `feature/partner-search-proximite` (commit d99ff29 : script codes postaux, `geo.ts` haversine + repli département, vue « plus proches ») est conservée telle quelle : ce code peut resservir pour ORL Finder (ORL proches du patient). L'onglet Partenaires de la v1.0.20 sera retiré ou remplacé selon le cadrage.
+
+## Chantier suivant : ORL Finder
+Objectif annoncé : trouver des **ORL proches du patient avec un créneau disponible**. Benjamin transmet au chef le prompt d'un collègue qui a déjà construit un ORL Finder ; le chef l'analyse et m'envoie le cadrage avec les décisions. En attente.
+
 ## Reste à faire
-- Étape 2 : lancer `node scripts/codes-postaux.mjs` après accord de Benjamin, contrôler la taille, commit du JSON, PR + message au chef.
+- Attendre le cadrage ORL Finder du chef.
 - Étape 3 : adresse patient préremplie, iframe Google Maps, « Ouvrir dans Google Maps », « Ouvrir la fiche Salesforce », « Copier l'adresse ».
 
 ## Décisions
