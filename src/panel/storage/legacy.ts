@@ -1,4 +1,4 @@
-import { type AppData, CATEGORIES_PARTENAIRE, CATEGORIES_PATIENT, DEFAULT_SITUATIONS, DEFAULT_TEXTES, RESUME_TAG, type Situation, type Template, type Vente, type VentesData, ensurePhoneUnderName, seedCategories } from '../model';
+import { type AppData, CATEGORIES_PARTENAIRE, CATEGORIES_PATIENT, DEFAULT_SITUATIONS, DEFAULT_TEXTES, type PartenairesData, RESUME_TAG, type Situation, type Template, type Vente, type VentesData, ensurePhoneUnderName, seedCategories } from '../model';
 import { canonicalMonthKey } from '../ventes';
 
 /** Regroupe les ventes sous des clés de mois normalisées ("Janvier 26" et "Janvier 2026" fusionnent). */
@@ -159,7 +159,18 @@ export function mergeData(a: AppData, b: AppData): AppData {
   for (const c of older.chatPartenaire ?? []) if (!out.chatPartenaire.some((x) => x.id === c.id)) out.chatPartenaire.push(c);
   for (const t of older.templates) if (!out.templates.some((x) => x.id === t.id)) out.templates.push(t);
   for (const aud of ['patient', 'partenaire'] as const) for (const c of older.categories[aud]) if (!out.categories[aud].some((x) => x.id === c.id)) out.categories[aud].push(c);
+  out.partenaires = mergePartenaires(a.partenaires, b.partenaires);
   return mergeVentes(out, older.ventes);
+}
+
+/** La lecture la plus récente du rapport fait foi ; les partenaires que l'autre copie est seule à connaître sont gardés. */
+export function mergePartenaires(a: PartenairesData | undefined, b: PartenairesData | undefined): PartenairesData {
+  const pa = a ?? { fetchedAt: 0, items: [] };
+  const pb = b ?? { fetchedAt: 0, items: [] };
+  const [newer, older] = pa.fetchedAt >= pb.fetchedAt ? [pa, pb] : [pb, pa];
+  const items = [...newer.items];
+  for (const p of older.items) if (!items.some((x) => x.id === p.id)) items.push(p);
+  return { fetchedAt: newer.fetchedAt, items };
 }
 
 /**
@@ -220,5 +231,8 @@ export function normalize(raw: unknown, base: AppData): AppData {
   if (typeof o.updatedAt === 'number') out.updatedAt = o.updatedAt;
   if (o.categories) out.categories = seedCategories({ patient: o.categories.patient ?? [], partenaire: o.categories.partenaire ?? [], seeded: o.categories.seeded });
   if (o.ventes) out.ventes = { settings: { ...out.ventes.settings, ...(o.ventes.settings ?? {}) }, payslips: o.ventes.payslips ?? [], sales: canonicalizeSales(o.ventes.sales ?? {}) };
+  if (o.partenaires && Array.isArray(o.partenaires.items)) {
+    out.partenaires = { fetchedAt: typeof o.partenaires.fetchedAt === 'number' ? o.partenaires.fetchedAt : 0, items: o.partenaires.items.filter((p) => p && typeof p.id === 'string' && typeof p.nom === 'string') };
+  }
   return out;
 }

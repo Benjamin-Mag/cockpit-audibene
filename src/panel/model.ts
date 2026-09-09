@@ -43,6 +43,22 @@ export interface VentesData {
 
 export interface ChatTexte { id: string; label: string; text: string }
 
+/** Partenaire audioprothésiste, ligne du rapport Salesforce « FRA Partenaires Actifs ». */
+export interface Partenaire {
+  /** ID du compte Salesforce (fiche : /lightning/r/Account/<id>/view). */
+  id: string;
+  nom: string;
+  comptePrincipal: string;
+  /** Rue (sans code postal ni ville). */
+  adresse: string;
+  codePostal: string;
+  ville: string;
+  statut: string;
+  email: string;
+}
+/** Copie locale du rapport ; `fetchedAt` = 0 tant qu'il n'a jamais été lu. */
+export interface PartenairesData { fetchedAt: number; items: Partenaire[] }
+
 export interface AppData {
   version: 2;
   onboardingDone: boolean;
@@ -62,6 +78,8 @@ export interface AppData {
   /** Liste complète (modifiable) des catégories ; `seeded` = les catégories de base ont été ajoutées une fois. */
   categories: { patient: Categorie[]; partenaire: Categorie[]; seeded?: boolean };
   ventes: VentesData;
+  /** Partenaires lus dans le rapport Salesforce (jamais dans le fichier de partage). */
+  partenaires: PartenairesData;
 }
 
 export const RESUME_TAG = '{{resume}}';
@@ -103,6 +121,7 @@ export function defaultData(): AppData {
       payslips: [],
       sales: {},
     },
+    partenaires: { fetchedAt: 0, items: [] },
   };
 }
 
