@@ -86,8 +86,10 @@ Worktree : `Documents\Claude\Projects\Cockpit Audibene - partner-search` · bran
 - Rayon élargi seulement si **aucun créneau visible** dans le rayon courant (pas seulement aucun ORL) ; pages Doctolib lues au fil des rayons (4 max), créneaux déjà lus non relus.
 - Cache par clé `codePostal|délai|secteur`, 10 min, 12 entrées max ; ↻ ignore le cache ; changer un filtre relit le cache de cette clé s'il existe.
 
+- 2026-09-09 : **retour de test v1.0.22 : Doctolib (Datadome) bloque les `fetch` partis de l'origine `chrome-extension://`.** Correctif du chef (`fix/doctolib-via-onglet`, e403295) cherry-pické dans `feature/orl-finder-3` (PR #9) : `fetchViaTab` dans `bridge.ts` exécute le `fetch` **dans l'onglet Doctolib** (`chrome.scripting.executeScript`, `world: 'MAIN'` ; onglet existant réveillé, sinon créé `active: false`), `call()` passe par ce transport dans l'extension et par `fetch` direct en mode web. Conflit résolu en gardant `DoctolibRefus` (403 / 429 / HTML). Ajout : bouton **« Voir l'onglet Doctolib »** (`voirOngletDoctolib` : `chrome.tabs.update` + `windows.update`) à côté d'« Ouvrir la recherche » quand Doctolib bloque, pour que Benjamin valide lui-même la vérification dans l'onglet (on ne la contourne pas).
+
 ## Reste à faire
-- Test réel depuis le panneau (anti-robot Doctolib) : je n'ai pas accès au navigateur de Benjamin ; à confirmer par le chef / Benjamin.
+- Test réel depuis le panneau, avec et sans onglet Doctolib déjà ouvert : je n'ai pas accès au navigateur de Benjamin ; à confirmer par le chef / Benjamin sur la PR #9.
 - Étape 3 : adresse patient préremplie, iframe Google Maps, « Ouvrir dans Google Maps », « Ouvrir la fiche Salesforce », « Copier l'adresse ».
 
 ## Décisions

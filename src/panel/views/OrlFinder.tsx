@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'preact/hooks';
 import type { Fiche } from '../../shared/types';
 import { isExtension, writeClipboard } from '../bridge';
 import { Btn, Icon, Seg } from '../components/ui';
-import { type Creneau, DoctolibRefus, MESSAGE_TYPE, type Orl, PAUSE_MS, SECTEURS_S1, SECTEURS_S2, creneauLabel, ficheOrl, lienItineraire, lienRechercheDoctolib, prochainCreneau, rechercherOrl, secteurDe, secteurLabel, trierOrl } from '../doctolib';
+import { type Creneau, DoctolibRefus, MESSAGE_TYPE, type Orl, PAUSE_MS, SECTEURS_S1, SECTEURS_S2, creneauLabel, ficheOrl, lienItineraire, lienRechercheDoctolib, prochainCreneau, rechercherOrl, secteurDe, secteurLabel, trierOrl, voirOngletDoctolib } from '../doctolib';
 import { type GeoTable, type Origine, kmLabel, loadGeo, localiser } from '../geo';
 import { type DelaiFiltre, type LigneCache, type OrlPrefs, type SecteurFiltre, cacheKey, loadPrefs, loadResultat, savePrefs, saveResultat } from '../orl-store';
 
@@ -213,7 +213,12 @@ export function OrlFinder({ fiche, toast }: Props) {
         <div class="card" style="animation:none">
           <div class="stack" style="gap:8px">
             <div class="row" style="align-items:flex-start"><Icon name="alert" /><span class="grow" style="font-size:12.5px">{error.msg}</span></div>
-            {error.refus && <Btn big icon="external" onClick={() => openUrl(lienRechercheDoctolib(cpPatient))}>Ouvrir la recherche sur Doctolib</Btn>}
+            {error.refus && (
+              <div class="actions" style="margin-top:0">
+                <Btn big icon="external" onClick={() => void voirOngletDoctolib()} title="Affiche l'onglet Doctolib qui porte les appels, pour valider la vérification anti-robot">Voir l'onglet Doctolib</Btn>
+                <Btn big kind="soft" icon="external" onClick={() => openUrl(lienRechercheDoctolib(cpPatient))}>Ouvrir la recherche</Btn>
+              </div>
+            )}
           </div>
         </div>
       )}
