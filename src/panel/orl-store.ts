@@ -5,7 +5,7 @@ import type { Creneau, FicheOrl, Orl } from './doctolib';
 export type DelaiFiltre = 1 | 3 | 7 | 14 | 0;
 export type SecteurFiltre = 'tous' | 's1' | 's12';
 export interface OrlPrefs { delai: DelaiFiltre; secteur: SecteurFiltre }
-export const DEFAULT_PREFS: OrlPrefs = { delai: 14, secteur: 'tous' };
+export const DEFAULT_PREFS: OrlPrefs = { delai: 0, secteur: 'tous' };
 
 export interface LigneCache { orl: Orl; creneau: Creneau | null; fiche: FicheOrl | null | undefined; ficheErreur?: string }
 export interface Resultat { at: number; rayonKm: number; lignes: LigneCache[] }
