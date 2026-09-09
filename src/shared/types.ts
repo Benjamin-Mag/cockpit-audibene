@@ -11,6 +11,9 @@ export interface Fiche {
   email: string;
   telephone: string;
   naissance: string;
+  /** Code postal et ville du patient (champ Adresse de la Piste, ou titre de l'Opportunité). */
+  codePostal: string;
+  ville: string;
   partenaire: string;
   adresse: string;
 }

@@ -36,12 +36,27 @@ function splitNomEtGenre(nomComplet: string): { genre: Genre; prenom: string; no
 
 const normaliserTelephone = (tel: string) => tel.replace(/\s+/g, '').replace(/^\+33/, '0');
 
+const titreFiche = () => {
+  const el = visibleEl(deepAll('lightning-formatted-text[slot="primaryField"]'));
+  return el ? textOf(el) : '';
+};
+
 /** Sur une Opportunité, le nom du patient est dans le titre, suivi du code postal. */
 function nomDepuisTitre(): string {
-  const el = visibleEl(deepAll('lightning-formatted-text[slot="primaryField"]'));
-  const full = el ? textOf(el) : '';
+  const full = titreFiche();
   const m = full.match(/^(.*?)\s+\d{5}/);
   return m ? m[1].trim() : full;
+}
+
+/** Code postal + ville : champ « Adresse » de la Piste (« 33510 ANDERNOS LES BAINS / Région France »), sinon titre de l'Opportunité (« Nom 69110 STE FOY LES LYON - 2026/09 »). */
+function codePostalEtVille(): { codePostal: string; ville: string } {
+  const parse = (text: string) => {
+    const m = (text || '').match(/\b(\d{5})\s+([^\n]+)/);
+    if (!m) return null;
+    const ville = m[2].replace(/\s+-\s+\d{4}\/\d{2}.*$/, '').replace(/\s+(France)$/i, '').trim();
+    return { codePostal: m[1], ville };
+  };
+  return parse(fieldValue('Adresse') ?? '') ?? parse(titreFiche()) ?? { codePostal: '', ville: '' };
 }
 
 function telephoneDepuisOpportunite(): string {
@@ -134,6 +149,7 @@ export async function readFiche(withPartner: boolean): Promise<Fiche> {
     email: email || '',
     naissance: naissance || '',
     telephone,
+    ...codePostalEtVille(),
     partenaire: pa.partenaire,
     adresse: pa.adresse,
   };
