@@ -9,6 +9,8 @@ export interface AnamField {
   section: string;
   options?: string[];
   freeText?: boolean;
+  /** Texte libre avec phrases enregistrées réutilisables (comme Situation 1/2). */
+  reusable?: boolean;
 }
 
 export const SITUATION_OPTIONS = ['Musique', 'Conversations de groupe', 'Loisirs', 'Télévision', 'Travail', 'Restaurant', 'Téléphone'];
@@ -18,8 +20,8 @@ export const FIELDS_CATALOG: AnamField[] = [
   { label: "Type d'appareillage", section: "Détails par rapport à l'appareillage", options: ['Premier appareillage', "Renouvellement d'appareillage"] },
   { label: 'Situation très importante 1', displayLabel: 'Situation 1', section: 'Analyse des besoins auditifs', options: SITUATION_OPTIONS },
   { label: 'Situation très importante 2', displayLabel: 'Situation 2', section: 'Analyse des besoins auditifs', options: SITUATION_OPTIONS },
-  { label: 'Loisirs', section: 'Analyse des besoins auditifs', freeText: true },
-  { label: 'Mots du client qui confirment motivation', displayLabel: 'Mots du client (motivation)', section: 'Analyse des besoins auditifs', freeText: true },
+  { label: 'Loisirs', section: 'Analyse des besoins auditifs', freeText: true, reusable: true },
+  { label: 'Mots du client qui confirment motivation', displayLabel: 'Mots du client (motivation)', section: 'Analyse des besoins auditifs', freeText: true, reusable: true },
   { label: 'Statut professionnel', section: 'Analyse des besoins auditifs', options: ['Actif/ active', 'Retraité/e', 'Inconnu'] },
   { label: '(Ancienne) profession', displayLabel: 'Profession (ancienne)', section: 'Analyse des besoins auditifs', freeText: true },
   { label: 'Exposition aux nuisances sonores', section: 'Analyse des besoins auditifs', options: ['Oui', 'Non'] },

@@ -39,10 +39,12 @@ export function Anamnese({ data, update, connected, busy, footerEl, onApply, onE
   const apply = () => {
     const picklists: Pair[] = Object.entries(picks).map(([label, value]) => ({ label, value }));
     for (const f of FIELDS_CATALOG) if (isBinaryOuiNon(f) && !(f.label in picks)) picklists.push({ label: f.label, value: 'Non' });
-    const texts: Pair[] = [];
-    for (const [label, list] of Object.entries(phrases)) if (list.length) texts.push({ label, value: list.join(' / ') });
+    // Un même champ peut recevoir des phrases cochées ET un texte libre : ils sont réunis par « / ».
+    const parts: Record<string, string[]> = {};
+    for (const [label, list] of Object.entries(phrases)) if (list.length) (parts[label] ??= []).push(...list);
+    for (const [label, v] of Object.entries(free)) if (v.trim()) (parts[label] ??= []).push(v.trim());
+    const texts: Pair[] = Object.entries(parts).map(([label, list]) => ({ label, value: list.join(' / ') }));
     for (const [label, v] of Object.entries(cosi)) texts.push({ label, value: String(v) });
-    for (const [label, v] of Object.entries(free)) if (v.trim()) texts.push({ label, value: v.trim() });
     const touched = Object.keys(picks).length || texts.length;
     if (!touched) return onEmpty();
     onApply(picklists, texts);
@@ -105,9 +107,12 @@ export function Anamnese({ data, update, connected, busy, footerEl, onApply, onE
   const renderField = (f: AnamField) => {
     if (f.freeText) {
       return (
-        <Field key={f.label} label={f.displayLabel ?? f.label}>
-          <input value={free[f.label] ?? ''} placeholder="…" onInput={(e) => setFree((x) => ({ ...x, [f.label]: (e.target as HTMLInputElement).value }))} />
-        </Field>
+        <div key={f.label} class="stack" style="gap:6px">
+          <Field label={f.displayLabel ?? f.label}>
+            <input value={free[f.label] ?? ''} placeholder={f.reusable ? 'Texte du moment (en plus des phrases cochées)…' : '…'} onInput={(e) => setFree((x) => ({ ...x, [f.label]: (e.target as HTMLInputElement).value }))} />
+          </Field>
+          {f.reusable && phraseBlock(f.label, f.label)}
+        </div>
       );
     }
     if (isBinaryOuiNon(f)) {
