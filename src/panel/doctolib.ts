@@ -64,12 +64,26 @@ interface RawProvider {
 
 async function call(path: string, init: RequestInit = {}): Promise<Response> {
   const res = await fetch(`${BASE}${path}`, { ...init, credentials: 'include', headers: { Accept: 'application/json', ...(init.headers ?? {}) } });
-  if (res.status === 403 || (res.headers.get('content-type') ?? '').includes('text/html')) {
-    throw new Error('Doctolib refuse la demande (vérification anti-robot ?). Ouvre doctolib.fr dans un onglet, puis réessaie.');
+  if (res.status === 403 || res.status === 429 || (res.headers.get('content-type') ?? '').includes('text/html')) {
+    throw new DoctolibRefus(res.status);
   }
   if (!res.ok) throw new Error(`Doctolib a répondu ${res.status}.`);
   return res;
 }
+
+/** Doctolib bloque (anti-robot, trop de demandes) : le panneau propose alors d'ouvrir la recherche dans un onglet. */
+export class DoctolibRefus extends Error {
+  status: number;
+  constructor(status: number) {
+    super(status === 429 ? 'Doctolib demande de ralentir (trop de demandes). Réessaie dans une minute, ou ouvre la recherche sur Doctolib.' : 'Doctolib refuse la demande depuis le panneau (vérification anti-robot). Ouvre la recherche sur Doctolib, ou connecte-toi sur doctolib.fr dans un onglet puis réessaie.');
+    this.name = 'DoctolibRefus';
+    this.status = status;
+  }
+}
+
+/** Secteurs Doctolib selon le filtre choisi (vide = tous). */
+export const SECTEURS_S1 = ['CONTRACTED_1', 'CONTRACTED_1_WITH_EXTRA', 'CONTRACTED_1_WITH_OPTAM', 'CONTRACTED_1_WITH_OPTAM_CO'];
+export const SECTEURS_S2 = ['CONTRACTED_2', 'CONTRACTED_2_WITH_OPTAM', 'CONTRACTED_2_WITH_OPTAM_CO'];
 
 export function secteurDe(brut: string | null | undefined): Secteur {
   if (!brut) return null;
@@ -153,8 +167,11 @@ export async function prochainCreneau(o: Orl): Promise<Creneau> {
 
 /** Ce que la fiche publique d'un praticien apporte pour un lieu donné. */
 export interface FicheOrl {
-  /** Numéro du cabinet à ce lieu ; vide = « pas de téléphone = pas de ligne ». */
+  /** Numéro du cabinet à ce lieu ; vide = « pas de téléphone = pas de ligne » (sauf numéro d'un autre cabinet). */
   telephone: string;
+  /** Numéro d'un autre cabinet du même médecin, quand ce lieu n'en a pas (affiché avec la mention « autre cabinet »). */
+  telephoneAutre: string;
+  autreLieu: string;
   adresse: string;
   /** Secteur en clair (« Conventionné secteur 2 avec OPTAM »), vide si absent. */
   secteurClair: string;
@@ -180,8 +197,11 @@ export async function ficheOrl(o: Orl): Promise<FicheOrl> {
   const place = d.places?.find((p) => p.id === `practice-${o.practiceId}`);
   const detail = d.details?.find((x) => String(x.practice_id) === o.practiceId);
   const actes = (d.profile?.skills_by_practice?.[o.practiceId] ?? []).map((s) => s.name ?? '').filter(Boolean);
+  const autre = d.places?.find((p) => p.id !== `practice-${o.practiceId}` && (p.landline_number ?? '').trim());
   return {
     telephone: (place?.landline_number ?? '').trim(),
+    telephoneAutre: (autre?.landline_number ?? '').trim(),
+    autreLieu: (autre?.name || autre?.full_address || '').trim(),
     adresse: (place?.full_address ?? '').trim(),
     secteurClair: (detail?.regulation_sector ?? '').trim(),
     audiometrie: actes.some((a) => /audiom/i.test(a)),

@@ -75,12 +75,19 @@ Worktree : `Documents\Claude\Projects\Cockpit Audibene - partner-search` · bran
 **Découpage** (branche `feature/orl-finder` depuis `main`, une PR par étape) :
 1. Retrait Partner Search + onglet ORL Finder : recherche GPS, liste triée avec distance, prochain créneau, Prendre RDV / Itinéraire / Ouvrir sur Doctolib (téléphone « à l'étape suivante »). → **livré, PR #4** (parseur validé sur une vraie réponse Doctolib depuis Node ; à confirmer depuis le panneau).
 2. Fiche praticien : téléphone (pas de téléphone = pas de ligne), secteur en clair, Audiométrie, message type, TOP 3. → **livré, PR #6**, branche `feature/orl-finder-2`.
-3. Filtres (délai, secteur, rayon auto), cache 10 min, finitions.
+3. Filtres (délai, secteur, rayon auto), cache 10 min, finitions. → **livré, PR #8**, branche `feature/orl-finder-3`.
 
 - 2026-09-09 : PR #4 mergée (squash #5), **v1.0.21** publiée. Worktree recréé sur `feature/orl-finder-2` depuis `main` (5d38336). Étape 2 : `ficheOrl` (`/profiles/<slug>.json?pid=practice-<id>&locale=fr` → téléphone du lieu, adresse, secteur en clair, actes → « audiom »), `secteurLabel`, `MESSAGE_TYPE` ; vue : lecture des fiches des 12 retenus (créneaux les plus proches d'abord, puis ordre de tri), règle « pas de téléphone = pas de ligne » + compteurs (sans numéro / non vérifiés), TOP 3, `tel:` + copier, Audiométrie ✅/⚠️, message type (global + par ligne) ; ménage `partenairesCache` au démarrage. Fiches testées sur 3 vrais praticiens depuis Node (numéro du lieu parfois `null` alors qu'un autre lieu du même médecin en a un → règle stricte appliquée : c'est le numéro du cabinet affiché qui compte).
 
+- 2026-09-09 : PR #6 mergée (squash #7), **v1.0.22**. Décisions du chef : numéro d'un autre cabinet affiché avec mention « autre cabinet » (Q1) ; 20 fiches max dans l'ordre du tri, par paquets de 5 en parallèle (Q2). Étape 3 sur `feature/orl-finder-3` (depuis `main` 6ad9036) : `orl-store.ts` (réglages `orlFinderPrefs` + cache `orlFinderCache` 10 min par code postal + filtres, `chrome.storage.local`, repli `localStorage`, jamais cockpit.json), filtres délai 24 h / 3 j / 7 j / 14 j / tous (`availabilitiesBefore`) et secteur tous / secteur 1 / secteur 1 + 2 (`regulationSector`), rayon 20 → 40 → 60 km tant qu'aucun créneau visible (pages Doctolib lues au fil de l'eau, créneaux déjà lus réutilisés), squelettes pendant la recherche, `DoctolibRefus` (403 / 429 / HTML) → carte d'erreur + gros bouton « Ouvrir la recherche sur Doctolib », bouton « Chercher sans filtre » quand tout est vide. Vérifié sur de vrais appels : filtres acceptés (Arès : S1 + 14 j → 0, 3 j → 0, S1 + S2 → 9 ; sans filtre → 16+), numéro « autre cabinet » récupéré.
+
+## Décisions (ORL Finder)
+- Le filtre délai est appliqué **côté Doctolib** (`availabilitiesBefore`) : il exclut donc les ORL sans prise de RDV en ligne, même joignables par téléphone. « tous » (pas de filtre) les garde ; c'est pour ça que l'état vide propose « Chercher sans filtre ». Valeur par défaut : 14 j (cadrage).
+- Rayon élargi seulement si **aucun créneau visible** dans le rayon courant (pas seulement aucun ORL) ; pages Doctolib lues au fil des rayons (4 max), créneaux déjà lus non relus.
+- Cache par clé `codePostal|délai|secteur`, 10 min, 12 entrées max ; ↻ ignore le cache ; changer un filtre relit le cache de cette clé s'il existe.
+
 ## Reste à faire
-- Étape 3 : filtres délai 7/14/30 j (`availabilitiesBefore` accepte 1/3/7/14 : 30 = sans filtre côté Doctolib + filtre local), secteur S1 seul / tous, rayon 20 → 40 → 60 automatique, cache 10 min par code postal, finitions.
+- Test réel depuis le panneau (anti-robot Doctolib) : je n'ai pas accès au navigateur de Benjamin ; à confirmer par le chef / Benjamin.
 - Étape 3 : adresse patient préremplie, iframe Google Maps, « Ouvrir dans Google Maps », « Ouvrir la fiche Salesforce », « Copier l'adresse ».
 
 ## Décisions
