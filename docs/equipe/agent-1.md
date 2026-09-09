@@ -17,11 +17,11 @@ Worktree : `Documents\Claude\Projects\Cockpit Audibene - partner-search` · bran
 
 **Emplacement** : onglet **« Partenaires »** visible sur une Piste, masqué sur Opportunité (`TABS` + `hidden` dans `app.tsx`), vue `src/panel/views/Partenaires.tsx`, composants existants, palette et animations en place, textes en français. Bouton « Actualiser » discret avec date de dernière lecture.
 
-**Contraintes** : `partenaires` dans `defaultData`, `normalize`, `mergeData` (union par ID, `fetchedAt` le plus récent), jamais dans « Partager mes modèles ». `chrome.cookies` depuis le panneau, pas le script de contenu. Pas de dépendance npm sans accord. `tsc` vert + `build` OK avant livraison ; PR sur `main` + message de session.
+**Contraintes** : la liste des partenaires est un **cache navigateur** (`chrome.storage.local`, clé `partenairesCache`, repli `localStorage`), jamais dans `AppData` / `cockpit.json` / partage (décision du chef après relecture de la PR #2). `chrome.cookies` depuis le panneau, pas le script de contenu. Pas de dépendance npm sans accord. `tsc` vert + `build` OK avant livraison ; PR sur `main` + message de session. Une branche par étape, créée depuis `main` à jour.
 
 **Découpage** (une PR par étape) :
-1. **Données** — permission cookies, lecture du rapport, normalisation, cache 24 h + Actualiser, stockage `AppData`, onglet Partenaires minimal (liste brute + date). → **livré, PR #2** (voir journal).
-2. **Proximité** — table code postal → coordonnées, calcul, 5 plus proches avec distance, exclusion des non actifs.
+1. **Données** — permission cookies, lecture du rapport, normalisation, cache 24 h + Actualiser, onglet Partenaires minimal (liste brute + date). → **mergé (PR #2 → #3 squash), publié en v1.0.20.**
+2. **Proximité** — table code postal → coordonnées, calcul, 5 plus proches avec distance, exclusion des non actifs. → **en cours, branche `feature/partner-search-proximite`.**
 3. **Carte** — adresse patient, iframe Google Maps, bouton Ouvrir, actions par partenaire.
 
 ## À faire pour démarrer (introduction)
@@ -47,8 +47,39 @@ Worktree : `Documents\Claude\Projects\Cockpit Audibene - partner-search` · bran
 
 - 2026-09-09 : relecture du chef sur la PR #2 → 3 ajustements poussés : cache `partenairesCache` dans `chrome.storage.local` (repli `localStorage`), hors `AppData` ; onglet Partenaires masqué hors Piste ; 50 lignes max sans filtre. `tsc` + `build` verts, parseur re-testé, onglet vérifié absent en mode web. Étape 2 → nouvelle branche `feature/partner-search-proximite` depuis `main` après merge.
 
+- 2026-09-09 : PR #2 mergée par le chef (squash #3), **v1.0.20** publiée. Mon worktree avait été supprimé au merge : recréé sur `feature/partner-search-proximite` depuis `origin/main` (fa1acfd), `npm ci`, `tsc` vert.
+- 2026-09-09 : **étape 2 codée** — `scripts/codes-postaux.mjs` (génère `public/data/codes-postaux.json`, rejouable, source + date en tête ; testé sur un mini CSV), `src/panel/geo.ts` (chargement de la table, `localiser` avec repli département, haversine, `plusProches` ; testé sous Node : Andernos → Arès 4 km, Bordeaux 44 km, Paris 527 km), vue Partenaires : bloc « Les plus proches de <CP ville> » (5, distance en km, désactivés exclus + case « inclure les désactivés »), messages si code postal absent / inconnu / table absente, liste complète repliée derrière « Toute la liste ». **Reste : générer la table réelle** (téléchargement de la base La Poste ≈ 1,5 Mo — en attente de l'accord de Benjamin, une autorisation du chef ne vaut pas pour un téléchargement), vérifier la taille du JSON (< 1 Mo visé), PR.
+
+- **2026-09-09 : Partner Search abandonné, remplacé par ORL Finder (cadrage à venir).** Décision de Benjamin transmise par le chef. Pas de table des codes postaux générée, pas de PR pour l'étape 2. La branche `feature/partner-search-proximite` (commit d99ff29 : script codes postaux, `geo.ts` haversine + repli département, vue « plus proches ») est conservée telle quelle : ce code peut resservir pour ORL Finder (ORL proches du patient). L'onglet Partenaires de la v1.0.20 sera retiré ou remplacé selon le cadrage.
+
+- 2026-09-09 : cadrage ORL Finder reçu (recopié ci-dessous). Branche `feature/orl-finder` depuis `main` (fa1acfd). **Accord de Benjamin dans ma session** pour télécharger une fois la base des codes postaux → le CSV data.gouv n'a plus de coordonnées ; script réécrit sur l'API Datanova de La Poste (même base, champ `_geopoint` = centroïde de commune, 4 pages de 10 000) → `public/data/codes-postaux.json` : 6 321 codes postaux, 143 Ko. Partner Search retiré, `doctolib.ts` + `views/OrlFinder.tsx` écrits (étape 1).
+
+## Chantier : ORL Finder (cadrage du 2026-09-09, validé par Benjamin ; appels Doctolib vérifiés par le chef)
+
+**Objectif** : sur une **Piste**, un onglet **ORL Finder** montre sans clic les ORL proches du patient (`Fiche.codePostal`) **avec leur prochain créneau Doctolib**, triés : secteur 1 d'abord, puis distance, puis délai. Par ORL : nom, secteur, adresse, distance, prochain RDV, **Prendre RDV** (Doctolib), **Itinéraire** (Google Maps depuis l'adresse du patient), **téléphone** (`tel:` + copier), **Audiométrie ✅ / ⚠️ à confirmer**, « Copier le message type ». Bloc **TOP 3 les plus rapides**. Filtres : délai 7/14/30 j, secteur (S1 / tous), rayon 20 km élargi automatiquement (40, 60) si aucun créneau. Recherche en arrière-plan + lien « Ouvrir sur Doctolib ». Règles : **pas de téléphone = pas de ligne** ; « à confirmer » pour ce qui n'est pas vérifié ; ne jamais inventer.
+
+**Doctolib** (depuis le panneau, `fetch` + `credentials: 'include'`, host déjà autorisé) :
+1. Recherche : `POST /patient-health-search/api/v1/hcp/search?page=N` JSON `{ keyword: "orl-oto-rhino-laryngologie", location: { gpsPoint: { lat, lng } }, filters?: { regulationSector: [...], availabilitiesBefore: 1|3|7|14 } }` → 206, 16 par page, triés par distance. Champs : `title/firstName/name`, `location {address, zipcode, city, lat, lng, distanceInMeters}`, `regulationSector` (`contracted_1` / `contracted_2` / null), `link` (RDV = doctolib.fr + link), `references.practiceId`, `matchedVisitMotive {visitMotiveId, agendaIds, name, allowNewPatients}`, `onlineBooking.agendaIds`. `location.place` → 422.
+2. Créneau : `GET /search/availabilities.json?telehealth=false&limit=5&start_date_time=<ISO local avec décalage>&visit_motive_id=&agenda_ids=&practice_ids=` → `next_slot` ou null, `reason`. Séquentiel, ~150 ms.
+3. Fiche : `GET /profiles/<slug>.json?pid=practice-<id>&locale=fr` → `data.places[] {landline_number, full_address}`, `data.details[] {practice_id, regulation_sector}`, `data.profile.skills_by_practice[pid][] {name}` (« Audiom » → ✅). Seulement pour les retenus (≤ 12).
+4. GPS du code postal : ma table `geo.ts` (Datanova / La Poste). 5. Lien recherche : `/search?speciality=orl-oto-rhino-laryngologie&location=<cp>` (à vérifier). 6. Si 403 / anti-robot → prévenir le chef avant tout contournement (repli : script de contenu dans un onglet Doctolib `active:false`).
+
+**Tri** : rayon 20 → 40 → 60 km ; groupes S1 → S2/OPTAM → non renseigné ; distance puis `next_slot` ; TOP 3 = 3 `next_slot` les plus proches (avec téléphone) ; une ligne par praticien **et par lieu** (dédoublonnage `references.id` + `practiceId`) ; sans téléphone après lecture de la fiche → masqué, compteur discret.
+
+**Message type** : « Bonjour, je souhaite prendre rendez-vous pour un bilan auditif complet incluant une audiométrie tonale et vocale, dans le cadre d'un projet d'appareillage. Pouvez-vous me confirmer que ce bilan est bien réalisé dans votre cabinet ? Merci. »
+
+**Adresse patient** préremplie `codePostal + ville`, modifiable ; itinéraire `https://www.google.com/maps/dir/?api=1&origin=…&destination=…` en nouvel onglet ; rien n'est envoyé avant le clic.
+
+**Code** : retirer Partner Search (`partenaires.ts`, `views/Partenaires.tsx`, onglet, permission `cookies`) ; nouveaux `src/panel/doctolib.ts`, `src/panel/views/OrlFinder.tsx`, onglet `orl` « ORL Finder » (icône oreille) **uniquement sur Piste** ; cache résultats 10 min en mémoire ; déclenchement automatique ; progression « 12 ORL trouvés, lecture des créneaux… 4/12 ». Pas de dépendance.
+
+**Découpage** (branche `feature/orl-finder` depuis `main`, une PR par étape) :
+1. Retrait Partner Search + onglet ORL Finder : recherche GPS, liste triée avec distance, prochain créneau, Prendre RDV / Itinéraire / Ouvrir sur Doctolib (téléphone « à l'étape suivante »). → **en cours.**
+2. Fiche praticien : téléphone (pas de téléphone = pas de ligne), secteur en clair, Audiométrie, message type, TOP 3.
+3. Filtres (délai, secteur, rayon auto), cache 10 min, finitions.
+
 ## Reste à faire
-- Étape 2 : script `scripts/` code postal → lat/long (data.gouv), JSON compact chargé à la demande, haversine, 5 plus proches, exclusion des non actifs + interrupteur.
+- Étape 1 : PR + message au chef.
+- Étapes 2 et 3 (voir découpage).
 - Étape 3 : adresse patient préremplie, iframe Google Maps, « Ouvrir dans Google Maps », « Ouvrir la fiche Salesforce », « Copier l'adresse ».
 
 ## Décisions
@@ -59,6 +90,9 @@ Worktree : `Documents\Claude\Projects\Cockpit Audibene - partner-search` · bran
 - Onglet Partenaires **uniquement sur une Piste** (décision du chef : règle les 6 onglets serrés).
 - Cache **hors `AppData`** (décision du chef) : `chrome.storage.local` clé `partenairesCache`, comme `recentPatients` — chaque frappe dans le panneau réécrit tout `AppData`, 250 Ko de plus à chaque fois aurait gonflé `cockpit.json`.
 - Une branche par étape, PR figées : étape 2 sur `feature/partner-search-proximite` créée depuis `main` après le merge de la PR #2.
+- Table des codes postaux servie comme **fichier statique de l'extension** (`public/data/codes-postaux.json` → `fetch('data/codes-postaux.json')` au premier besoin, mémorisé en mémoire) plutôt qu'un `import()` dynamique : même effet (rien dans `panel.js`, chargement à la demande), pas de dépendance au bundler, et le script de génération peut être rejoué sans rebuild du code. Aucun appel réseau : le fichier est dans `dist/`.
+- Code postal du patient inconnu de la table → centre du département (moyenne des codes postaux du même préfixe, 3 chiffres pour les DOM) avec message ; partenaire au code postal inconnu → non classé, compté dans une mention discrète.
+- Distances arrondies au km (« < 1 km » sous 1 km), à vol d'oiseau (haversine), comme cadré.
 
 ## Questions ouvertes
 (néant)
