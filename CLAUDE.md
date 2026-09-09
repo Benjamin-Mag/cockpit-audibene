@@ -7,7 +7,7 @@ Extension Chrome/Edge (Manifest V3) : un panneau latéral à côté de Salesforc
 1. **`main` est réservé au chef d'orchestre** (la session « projets-b4 »). Tout autre agent travaille sur une branche, ouvre une Pull Request et envoie un rapport ; le chef d'orchestre relit, teste, merge et publie. Ne jamais pousser sur `main`, ne jamais créer de tag.
 2. **Ne jamais modifier les anciens repos** (`Générateur de mail`, `Suivi Ventes Primes`, `Colleur*`, `Extension Message Vocal`) : les collègues les utilisent encore. Lecture seule, comme référence.
 3. **Pas de `confirm()` / `alert()` / `prompt()`** : bloqués dans un panneau latéral. Utiliser `DeleteBtn` (deux temps) et les toasts.
-4. **Aucune donnée ne quitte le poste** : pas d'appel réseau, pas de télémétrie. Les données vivent dans `chrome.storage.local` + `cockpit.json`.
+4. **Aucune donnée ne quitte le poste** : pas de télémétrie, pas d'appel réseau — seule exception : l'ORL Finder interroge Doctolib avec les coordonnées GPS du code postal du patient (jamais son nom). Les données vivent dans `chrome.storage.local` + `cockpit.json`.
 5. Design : palette de l'ancien générateur (`--accent #1b4f9b`, fond `#eaf3fb`, Poppins), animations lentes et douces (≥ 280 ms), tout texte généré affiché dans un `EditablePreview`.
 6. TypeScript strict, pas de commentaires explicatifs inutiles, commits en français avec le trailer `Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>`.
 
@@ -46,6 +46,8 @@ src/panel.html + src/panel/
   storage/data.ts            navigateur d'abord + dossier synchronisé (fusion), import/export
   storage/legacy.ts          formats anciens (data.json générateur, export ventes), fusion, partage, substitution de nom
   views/                     Header, Anamnese (=COSI), Commentaire (=Anamnèse), Mails, ChatPartenaire, Ventes, Reglages, Setup
+  views/OrlFinder.tsx        ORL Finder (Piste) : ORL Doctolib proches avec prochain créneau, TOP 3, message type
+  doctolib.ts, geo.ts        appels Doctolib (recherche, créneaux, fiche praticien) ; code postal → GPS (public/data/codes-postaux.json, script scripts/codes-postaux.mjs)
   components/ui.tsx          Btn, Chip, Seg, Field, DeleteBtn, EditablePreview, Toast, icônes
 src/index.html               page d'installation (GitHub Pages)
 .github/workflows/           pages.yml (site à chaque push main), release.yml (zip à chaque tag v*)
@@ -60,6 +62,7 @@ Le panneau envoie des `ContentRequest` (`src/shared/messages.ts`) via `chrome.ta
 - **Chat partenaire** = fil Chatter de l'Opportunité (`views/ChatPartenaire.tsx`).
 - **Message vocal** = commentaire « MV » dans Commentaires internes + « Piste non joignable ».
 - **Hearo** = utilitaire SMS de la barre du bas (app Canvas, libellé variable : Hearo / Nouveau message / Approbation en attente).
+- **ORL Finder** = onglet de la Piste : ORL proches du patient (Doctolib) avec créneau visible, tri secteur 1 → distance → délai, « pas de téléphone = pas de ligne », TOP 3, message type audiométrie, itinéraire Google Maps.
 
 ## Pièges Salesforce connus (ne pas réintroduire)
 - Salesforce Console garde plusieurs fiches montées en même temps : toujours passer par `visibleEl` (taille rendue > 0) et **ne jamais retourner un candidat invisible** par défaut.
@@ -78,7 +81,7 @@ Toute fusion de données passe par `mergeData` / `mergeVentes` / `mergePartage` 
 ## Publier une version (chef d'orchestre uniquement)
 1. `npx tsc --noEmit` puis `npm run build`.
 2. Monter `version` dans `public/manifest.json` et `npm pkg set version=X.Y.Z`.
-3. Commit, `git push origin main`, `git tag vX.Y.Z && git push origin vX.Y.Z`.
+3. `main` est protégé : commit sur une branche `chore/vX.Y.Z`, `gh pr create`, `gh pr merge --squash --delete-branch`, puis `git checkout main && git pull`, `git tag vX.Y.Z && git push origin vX.Y.Z`.
 4. Vérifier `gh run list` : Release (zip) et Site (Pages) en succès.
 
 ## Travailler en équipe
