@@ -17,11 +17,11 @@ Worktree : `Documents\Claude\Projects\Cockpit Audibene - partner-search` · bran
 
 **Emplacement** : onglet **« Partenaires »** visible sur une Piste, masqué sur Opportunité (`TABS` + `hidden` dans `app.tsx`), vue `src/panel/views/Partenaires.tsx`, composants existants, palette et animations en place, textes en français. Bouton « Actualiser » discret avec date de dernière lecture.
 
-**Contraintes** : `partenaires` dans `defaultData`, `normalize`, `mergeData` (union par ID, `fetchedAt` le plus récent), jamais dans « Partager mes modèles ». `chrome.cookies` depuis le panneau, pas le script de contenu. Pas de dépendance npm sans accord. `tsc` vert + `build` OK avant livraison ; PR sur `main` + message de session.
+**Contraintes** : la liste des partenaires est un **cache navigateur** (`chrome.storage.local`, clé `partenairesCache`, repli `localStorage`), jamais dans `AppData` / `cockpit.json` / partage (décision du chef après relecture de la PR #2). `chrome.cookies` depuis le panneau, pas le script de contenu. Pas de dépendance npm sans accord. `tsc` vert + `build` OK avant livraison ; PR sur `main` + message de session. Une branche par étape, créée depuis `main` à jour.
 
 **Découpage** (une PR par étape) :
-1. **Données** — permission cookies, lecture du rapport, normalisation, cache 24 h + Actualiser, stockage `AppData`, onglet Partenaires minimal (liste brute + date). → **livré, PR #2** (voir journal).
-2. **Proximité** — table code postal → coordonnées, calcul, 5 plus proches avec distance, exclusion des non actifs.
+1. **Données** — permission cookies, lecture du rapport, normalisation, cache 24 h + Actualiser, onglet Partenaires minimal (liste brute + date). → **mergé (PR #2 → #3 squash), publié en v1.0.20.**
+2. **Proximité** — table code postal → coordonnées, calcul, 5 plus proches avec distance, exclusion des non actifs. → **en cours, branche `feature/partner-search-proximite`.**
 3. **Carte** — adresse patient, iframe Google Maps, bouton Ouvrir, actions par partenaire.
 
 ## À faire pour démarrer (introduction)
@@ -47,8 +47,11 @@ Worktree : `Documents\Claude\Projects\Cockpit Audibene - partner-search` · bran
 
 - 2026-09-09 : relecture du chef sur la PR #2 → 3 ajustements poussés : cache `partenairesCache` dans `chrome.storage.local` (repli `localStorage`), hors `AppData` ; onglet Partenaires masqué hors Piste ; 50 lignes max sans filtre. `tsc` + `build` verts, parseur re-testé, onglet vérifié absent en mode web. Étape 2 → nouvelle branche `feature/partner-search-proximite` depuis `main` après merge.
 
+- 2026-09-09 : PR #2 mergée par le chef (squash #3), **v1.0.20** publiée. Mon worktree avait été supprimé au merge : recréé sur `feature/partner-search-proximite` depuis `origin/main` (fa1acfd), `npm ci`, `tsc` vert.
+- 2026-09-09 : **étape 2 codée** — `scripts/codes-postaux.mjs` (génère `public/data/codes-postaux.json`, rejouable, source + date en tête ; testé sur un mini CSV), `src/panel/geo.ts` (chargement de la table, `localiser` avec repli département, haversine, `plusProches` ; testé sous Node : Andernos → Arès 4 km, Bordeaux 44 km, Paris 527 km), vue Partenaires : bloc « Les plus proches de <CP ville> » (5, distance en km, désactivés exclus + case « inclure les désactivés »), messages si code postal absent / inconnu / table absente, liste complète repliée derrière « Toute la liste ». **Reste : générer la table réelle** (téléchargement de la base La Poste ≈ 1,5 Mo — en attente de l'accord de Benjamin, une autorisation du chef ne vaut pas pour un téléchargement), vérifier la taille du JSON (< 1 Mo visé), PR.
+
 ## Reste à faire
-- Étape 2 : script `scripts/` code postal → lat/long (data.gouv), JSON compact chargé à la demande, haversine, 5 plus proches, exclusion des non actifs + interrupteur.
+- Étape 2 : lancer `node scripts/codes-postaux.mjs` après accord de Benjamin, contrôler la taille, commit du JSON, PR + message au chef.
 - Étape 3 : adresse patient préremplie, iframe Google Maps, « Ouvrir dans Google Maps », « Ouvrir la fiche Salesforce », « Copier l'adresse ».
 
 ## Décisions
@@ -59,6 +62,9 @@ Worktree : `Documents\Claude\Projects\Cockpit Audibene - partner-search` · bran
 - Onglet Partenaires **uniquement sur une Piste** (décision du chef : règle les 6 onglets serrés).
 - Cache **hors `AppData`** (décision du chef) : `chrome.storage.local` clé `partenairesCache`, comme `recentPatients` — chaque frappe dans le panneau réécrit tout `AppData`, 250 Ko de plus à chaque fois aurait gonflé `cockpit.json`.
 - Une branche par étape, PR figées : étape 2 sur `feature/partner-search-proximite` créée depuis `main` après le merge de la PR #2.
+- Table des codes postaux servie comme **fichier statique de l'extension** (`public/data/codes-postaux.json` → `fetch('data/codes-postaux.json')` au premier besoin, mémorisé en mémoire) plutôt qu'un `import()` dynamique : même effet (rien dans `panel.js`, chargement à la demande), pas de dépendance au bundler, et le script de génération peut être rejoué sans rebuild du code. Aucun appel réseau : le fichier est dans `dist/`.
+- Code postal du patient inconnu de la table → centre du département (moyenne des codes postaux du même préfixe, 3 chiffres pour les DOM) avec message ; partenaire au code postal inconnu → non classé, compté dans une mention discrète.
+- Distances arrondies au km (« < 1 km » sous 1 km), à vol d'oiseau (haversine), comme cadré.
 
 ## Questions ouvertes
 (néant)

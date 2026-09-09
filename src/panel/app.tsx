@@ -327,7 +327,7 @@ export function App() {
           <Commentaire key={recordKey} data={data} update={update} fiche={fiche} connected={connected && ctx?.page !== 'opportunity'} busy={busy === 'comment'}
             onWrite={(text) => act('comment', { type: 'writeComment', text, save: data.reglages.autoSaveComment })} toast={showToast} />
         )}
-        {activeTab === 'partenaires' && <Partenaires toast={showToast} />}
+        {activeTab === 'partenaires' && <Partenaires key={recordKey} fiche={fiche} toast={showToast} />}
         {activeTab === 'mails' && (
           <Mails key={recordKey} data={data} update={update} fiche={fiche} connected={connected} busy={busy === 'mail'}
             onInsert={insertMail} onNeedPartner={readPartner} toast={showToast} />
