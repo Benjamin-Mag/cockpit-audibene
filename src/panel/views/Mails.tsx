@@ -44,10 +44,10 @@ export function Mails({ data, update, fiche, connected, busy, onInsert, onNeedPa
   const [overId, setOverId] = useState<string | null>(null);
 
   /** Glisser-déposer : la catégorie déplacée prend la place de celle sur laquelle on la lâche. */
-  const moveCategory = (fromId: string, toId: string) => {
+  const moveCategory = (aud: Audience, fromId: string, toId: string) => {
     if (fromId === toId) return;
     update((d) => {
-      const list = d.categories[audience];
+      const list = d.categories[aud];
       const from = list.findIndex((c) => c.id === fromId);
       const to = list.findIndex((c) => c.id === toId);
       if (from === -1 || to === -1) return;
@@ -55,12 +55,12 @@ export function Mails({ data, update, fiche, connected, busy, onInsert, onNeedPa
       list.splice(to, 0, item);
     });
   };
-  const dragProps = (id: string) => ({
+  const dragProps = (aud: Audience, id: string) => ({
     draggable: true,
     onDragStart: (e: DragEvent) => { setDragId(id); e.dataTransfer?.setData('text/plain', id); if (e.dataTransfer) e.dataTransfer.effectAllowed = 'move'; },
     onDragOver: (e: DragEvent) => { e.preventDefault(); if (e.dataTransfer) e.dataTransfer.dropEffect = 'move'; if (overId !== id) setOverId(id); },
     onDragLeave: () => { if (overId === id) setOverId(null); },
-    onDrop: (e: DragEvent) => { e.preventDefault(); const from = dragId ?? e.dataTransfer?.getData('text/plain'); if (from) moveCategory(from, id); setDragId(null); setOverId(null); },
+    onDrop: (e: DragEvent) => { e.preventDefault(); const from = dragId ?? e.dataTransfer?.getData('text/plain'); if (from) moveCategory(aud, from, id); setDragId(null); setOverId(null); },
     onDragEnd: () => { setDragId(null); setOverId(null); },
   });
   const dragClass = (id: string) => [dragId === id ? 'dragging' : '', overId === id && dragId !== id ? 'over' : ''].join(' ');
@@ -68,35 +68,41 @@ export function Mails({ data, update, fiche, connected, busy, onInsert, onNeedPa
 
   const effectiveGenre = genre ?? fiche?.genre ?? null;
   const categories = data.categories[audience];
-  const catField = audience === 'patient' ? 'patientCategory' : 'partnerCategory';
+  const fieldOf = (aud: Audience): 'patientCategory' | 'partnerCategory' => (aud === 'patient' ? 'patientCategory' : 'partnerCategory');
 
-  const addCategory = () => {
+  // Gestion des catégories (depuis l'éditeur de modèle) : le modèle en cours d'édition suit les changements.
+  const addCategory = (aud: Audience) => {
     const label = newCat.trim();
     if (!label) return;
-    if (categories.some((c) => c.id.toLowerCase() === label.toLowerCase())) { toast('Cette catégorie existe déjà', 'err'); return; }
-    update((d) => { d.categories[audience].push({ id: label, label }); });
+    if (data.categories[aud].some((c) => c.id.toLowerCase() === label.toLowerCase())) { toast('Cette catégorie existe déjà', 'err'); return; }
+    update((d) => { d.categories[aud].push({ id: label, label }); });
+    setEditing((e) => (e && e.audience === aud ? { ...e, [fieldOf(aud)]: label } : e));
     setNewCat('');
   };
-  const renameCategory = (id: string, label: string) => {
+  const renameCategory = (aud: Audience, id: string, label: string) => {
     const l = label.trim();
     if (!l || l === id) return;
-    if (categories.some((c) => c.id === l)) { toast('Ce nom existe déjà', 'err'); return; }
+    if (data.categories[aud].some((c) => c.id === l)) { toast('Ce nom existe déjà', 'err'); return; }
+    const f = fieldOf(aud);
     update((d) => {
-      const c = d.categories[audience].find((x) => x.id === id);
+      const c = d.categories[aud].find((x) => x.id === id);
       if (c) { c.id = l; c.label = l; }
-      for (const t of d.templates) if (t.audience === audience && t[catField] === id) t[catField] = l;
+      for (const t of d.templates) if (t.audience === aud && t[f] === id) t[f] = l;
     });
     if (cat === id) setCat(l);
+    setEditing((e) => (e && e.audience === aud && e[f] === id ? { ...e, [f]: l } : e));
   };
-  const deleteCategory = (id: string) => {
-    const n = data.templates.filter((t) => t.audience === audience && t[catField] === id).length;
-    const fallback = audience === 'patient' ? 'all' : categories.find((c) => c.id !== id)?.id;
-    if (audience === 'partenaire' && !fallback) { toast('Garde au moins une catégorie partenaire', 'err'); return; }
+  const deleteCategory = (aud: Audience, id: string) => {
+    const f = fieldOf(aud);
+    const n = data.templates.filter((t) => t.audience === aud && t[f] === id).length;
+    const fallback = aud === 'patient' ? 'all' : data.categories[aud].find((c) => c.id !== id)?.id;
+    if (aud === 'partenaire' && !fallback) { toast('Garde au moins une catégorie partenaire', 'err'); return; }
     update((d) => {
-      d.categories[audience] = d.categories[audience].filter((c) => c.id !== id);
-      for (const t of d.templates) if (t.audience === audience && t[catField] === id) t[catField] = fallback;
+      d.categories[aud] = d.categories[aud].filter((c) => c.id !== id);
+      for (const t of d.templates) if (t.audience === aud && t[f] === id) t[f] = fallback;
     });
     if (cat === id) setCat(null);
+    setEditing((e) => (e && e.audience === aud && e[f] === id ? { ...e, [f]: fallback } : e));
     toast(n ? `Catégorie supprimée — ${n} modèle(s) passés en « ${fallback === 'all' ? 'Toutes' : fallback} »` : 'Catégorie supprimée', 'ok');
   };
   const deleteTemplate = (id: string, title: string) => {
@@ -194,8 +200,34 @@ export function Mails({ data, update, fiche, connected, busy, onInsert, onNeedPa
           <Seg options={[{ id: 'patient', label: 'Patient' }, { id: 'partenaire', label: 'Partenaire' }]} value={e.audience} onChange={(a) => set({ audience: a, patientCategory: a === 'patient' ? 'all' : undefined, partnerCategory: a === 'partenaire' ? data.categories.partenaire[0]?.id : undefined })} />
           <Seg options={[{ id: 'email', label: 'E-mail' }, { id: 'sms', label: 'SMS' }]} value={e.type} onChange={(t) => set({ type: t })} />
         </div>
-        <Field label="Catégorie">
-          <div class="chips">{cats.map((c) => <Chip key={c.id} small on={catVal === c.id} onClick={() => set(e.audience === 'patient' ? { patientCategory: c.id } : { partnerCategory: c.id })}>{c.label}</Chip>)}</div>
+        <Field label="Catégorie" right={<Btn kind={catManage ? 'soft' : 'ghost'} icon="pen" title="Ajouter, renommer, supprimer ou réordonner les catégories" onClick={() => setCatManage((v) => !v)} />}>
+          <div class="chips">
+            {cats.map((c) => c.id === 'all'
+              ? <Chip key={c.id} small on={catVal === c.id} onClick={() => set({ patientCategory: 'all' })}>{c.label}</Chip>
+              : (
+                <span key={c.id} class={['drag-wrap', dragClass(c.id)].join(' ')} title="Glisser pour réordonner" {...dragProps(e.audience, c.id)}>
+                  <Chip small on={catVal === c.id} onClick={() => set(e.audience === 'patient' ? { patientCategory: c.id } : { partnerCategory: c.id })}>{c.label}</Chip>
+                </span>
+              ))}
+          </div>
+          {catManage && (
+            <div class="card" style="animation:none;margin-top:6px">
+              <div class="stack" style="gap:6px">
+                {data.categories[e.audience].map((c) => (
+                  <div key={c.id} class={['row drag-wrap', dragClass(c.id)].join(' ')} {...dragProps(e.audience, c.id)}>
+                    <span class="drag-handle" title="Glisser pour réordonner">⋮⋮</span>
+                    <input value={c.label} style="padding:5px 8px;font-size:12px" onChange={(ev) => renameCategory(e.audience, c.id, (ev.target as HTMLInputElement).value)} onKeyDown={(ev) => { if (ev.key === 'Enter') (ev.target as HTMLInputElement).blur(); }} />
+                    <DeleteBtn title="Supprimer cette catégorie" onConfirm={() => deleteCategory(e.audience, c.id)} />
+                  </div>
+                ))}
+                <div class="row">
+                  <input value={newCat} placeholder="Nouvelle catégorie…" style="padding:5px 8px;font-size:12px" onInput={(ev) => setNewCat((ev.target as HTMLInputElement).value)} onKeyDown={(ev) => { if (ev.key === 'Enter') { ev.preventDefault(); addCategory(e.audience); } }} />
+                  <Btn kind="soft" icon="plus" title="Ajouter (et l'attribuer à ce modèle)" onClick={() => addCategory(e.audience)} />
+                </div>
+                <span class="note">Renommer : modifie le nom puis Entrée — les modèles suivent. Réordonner : glisse une ligne (ou une puce) sur une autre.</span>
+              </div>
+            </div>
+          )}
         </Field>
         {e.type === 'email' && <Field label="Objet"><input value={e.subject ?? ''} onInput={(ev) => set({ subject: (ev.target as HTMLInputElement).value })} placeholder="Objet du mail" /></Field>}
         <Field label={e.type === 'email' ? 'Texte du mail' : 'Texte du SMS'}>
@@ -228,36 +260,14 @@ export function Mails({ data, update, fiche, connected, busy, onInsert, onNeedPa
 
       {(listOpen || !sel) ? (
         <>
-          <div class="row" style="align-items:flex-start">
-            <div class="chips grow">
-              <Chip small on={cat === null} onClick={() => setCat(null)}>Tous</Chip>
-              {categories.map((c) => (
-                <span key={c.id} class={['drag-wrap', dragClass(c.id)].join(' ')} title="Glisser pour réordonner" {...dragProps(c.id)}>
-                  <Chip small on={cat === c.id} onClick={() => setCat(cat === c.id ? null : c.id)}>{c.label}</Chip>
-                </span>
-              ))}
-            </div>
-            <Btn kind={catManage ? 'soft' : 'ghost'} icon="pen" title="Gérer les catégories" onClick={() => setCatManage((v) => !v)} />
+          <div class="chips">
+            <Chip small on={cat === null} onClick={() => setCat(null)}>Tous</Chip>
+            {categories.map((c) => (
+              <span key={c.id} class={['drag-wrap', dragClass(c.id)].join(' ')} title="Glisser pour réordonner" {...dragProps(audience, c.id)}>
+                <Chip small on={cat === c.id} onClick={() => setCat(cat === c.id ? null : c.id)}>{c.label}</Chip>
+              </span>
+            ))}
           </div>
-          {catManage && (
-            <div class="card" style="animation:none">
-              <div class="stack" style="gap:6px">
-                <span class="label">Catégories {audience}</span>
-                {categories.map((c) => (
-                  <div key={c.id} class={['row drag-wrap', dragClass(c.id)].join(' ')} {...dragProps(c.id)}>
-                    <span class="drag-handle" title="Glisser pour réordonner">⋮⋮</span>
-                    <input value={c.label} style="padding:5px 8px;font-size:12px" onChange={(e) => renameCategory(c.id, (e.target as HTMLInputElement).value)} onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }} />
-                    <DeleteBtn title="Supprimer cette catégorie" onConfirm={() => deleteCategory(c.id)} />
-                  </div>
-                ))}
-                <div class="row">
-                  <input value={newCat} placeholder="Nouvelle catégorie…" style="padding:5px 8px;font-size:12px" onInput={(e) => setNewCat((e.target as HTMLInputElement).value)} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addCategory(); } }} />
-                  <Btn kind="soft" icon="plus" title="Ajouter" onClick={addCategory} />
-                </div>
-                <span class="note">Renommer : modifie le nom puis Entrée — les modèles suivent. Réordonner : glisse une ligne (ou une puce) sur une autre.</span>
-              </div>
-            </div>
-          )}
           {templates.length === 0 ? (
             <div class="empty"><div class="ico"><Icon name="mail" size={26} /></div>Aucun modèle {audience === 'patient' ? 'patient' : 'partenaire'}{cat ? ` en ${cat}` : ''}.<br /><span class="note">Le + en haut à droite en crée un, ou importe ton data.json dans Réglages.</span></div>
           ) : (
