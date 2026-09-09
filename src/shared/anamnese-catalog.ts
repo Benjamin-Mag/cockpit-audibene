@@ -33,6 +33,7 @@ export const FIELDS_CATALOG: AnamField[] = [
   { label: 'Surdité brusque', section: 'Antécédents médicaux', options: ['Oui', 'Non'] },
   { label: 'Acouphènes', section: 'Antécédents médicaux', options: ['Non', 'Les deux oreilles', 'Oreille gauche', 'Oreille droite'] },
   { label: 'Mutuelle', section: 'Coordonnées client', options: ['Yes', 'No'] },
+  { label: 'Nom de la mutuelle', section: 'Coordonnées client', freeText: true, reusable: true },
 ];
 
 /** Champs affichés sous "Type d'appareillage" selon la valeur choisie. */
