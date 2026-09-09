@@ -62,8 +62,6 @@ export function Mails({ data, update, fiche, connected, busy, onInsert, onNeedPa
   };
   const VARIABLES: { snippet: string; label: string; hint: string }[] = [
     { snippet: '{{nom}}', label: 'Nom du patient', hint: 'Civilité + prénom + nom, lus sur la fiche' },
-    { snippet: '{{date}}', label: 'Date', hint: 'Date du RDV (sélecteur)' },
-    { snippet: '{{heure}}', label: 'Heure', hint: 'Heure du RDV (sélecteur)' },
     { snippet: '{{nom partenaire}}', label: 'Partenaire', hint: 'Nom du partenaire, lu sur la fiche' },
     { snippet: '{{adresse}}', label: 'Adresse', hint: 'Adresse du partenaire, lue sur la fiche' },
     { snippet: '{{nom_conseiller}}', label: 'Nom conseiller', hint: 'Réglages → Signature' },
