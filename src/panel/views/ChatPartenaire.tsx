@@ -2,6 +2,7 @@ import { useEffect, useState } from 'preact/hooks';
 import type { Fiche, Genre } from '../../shared/types';
 import { writeClipboard } from '../bridge';
 import { type AppData, fillVars, resolveGenre, systemValues, uid } from '../model';
+import { moveById, useDragReorder } from '../components/drag';
 import { Btn, Chip, DeleteBtn, EditablePreview, Seg, previewHtml } from '../components/ui';
 
 interface Props {
@@ -21,6 +22,8 @@ export function ChatPartenaire({ data, update, fiche, connected, busy, onWrite, 
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState({ label: '', text: '' });
   const [manage, setManage] = useState(false);
+  /** Glisser-déposer : le texte saisi prend la place de celui sur lequel on le lâche (ordre gardé dans cockpit.json). */
+  const dnd = useDragReorder((fromId, toId) => update((d) => moveById(d.chatPartenaire, fromId, toId)));
 
   const sel = list.find((t) => t.id === selId) ?? null;
   const effectiveGenre = genre ?? fiche?.genre ?? null;
@@ -69,7 +72,7 @@ export function ChatPartenaire({ data, update, fiche, connected, busy, onWrite, 
       <div class="row" style="justify-content:space-between">
         <Seg options={[{ id: 'M', label: 'M.' }, { id: 'F', label: 'Mme' }]} value={effectiveGenre} onChange={setGenre} />
         <div class="row">
-          <Btn kind={manage ? 'soft' : 'ghost'} icon="pen" title="Gérer les textes" onClick={() => setManage((v) => !v)} />
+          <Btn kind={manage ? 'soft' : 'ghost'} icon="pen" title="Modifier, supprimer ou réordonner les textes" onClick={() => setManage((v) => !v)} />
           <Btn kind="soft" icon="plus" title="Nouveau texte" onClick={startNew} />
         </div>
       </div>
@@ -78,15 +81,21 @@ export function ChatPartenaire({ data, update, fiche, connected, busy, onWrite, 
         <div class="empty">Aucun texte. Le + en crée un.</div>
       ) : (
         <div class="chips">
-          {list.map((t) => <Chip key={t.id} on={selId === t.id} onClick={() => setSelId(t.id)}>{t.label}</Chip>)}
+          {list.map((t) => (
+            <span key={t.id} class={['drag-wrap', dnd.cls(t.id)].join(' ')} title="Glisser pour réordonner" {...dnd.props(t.id)}>
+              <Chip on={selId === t.id} onClick={() => setSelId(t.id)}>{t.label}</Chip>
+            </span>
+          ))}
         </div>
       )}
       {manage && list.length > 0 && (
         <div class="card" style="animation:none">
           <div class="stack" style="gap:6px">
             <span class="label">Textes du Chat partenaire</span>
+            <span class="note">Glisse un texte (ici ou sur les puces) pour changer l'ordre.</span>
             {list.map((t) => (
-              <div key={t.id} class="row">
+              <div key={t.id} class={['row drag-wrap', dnd.cls(t.id)].join(' ')} {...dnd.props(t.id)}>
+                <span class="drag-handle" title="Glisser pour réordonner">⋮⋮</span>
                 <span class="grow" style="font-size:12.5px">{t.label}</span>
                 <Btn kind="ghost" icon="pen" title="Modifier" onClick={() => { setSelId(t.id); setDraft({ label: t.label, text: t.text }); setEditing(true); }} />
                 <DeleteBtn title="Supprimer ce texte" onConfirm={() => remove(t.id, t.label)} />

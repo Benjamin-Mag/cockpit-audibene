@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import type { Fiche, Genre } from '../../shared/types';
 import { writeClipboard } from '../bridge';
+import { moveById, useDragReorder } from '../components/drag';
 import { Btn, Chip, DeleteBtn, EditablePreview, Field, Icon, Seg, previewHtml } from '../components/ui';
 import { frToIso, frToTime, isDateVar, isHeureVar, isoToFr, timeToFr } from '../dates';
 import { type AppData, type Template, fillVars, resolveGenre, systemValues, uid } from '../model';
@@ -40,8 +41,6 @@ export function Mails({ data, update, fiche, connected, busy, onInsert, onNeedPa
   const [partnerLoading, setPartnerLoading] = useState(false);
   const [catManage, setCatManage] = useState(false);
   const [newCat, setNewCat] = useState('');
-  const [dragId, setDragId] = useState<string | null>(null);
-  const [overId, setOverId] = useState<string | null>(null);
 
   // Éditeur : insertion d'une variable à l'endroit du curseur, dans le dernier champ utilisé.
   type EditField = 'subject' | 'body' | 'smsCompanion';
@@ -72,27 +71,8 @@ export function Mails({ data, update, fiche, connected, busy, onInsert, onNeedPa
     { snippet: 'il(elle)', label: 'il(elle)', hint: 'S\'accorde au genre choisi' },
   ];
 
-  /** Glisser-déposer : la catégorie déplacée prend la place de celle sur laquelle on la lâche. */
-  const moveCategory = (aud: Audience, fromId: string, toId: string) => {
-    if (fromId === toId) return;
-    update((d) => {
-      const list = d.categories[aud];
-      const from = list.findIndex((c) => c.id === fromId);
-      const to = list.findIndex((c) => c.id === toId);
-      if (from === -1 || to === -1) return;
-      const [item] = list.splice(from, 1);
-      list.splice(to, 0, item);
-    });
-  };
-  const dragProps = (aud: Audience, id: string) => ({
-    draggable: true,
-    onDragStart: (e: DragEvent) => { setDragId(id); e.dataTransfer?.setData('text/plain', id); if (e.dataTransfer) e.dataTransfer.effectAllowed = 'move'; },
-    onDragOver: (e: DragEvent) => { e.preventDefault(); if (e.dataTransfer) e.dataTransfer.dropEffect = 'move'; if (overId !== id) setOverId(id); },
-    onDragLeave: () => { if (overId === id) setOverId(null); },
-    onDrop: (e: DragEvent) => { e.preventDefault(); const from = dragId ?? e.dataTransfer?.getData('text/plain'); if (from) moveCategory(aud, from, id); setDragId(null); setOverId(null); },
-    onDragEnd: () => { setDragId(null); setOverId(null); },
-  });
-  const dragClass = (id: string) => [dragId === id ? 'dragging' : '', overId === id && dragId !== id ? 'over' : ''].join(' ');
+  /** Glisser-déposer des catégories : la catégorie saisie prend la place de celle sur laquelle on la lâche. */
+  const dnd = useDragReorder((fromId, toId, aud) => update((d) => moveById(d.categories[aud as Audience], fromId, toId)));
   const [genreAlert, setGenreAlert] = useState(0);
 
   const effectiveGenre = genre ?? fiche?.genre ?? null;
@@ -234,7 +214,7 @@ export function Mails({ data, update, fiche, connected, busy, onInsert, onNeedPa
             {cats.map((c) => c.id === 'all'
               ? <Chip key={c.id} small on={catVal === c.id} onClick={() => set({ patientCategory: 'all' })}>{c.label}</Chip>
               : (
-                <span key={c.id} class={['drag-wrap', dragClass(c.id)].join(' ')} title="Glisser pour réordonner" {...dragProps(e.audience, c.id)}>
+                <span key={c.id} class={['drag-wrap', dnd.cls(c.id)].join(' ')} title="Glisser pour réordonner" {...dnd.props(c.id, e.audience)}>
                   <Chip small on={catVal === c.id} onClick={() => set(e.audience === 'patient' ? { patientCategory: c.id } : { partnerCategory: c.id })}>{c.label}</Chip>
                 </span>
               ))}
@@ -243,7 +223,7 @@ export function Mails({ data, update, fiche, connected, busy, onInsert, onNeedPa
             <div class="card" style="animation:none;margin-top:6px">
               <div class="stack" style="gap:6px">
                 {data.categories[e.audience].map((c) => (
-                  <div key={c.id} class={['row drag-wrap', dragClass(c.id)].join(' ')} {...dragProps(e.audience, c.id)}>
+                  <div key={c.id} class={['row drag-wrap', dnd.cls(c.id)].join(' ')} {...dnd.props(c.id, e.audience)}>
                     <span class="drag-handle" title="Glisser pour réordonner">⋮⋮</span>
                     <input value={c.label} style="padding:5px 8px;font-size:12px" onChange={(ev) => renameCategory(e.audience, c.id, (ev.target as HTMLInputElement).value)} onKeyDown={(ev) => { if (ev.key === 'Enter') (ev.target as HTMLInputElement).blur(); }} />
                     <DeleteBtn title="Supprimer cette catégorie" onConfirm={() => deleteCategory(e.audience, c.id)} />
@@ -297,7 +277,7 @@ export function Mails({ data, update, fiche, connected, busy, onInsert, onNeedPa
           <div class="chips">
             <Chip small on={cat === null} onClick={() => setCat(null)}>Tous</Chip>
             {categories.map((c) => (
-              <span key={c.id} class={['drag-wrap', dragClass(c.id)].join(' ')} title="Glisser pour réordonner" {...dragProps(audience, c.id)}>
+              <span key={c.id} class={['drag-wrap', dnd.cls(c.id)].join(' ')} title="Glisser pour réordonner" {...dnd.props(c.id, audience)}>
                 <Chip small on={cat === c.id} onClick={() => setCat(cat === c.id ? null : c.id)}>{c.label}</Chip>
               </span>
             ))}
