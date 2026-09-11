@@ -71,7 +71,6 @@ export function Mails({ data, update, fiche, connected, busy, onInsert, onNeedPa
     { snippet: 'il(elle)', label: 'il(elle)', hint: 'S\'accorde au genre choisi' },
   ];
 
-  /** Glisser-déposer des catégories : la catégorie saisie prend la place de celle sur laquelle on la lâche. */
   const dnd = useDragReorder((fromId, toId, aud) => update((d) => moveById(d.categories[aud as Audience], fromId, toId)));
   const [genreAlert, setGenreAlert] = useState(0);
 

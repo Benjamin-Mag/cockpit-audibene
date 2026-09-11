@@ -22,7 +22,6 @@ export function ChatPartenaire({ data, update, fiche, connected, busy, onWrite, 
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState({ label: '', text: '' });
   const [manage, setManage] = useState(false);
-  /** Glisser-déposer : le texte saisi prend la place de celui sur lequel on le lâche (ordre gardé dans cockpit.json). */
   const dnd = useDragReorder((fromId, toId) => update((d) => moveById(d.chatPartenaire, fromId, toId)));
 
   const sel = list.find((t) => t.id === selId) ?? null;
@@ -92,7 +91,7 @@ export function ChatPartenaire({ data, update, fiche, connected, busy, onWrite, 
         <div class="card" style="animation:none">
           <div class="stack" style="gap:6px">
             <span class="label">Textes du Chat partenaire</span>
-            <span class="note">Glisse un texte (ici ou sur les puces) pour changer l'ordre.</span>
+            <span class="note">Glisse un texte sur un autre (ici ou sur les puces) pour changer l'ordre.</span>
             {list.map((t) => (
               <div key={t.id} class={['row drag-wrap', dnd.cls(t.id)].join(' ')} {...dnd.props(t.id)}>
                 <span class="drag-handle" title="Glisser pour réordonner">⋮⋮</span>
