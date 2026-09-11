@@ -95,6 +95,8 @@ Worktree : `Documents\Claude\Projects\Cockpit Audibene - partner-search` · bran
 - **Abandonné** : Partner Search (étape 1 publiée en v1.0.20 puis retirée en v1.0.21 ; code de proximité réutilisé dans ORL Finder ; branche `feature/partner-search-proximite` conservée pour mémoire).
 - **Fichiers ORL Finder** : `src/panel/doctolib.ts` (API + parseurs + `DoctolibRefus` + `voirOngletDoctolib`), `src/panel/orl-store.ts` (réglages + cache), `src/panel/geo.ts` + `public/data/codes-postaux.json` (+ `scripts/codes-postaux.mjs`), `src/panel/views/OrlFinder.tsx`, `fetchViaTab` dans `src/panel/bridge.ts`.
 
+- 2026-09-11 : info du chef, **v1.0.24** (`main` 7f7ca5c, PR #11, chantier du chef) : textes du Chat partenaire réordonnables ; nouveau module partagé `src/panel/components/drag.ts` — `useDragReorder(onMove)` + `moveById(list, fromId, toId)` — **à réutiliser pour tout futur réordonnancement, ne pas réécrire de glisser-déposer local** ; accueil `Setup` corrigé (`needsFolder`). Branche `agent-1/journal` rebasée sur ce `main`.
+
 ## Reste à faire
 - Retours de Benjamin sur la v1.0.23 (anti-robot via l'onglet, filtres, rayon élargi, « autre cabinet ») : corrections éventuelles, transmises par le chef.
 - Étape 3 : adresse patient préremplie, iframe Google Maps, « Ouvrir dans Google Maps », « Ouvrir la fiche Salesforce », « Copier l'adresse ».
