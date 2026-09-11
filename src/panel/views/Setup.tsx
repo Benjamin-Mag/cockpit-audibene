@@ -1,24 +1,25 @@
 import { useState } from 'preact/hooks';
 import type { AppData } from '../model';
 import { Btn, Icon, Seg } from '../components/ui';
-import { fsSupported } from '../storage/fs';
 
 interface Props {
   /** Données déjà chargées depuis le dossier choisi (null tant qu'aucun dossier). */
   data: AppData | null;
   folderName: string;
+  /** Aucun choix de stockage encore fait : proposer le dossier (étape 1). */
+  needsFolder: boolean;
   onChooseFolder: () => Promise<void>;
   onBrowserStorage: () => Promise<void>;
   onImport: () => Promise<void>;
   onFinish: (r: { nom: string; telephone: string; genre: 'M' | 'F' }) => void;
 }
 
-export function Setup({ data, folderName, onChooseFolder, onBrowserStorage, onImport, onFinish }: Props) {
+export function Setup({ data, folderName, needsFolder, onChooseFolder, onBrowserStorage, onImport, onFinish }: Props) {
   const [nom, setNom] = useState(data?.reglages.nom ?? '');
   const [tel, setTel] = useState(data?.reglages.telephone ?? '');
   const [genre, setGenre] = useState<'M' | 'F'>(data?.reglages.genre ?? 'M');
   const [busy, setBusy] = useState(false);
-  const step = fsSupported && !folderName && !data?.templates.length ? 1 : 2;
+  const step = needsFolder ? 1 : 2;
 
   return (
     <div class="setup">

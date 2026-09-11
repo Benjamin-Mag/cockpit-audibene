@@ -252,7 +252,7 @@ export function App() {
 
   if (storage.status === 'needs-folder' || !data || !data.onboardingDone) {
     return (
-      <Setup data={data} folderName={storage.folderName} onChooseFolder={doChooseFolder}
+      <Setup data={data} folderName={storage.folderName} needsFolder={storage.status === 'needs-folder'} onChooseFolder={doChooseFolder}
         onBrowserStorage={async () => { const r = await useBrowserStorage(data); setStorage(r.state); loadData(r.data); }}
         onImport={doImport}
         onFinish={(r) => {

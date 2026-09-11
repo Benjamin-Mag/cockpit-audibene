@@ -161,7 +161,7 @@ textarea { resize: vertical; min-height: 90px; line-height: 1.5; }
 .chip .x { opacity: 0; width: 0; overflow: hidden; margin-left: -4px; transition: opacity var(--dur) var(--ease), width var(--dur) var(--ease), margin var(--dur) var(--ease); }
 .chip:hover .x { opacity: 0.8; width: 12px; margin-left: 2px; }
 
-/* glisser-déposer des catégories */
+/* glisser-déposer pour réordonner (hook useDragReorder, components/drag.ts) */
 .drag-wrap { display: inline-flex; border-radius: 999px; transition: opacity var(--dur) var(--ease), transform var(--dur) var(--ease), box-shadow var(--dur) var(--ease); cursor: grab; }
 .drag-wrap:active { cursor: grabbing; }
 .drag-wrap.dragging { opacity: 0.4; transform: scale(0.96); }
