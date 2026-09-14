@@ -1,6 +1,6 @@
 // Réglages et cache de l'ORL Finder : navigateur seul (chrome.storage.local, repli
 // localStorage en mode web), jamais dans cockpit.json ni dans le partage.
-import type { Creneau, FicheOrl, Orl } from './doctolib';
+import type { Creneau, FicheOrl, Orl, Source } from './doctolib';
 
 export type DelaiFiltre = 1 | 3 | 7 | 14 | 0;
 export type SecteurFiltre = 'tous' | 's1' | 's12';
@@ -8,7 +8,13 @@ export interface OrlPrefs { delai: DelaiFiltre; secteur: SecteurFiltre }
 export const DEFAULT_PREFS: OrlPrefs = { delai: 0, secteur: 'tous' };
 
 export interface LigneCache { orl: Orl; creneau: Creneau | null; fiche: FicheOrl | null | undefined; ficheErreur?: string }
-export interface Resultat { at: number; rayonKm: number; lignes: LigneCache[] }
+export interface Resultat {
+  at: number;
+  rayonKm: number;
+  lignes: LigneCache[];
+  /** Site interrogé (absent avant la v1.0.30 : public). */
+  source?: Source;
+}
 
 const PREFS_KEY = 'orlFinderPrefs';
 const CACHE_KEY = 'orlFinderCache';

@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'preact/hooks';
 import type { Fiche } from '../../shared/types';
 import { isExtension, writeClipboard } from '../bridge';
 import { Btn, Icon, Seg } from '../components/ui';
-import { type Creneau, DoctolibRefus, MESSAGE_TYPE, type Orl, PAUSE_MS, SECTEURS_S1, SECTEURS_S2, creneauLabel, ficheOrl, lienItineraire, lienRechercheDoctolib, prochainCreneau, rechercherOrl, secteurDe, secteurLabel, trierOrl, voirOngletDoctolib } from '../doctolib';
+import { type Creneau, DoctolibRefus, MESSAGE_TYPE, type Orl, PAUSE_MS, ProDeconnecte, type Source, reessayerPro, SECTEURS_S1, SECTEURS_S2, creneauLabel, ficheOrl, lienItineraire, lienRechercheDoctolib, prochainCreneau, rechercherOrl, secteurDe, secteurLabel, trierOrl, voirOngletDoctolib } from '../doctolib';
 import { type GeoTable, type Origine, kmLabel, loadGeo, localiser } from '../geo';
 import { type DelaiFiltre, type LigneCache, type OrlPrefs, type SecteurFiltre, cacheKey, loadPrefs, loadResultat, savePrefs, saveResultat } from '../orl-store';
 
@@ -19,6 +19,9 @@ const MAX_PAGES = 4;
 const MAX_FICHES = 20;
 const PAQUET = 5;
 const TOP = 3;
+/** ORL affichés d'abord, puis par paquets avec « Afficher plus ». */
+const AFFICHES = 15;
+const PLUS = 10;
 
 type Ligne = LigneCache;
 type Etape = 'attente' | 'recherche' | 'creneaux' | 'fiches' | 'fini' | 'erreur';
@@ -61,6 +64,10 @@ export function OrlFinder({ fiche, toast }: Props) {
   const [rayon, setRayon] = useState(RAYONS_KM[0]);
   const [depuisCache, setDepuisCache] = useState<number | null>(null);
   const [error, setError] = useState<{ msg: string; refus: boolean } | null>(null);
+  /** Site des résultats affichés : Doctolib Pro si la session est ouverte, sinon le site public. */
+  const [source, setSource] = useState<Source>('pro');
+  const [limite, setLimite] = useState(AFFICHES);
+  const [chargePlus, setChargePlus] = useState(false);
   const [origine, setOrigine] = useState<Origine | null>(null);
   const [adressePatient, setAdressePatient] = useState(lieuFiche);
   /** Dernier code postal lu dans l'adresse saisie (frappe arrêtée ou Entrée) ; une adresse sans code postal le garde. */
@@ -78,11 +85,12 @@ export function OrlFinder({ fiche, toast }: Props) {
 
   const cpPatient = saisie?.codePostal ?? cpFiche;
   const lieu = saisie ? [saisie.codePostal, saisie.ville || (saisie.codePostal === cpFiche ? fiche?.ville : '')].filter(Boolean).join(' ') : lieuFiche;
+  const villeRecherche = saisie ? saisie.ville || (saisie.codePostal === cpFiche ? fiche?.ville ?? '' : '') : fiche?.ville ?? '';
   const cpSaisiDifferent = !!saisie && !!cpFiche && saisie.codePostal !== cpFiche;
   const adresseSansCp = !!adressePatient.trim() && !lireAdresse(adressePatient);
 
   const changePrefs = (p: OrlPrefs) => { setPrefs(p); void savePrefs(p); };
-  const relancer = () => { force.current = true; setTick((n) => n + 1); };
+  const relancer = () => { reessayerPro(); force.current = true; setTick((n) => n + 1); };
 
   // Recherche automatique dès qu'une Piste avec code postal est ouverte (table de coordonnées et réglages chargés).
   useEffect(() => {
@@ -97,14 +105,28 @@ export function OrlFinder({ fiche, toast }: Props) {
       const key = cacheKey(cpPatient, prefs);
       setError(null);
       setDepuisCache(null);
+      setLimite(AFFICHES);
       if (!forcer) {
         const cached = await loadResultat(key);
         if (!alive) return;
-        if (cached) { setLignes(cached.lignes); setRayon(cached.rayonKm); setDepuisCache(cached.at); setEtape('fini'); return; }
+        if (cached) { setLignes(cached.lignes); setRayon(cached.rayonKm); setDepuisCache(cached.at); setSource(cached.source ?? 'public'); setEtape('fini'); return; }
       }
       setEtape('recherche');
       setLignes([]);
       setRayon(RAYONS_KM[0]);
+      // Doctolib Pro d'abord ; sans session Pro, bascule une fois pour toutes sur le site public.
+      let src: Source = 'pro';
+      setSource('pro');
+      const avecRepli = async <T,>(appel: (s: Source) => Promise<T>): Promise<T> => {
+        try {
+          return await appel(src);
+        } catch (e) {
+          if (!(e instanceof ProDeconnecte) || src !== 'pro') throw e;
+          src = 'public';
+          if (alive) setSource('public');
+          return appel('public');
+        }
+      };
       try {
         const secteurs = prefs.secteur === 's1' ? SECTEURS_S1 : prefs.secteur === 's12' ? [...SECTEURS_S1, ...SECTEURS_S2] : [];
         const opts = { secteurs, delaiJours: prefs.delai || undefined };
@@ -115,7 +137,7 @@ export function OrlFinder({ fiche, toast }: Props) {
         let total = Infinity;
         const lireJusqua = async (km: number) => {
           while (pages < MAX_PAGES && pages * 16 < total && (lus.length === 0 || lus[lus.length - 1].distanceKm <= km)) {
-            const r = await rechercherOrl(o.coords[0], o.coords[1], { ...opts, page: pages });
+            const r = await avecRepli((s) => rechercherOrl(o.coords[0], o.coords[1], { ...opts, page: pages }, s));
             pages++;
             total = r.total;
             lus.push(...r.items);
@@ -141,7 +163,8 @@ export function OrlFinder({ fiche, toast }: Props) {
           for (let i = 0; i < aLire.length; i++) {
             if (!alive) return;
             let c: Creneau;
-            try { c = await prochainCreneau(aLire[i].orl); } catch (e) { if (e instanceof DoctolibRefus) throw e; c = { next: null, raison: (e as Error).message }; }
+            const ligne = aLire[i];
+            try { c = await avecRepli((s) => prochainCreneau(ligne.orl, s)); } catch (e) { if (e instanceof DoctolibRefus) throw e; c = { next: null, raison: (e as Error).message }; }
             creneaux.set(aLire[i].orl.key, c);
             aLire[i].creneau = c;
             if (!alive) return;
@@ -160,7 +183,7 @@ export function OrlFinder({ fiche, toast }: Props) {
           if (!alive) return;
           await Promise.all(retenus.slice(i, i + PAQUET).map(async (l) => {
             try {
-              const f = await ficheOrl(l.orl);
+              const f = await avecRepli((s) => ficheOrl(l.orl, s));
               l.fiche = f;
               l.orl = { ...l.orl, secteur: secteurDe(f.secteurClair) ?? l.orl.secteur };
             } catch (e) {
@@ -175,7 +198,7 @@ export function OrlFinder({ fiche, toast }: Props) {
           if (i + PAQUET < retenus.length) await sleep(PAUSE_MS);
         }
         setEtape('fini');
-        void saveResultat(key, { at: Date.now(), rayonKm, lignes: base });
+        void saveResultat(key, { at: Date.now(), rayonKm, lignes: base, source: src });
       } catch (e) {
         if (!alive) return;
         setError({ msg: (e as Error).message ?? String(e), refus: e instanceof DoctolibRefus });
@@ -195,8 +218,33 @@ export function OrlFinder({ fiche, toast }: Props) {
   const statut = etape === 'recherche' ? `Recherche des ORL sur Doctolib (${rayon} km)…`
     : etape === 'creneaux' ? `${lignes.length} ORL trouvés, lecture des créneaux… ${progress.fait}/${progress.total}`
     : etape === 'fiches' ? `Lecture des fiches (téléphone, secteur)… ${progress.fait}/${progress.total}`
-    : etape === 'fini' && lignes.length ? `${finales.length} ORL avec téléphone à moins de ${rayon} km, ${finales.filter((l) => l.creneau?.next).length} avec un créneau en ligne${depuisCache ? ` · résultats ${ago(depuisCache)}` : ''}`
+    : etape === 'fini' && lignes.length ? `${finales.length} ORL avec téléphone à moins de ${rayon} km, ${finales.filter((l) => l.creneau?.next).length} avec un créneau en ligne${source === 'pro' ? ' · Doctolib Pro' : ''}${depuisCache ? ` · résultats ${ago(depuisCache)}` : ''}`
     : '';
+
+  const afficherPlus = async () => {
+    const aLire = trierOrl(lignes).filter((l) => l.fiche === undefined).slice(0, PLUS);
+    if (aLire.length) {
+      setChargePlus(true);
+      const maj = new Map<string, Ligne>();
+      for (let i = 0; i < aLire.length; i += PAQUET) {
+        await Promise.all(aLire.slice(i, i + PAQUET).map(async (l) => {
+          const lire = (s: Source) => ficheOrl(l.orl, s);
+          try {
+            const f = await lire(source).catch((e: unknown) => { if (e instanceof ProDeconnecte) return lire('public'); throw e; });
+            maj.set(l.orl.key, { ...l, fiche: f, orl: { ...l.orl, secteur: secteurDe(f.secteurClair) ?? l.orl.secteur } });
+          } catch (e) {
+            maj.set(l.orl.key, { ...l, fiche: null, ficheErreur: (e as Error).message });
+          }
+        }));
+        if (i + PAQUET < aLire.length) await sleep(PAUSE_MS);
+      }
+      const suite = lignes.map((l) => maj.get(l.orl.key) ?? l);
+      setLignes(suite);
+      if (prefs) void saveResultat(cacheKey(cpPatient, prefs), { at: depuisCache ?? Date.now(), rayonKm: rayon, lignes: suite, source });
+      setChargePlus(false);
+    }
+    setLimite((n) => n + PLUS);
+  };
 
   const copier = async (text: string, ok: string) => toast((await writeClipboard(text)) ? ok : 'Copie impossible', 'ok');
   const itineraire = (l: Ligne) => {
@@ -228,14 +276,25 @@ export function OrlFinder({ fiche, toast }: Props) {
       {cpPatient && geo && origine === null && etape === 'fini' && <div class="note">Code postal {cpPatient} inconnu de la table des codes postaux.</div>}
       {origine?.mode === 'departement' && <div class="note">Code postal {cpPatient} inconnu : recherche depuis le centre du département {cpPatient.slice(0, 2)}.</div>}
 
+      {cpPatient && source === 'public' && etape !== 'attente' && (
+        <div class="card" style="animation:none">
+          <div class="stack" style="gap:8px">
+            <div class="row" style="align-items:flex-start"><Icon name="alert" /><span class="grow" style="font-size:12.5px">{depuisCache
+              ? 'Résultats mémorisés du site public de Doctolib. Si tu es connecté à Doctolib Pro, relance avec ↻.'
+              : 'Cockpit n\'est pas connecté à Doctolib Pro : la recherche est faite sur le site public de Doctolib. Connecte-toi, puis relance avec ↻.'}</span></div>
+            <Btn kind="soft" icon="external" onClick={() => void voirOngletDoctolib('pro')} title="Ouvre la page Doctolib Pro de prise de rendez-vous chez un confrère (connexion demandée si besoin)">Se connecter à Doctolib Pro</Btn>
+          </div>
+        </div>
+      )}
+
       {error && (
         <div class="card" style="animation:none">
           <div class="stack" style="gap:8px">
             <div class="row" style="align-items:flex-start"><Icon name="alert" /><span class="grow" style="font-size:12.5px">{error.msg}</span></div>
             {error.refus && (
               <div class="actions" style="margin-top:0">
-                <Btn big icon="external" onClick={() => void voirOngletDoctolib()} title="Affiche l'onglet Doctolib qui porte les appels, pour valider la vérification anti-robot">Voir l'onglet Doctolib</Btn>
-                <Btn big kind="soft" icon="external" onClick={() => openUrl(lienRechercheDoctolib(cpPatient))}>Ouvrir la recherche</Btn>
+                <Btn big icon="external" onClick={() => void voirOngletDoctolib(source)} title="Affiche l'onglet Doctolib qui porte les appels, pour valider la vérification anti-robot">Voir l'onglet Doctolib</Btn>
+                <Btn big kind="soft" icon="external" onClick={() => openUrl(lienRechercheDoctolib(cpPatient, villeRecherche, source))}>Ouvrir la recherche</Btn>
               </div>
             )}
           </div>
@@ -278,14 +337,19 @@ export function OrlFinder({ fiche, toast }: Props) {
       {finales.length > 0 && (
         <div class="stack" style="gap:6px">
           {etape === 'fini' && top.length > 0 && <span class="label">Tous, secteur 1 d'abord puis distance</span>}
-          <div class="tpl-list">{finales.map((l) => carte(l))}</div>
+          <div class="tpl-list">{finales.slice(0, limite).map((l) => carte(l))}</div>
+          {etape === 'fini' && (finales.length > limite || nonVerifies > 0) && (
+            <Btn kind="ghost" icon="plus" busy={chargePlus} onClick={() => void afficherPlus()} title="Affiche les ORL suivants (lit leur fiche Doctolib si besoin)">
+              Afficher {PLUS} ORL de plus
+            </Btn>
+          )}
         </div>
       )}
 
       {etape === 'fini' && (sansTel > 0 || nonVerifies > 0) && (
         <div class="note" style="font-size:11px">
           {sansTel > 0 && `${sansTel} ORL sans numéro sur Doctolib, non affiché${sansTel > 1 ? 's' : ''}. `}
-          {nonVerifies > 0 && `${nonVerifies} autre${nonVerifies > 1 ? 's' : ''} non vérifié${nonVerifies > 1 ? 's' : ''} (au-delà des ${MAX_FICHES} fiches lues).`}
+          {nonVerifies > 0 && `${nonVerifies} autre${nonVerifies > 1 ? 's' : ''} pas encore vérifié${nonVerifies > 1 ? 's' : ''} : « Afficher plus » lit leur fiche.`}
         </div>
       )}
 
@@ -303,8 +367,8 @@ export function OrlFinder({ fiche, toast }: Props) {
       )}
 
       {cpPatient && !error?.refus && (
-        <Btn kind="ghost" icon="external" onClick={() => openUrl(lienRechercheDoctolib(cpPatient))} title="Ouvre la recherche Doctolib pré-remplie dans un onglet">
-          Ouvrir sur Doctolib
+        <Btn kind="ghost" icon="external" onClick={() => openUrl(lienRechercheDoctolib(cpPatient, villeRecherche, source))} title={source === 'pro' ? 'Ouvre la page Doctolib Pro de prise de rendez-vous chez un confrère' : 'Ouvre la recherche Doctolib pré-remplie dans un onglet'}>
+          {source === 'pro' ? 'Ouvrir Doctolib Pro' : 'Ouvrir sur Doctolib'}
         </Btn>
       )}
     </div>
