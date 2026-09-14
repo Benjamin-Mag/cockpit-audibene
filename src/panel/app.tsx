@@ -113,14 +113,6 @@ export function App() {
     return () => { alive = false; };
   }, [recordKey, tabId, ficheTick]);
 
-  // Adresse modifiée et enregistrée dans Salesforce : on met la fiche à jour sans tout relire.
-  useEffect(() => {
-    const cp = ctx?.codePostal;
-    if (!cp || !fiche || ctx.recordId !== fiche.recordId) return;
-    if (cp === fiche.codePostal && (ctx.ville ?? '') === fiche.ville) return;
-    setFiche({ ...fiche, codePostal: cp, ville: ctx.ville ?? '' });
-  }, [ctx?.codePostal, ctx?.ville, ctx?.recordId, fiche]);
-
   const act = async (label: string, req: ContentRequest) => {
     if (tabId == null) return;
     setBusy(label);

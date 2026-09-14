@@ -71,6 +71,7 @@ Le panneau envoie des `ContentRequest` (`src/shared/messages.ts`) via `chrome.ta
 - Un `<label>` créé par nous dans la page entrerait en collision avec la recherche de labels Salesforce : le panneau vit dans le side panel, pas dans la page.
 - « Traitement médical » (liste double) refuse les clics scriptés (`event.isTrusted`) : reste manuel.
 - Après « Enregistrer », attendre ~1,2 s avant le clic suivant (re-rendu).
+- **Jamais de lecture `deepAll` périodique** (minuterie) dans la page Salesforce : parcourir tout le shadow DOM Lightning toutes les quelques secondes a figé Salesforce (v1.0.27). Les lectures lourdes se font au clic ou au changement de fiche.
 - Le champ « Commentaires » des Commentaires internes n'est PAS l'anamnèse : l'anamnèse va dans « Remarques générales profil client » (rubrique Commentaire en bas de la Piste).
 - Chatter : la zone « Partager une mise à jour… » devient un éditeur riche au focus ; taper via `execCommand('insertText')`, puis bouton « Envoyer un message ».
 - Composeur d'e-mail de l'Opportunité : boutons **Client / Partenaire** en haut (destinataire). Les mêmes libellés existent dans le formulaire de résumé d'appel : ne chercher le choix que dans le composeur, délimité par l'éditeur `.ql-editor` et son bouton « Envoyer » (`composerOf` dans `actions.ts`). Choisir le destinataire AVANT de remplir objet et corps. Juste après l'ouverture, les boutons arrivent après l'éditeur et Salesforce vide le corps en finissant son affichage : attendre, insérer, puis vérifier que le corps est toujours là.
