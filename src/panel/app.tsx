@@ -104,7 +104,9 @@ export function App() {
             }
             return;
           }
-        } catch {
+        } catch (e) {
+          // Page muette : inutile de réessayer trois fois 20 s de plus.
+          if (/ne répond pas/.test((e as Error)?.message ?? '')) { if (alive) setFicheState('error'); return; }
           if (attempt === 3 && alive) setFicheState('error');
         }
         await new Promise((r) => setTimeout(r, 900));

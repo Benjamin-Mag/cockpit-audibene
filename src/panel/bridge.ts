@@ -22,30 +22,47 @@ export async function activeTab(): Promise<chrome.tabs.Tab | null> {
   return tab ?? null;
 }
 
+class Delai extends Error {}
+
+/** Une attente qui ne répond pas finit en erreur au lieu de laisser le panneau charger sans fin. */
+function avecDelai<T>(p: Promise<T>, ms: number, msg: string): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const t = setTimeout(() => reject(new Delai(msg)), ms);
+    p.then((v) => { clearTimeout(t); resolve(v); }, (e: unknown) => { clearTimeout(t); reject(e); });
+  });
+}
+
+const PAGE_FIGEE = "La page ne répond pas : recharge l'onglet (F5), puis réessaie.";
+
 async function inject(tabId: number) {
-  await chrome.scripting.executeScript({ target: { tabId, allFrames: true }, files: ['content.js'] });
+  await avecDelai(chrome.scripting.executeScript({ target: { tabId, allFrames: true }, files: ['content.js'] }), 10000, PAGE_FIGEE);
   await new Promise((r) => setTimeout(r, 150));
 }
 
 /** S'assure que le script de contenu répond (l'injecte au besoin, ex. après mise à jour). */
 export async function ensureContent(tabId: number): Promise<boolean> {
-  const ping = () => chrome.tabs.sendMessage(tabId, { type: 'ping' } satisfies ContentRequest) as Promise<ContentResponse | undefined>;
+  const ping = () => avecDelai(chrome.tabs.sendMessage(tabId, { type: 'ping' } satisfies ContentRequest) as Promise<ContentResponse | undefined>, 4000, PAGE_FIGEE);
   try {
     const r = await ping();
     if (r?.type === 'pong' && r.version === CONTENT_VERSION) return true;
-  } catch { /* pas de script */ }
+  } catch (e) {
+    if (e instanceof Delai) throw e;
+  }
   try {
     await inject(tabId);
     const r = await ping();
     return r?.type === 'pong';
-  } catch {
+  } catch (e) {
+    if (e instanceof Delai) throw e;
     return false;
   }
 }
 
 export async function send(tabId: number, req: ContentRequest): Promise<ContentResponse> {
   if (!(await ensureContent(tabId))) throw new Error('Impossible de dialoguer avec la page — ouvre le formulaire ou recharge l\'onglet, puis réessaie.');
-  const r = (await chrome.tabs.sendMessage(tabId, req)) as ContentResponse | undefined;
+  // Lecture de fiche : 20 s ; actions (COSI, MV, mail…) : jusqu'à 90 s, certaines enchaînent beaucoup d'étapes.
+  const ms = req.type === 'readFiche' ? 20000 : req.type === 'ping' || req.type === 'getContext' ? 4000 : 90000;
+  const r = (await avecDelai(chrome.tabs.sendMessage(tabId, req) as Promise<ContentResponse | undefined>, ms, PAGE_FIGEE));
   if (!r) throw new Error('Pas de réponse de la page.');
   return r;
 }
@@ -84,7 +101,7 @@ export function watchActiveTab(cb: (tab: chrome.tabs.Tab | null) => void): () =>
 export function connectContext(tabId: number, cb: (ctx: SfContext) => void): () => void {
   let port: chrome.runtime.Port | null = null;
   let closed = false;
-  ensureContent(tabId).then((ok) => {
+  ensureContent(tabId).catch(() => false).then((ok) => {
     if (!ok || closed) return;
     port = chrome.tabs.connect(tabId, { name: PORT_NAME });
     port.onMessage.addListener((m: ContextPush) => { if (m.type === 'contextChanged') cb(m.context); });
@@ -218,27 +235,35 @@ function waitLoaded(tabId: number, timeoutMs: number): Promise<void> {
   });
 }
 
-/** Un onglet chargé sur le site : celui déjà ouvert (réveillé s'il dort), sinon un nouvel onglet en arrière-plan. */
+/** Onglet mis en veille par le navigateur : un script injecté n'y tourne pas (attente sans fin). */
+const endormi = (t: chrome.tabs.Tab) => t.discarded || (t as chrome.tabs.Tab & { frozen?: boolean }).frozen === true;
+
+/** Onglets déjà trouvés muets pendant cette session du panneau : on ne les réessaie pas. */
+const muets = new Set<number>();
+
+/**
+ * Un onglet chargé et éveillé sur le site, sinon un nouvel onglet en arrière-plan. On ne recharge
+ * jamais un onglet existant : l'utilisateur peut y avoir un formulaire en cours.
+ */
 async function tabOn(match: string, home: string): Promise<number> {
-  const tabs = (await chrome.tabs.query({ url: match })).filter((t) => t.id !== undefined);
-  const awake = tabs.find((t) => !t.discarded && t.status === 'complete') ?? tabs.find((t) => !t.discarded);
+  const tabs = (await chrome.tabs.query({ url: match })).filter((t) => t.id !== undefined && !muets.has(t.id) && !endormi(t));
+  const awake = tabs.find((t) => t.status === 'complete') ?? tabs[0];
   if (awake?.id !== undefined) {
     if (awake.status !== 'complete') await waitLoaded(awake.id, 20000);
     return awake.id;
   }
-  const asleep = tabs[0];
-  if (asleep?.id !== undefined) {
-    await chrome.tabs.reload(asleep.id);
-    await waitLoaded(asleep.id, 25000);
-    await new Promise((r) => setTimeout(r, 1200));
-    return asleep.id;
-  }
-  const tab = await chrome.tabs.create({ url: home, active: false });
-  if (tab.id === undefined) throw new Error("Impossible d'ouvrir l'onglet.");
-  await waitLoaded(tab.id, 25000);
-  await new Promise((r) => setTimeout(r, 1500));
-  return tab.id;
+  // Plusieurs appels simultanés partagent le même nouvel onglet au lieu d'en ouvrir chacun un.
+  creation ??= (async () => {
+    const tab = await chrome.tabs.create({ url: home, active: false });
+    if (tab.id === undefined) throw new Error("Impossible d'ouvrir l'onglet.");
+    await waitLoaded(tab.id, 25000);
+    await new Promise((r) => setTimeout(r, 1500));
+    return tab.id;
+  })().finally(() => { creation = null; });
+  return creation;
 }
+
+let creation: Promise<number> | null = null;
 
 /**
  * Exécute un `fetch` DANS la page du site (monde principal de l'onglet) : mêmes cookies,
@@ -246,8 +271,17 @@ async function tabOn(match: string, home: string): Promise<number> {
  * anti-robot qui bloque un appel parti du panneau.
  */
 export async function fetchViaTab(match: string, home: string, url: string, init: ProxyInit): Promise<ProxyResponse> {
-  const tabId = await tabOn(match, home);
-  const [res] = await chrome.scripting.executeScript({
+  try {
+    return await fetchDansOnglet(await tabOn(match, home), url, init);
+  } catch (e) {
+    if (!(e instanceof Delai)) throw e;
+    // Onglet muet (souvent mis en veille sans que l'API le signale) : on l'écarte et on réessaie une fois.
+    return fetchDansOnglet(await tabOn(match, home), url, init);
+  }
+}
+
+async function fetchDansOnglet(tabId: number, url: string, init: ProxyInit): Promise<ProxyResponse> {
+  const execution = chrome.scripting.executeScript({
     target: { tabId },
     world: 'MAIN',
     func: async (u: string, i: ProxyInit): Promise<ProxyResponse> => {
@@ -264,6 +298,13 @@ export async function fetchViaTab(match: string, home: string, url: string, init
     },
     args: [url, init],
   });
+  let res: Awaited<typeof execution>[number] | undefined;
+  try {
+    [res] = await avecDelai(execution, 25000, "L'onglet Doctolib ne répond pas.");
+  } catch (e) {
+    if (e instanceof Delai) muets.add(tabId);
+    throw e;
+  }
   const r = res?.result as ProxyResponse | undefined;
   if (!r) throw new Error("Pas de réponse de l'onglet.");
   return r;
