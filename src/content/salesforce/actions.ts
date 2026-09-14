@@ -1,5 +1,5 @@
 import type { ActionResult, MailRecipient, StepResult } from '../../shared/types';
-import { clickTabByTitle, climbUp, deepAll, deepFirst, expandSection, fillCommentAndSave, inputBehindLabel, isRendered, labelledControl, saveButtonNear, setNativeValue, sleep, textOf, visibleEl, waitFor } from './dom';
+import { clickTabByTitle, climbUp, deepAll, expandSection, fillCommentAndSave, inputBehindLabel, isRendered, labelledControl, saveButtonNear, setNativeValue, sleep, textOf, visibleEl, waitFor } from './dom';
 
 // ---------------------------------------------------------------- MV non joignable
 async function clickPisteNonJoignable(): Promise<StepResult> {
@@ -270,14 +270,32 @@ function composerOf(editor: Element): Element | null {
  * Coche « Client » ou « Partenaire » en haut du composeur. Les mêmes libellés existent ailleurs
  * (formulaire de résumé d'appel) : seuls les choix situés dans le composeur comptent.
  */
-async function setMailRecipient(who: MailRecipient, editor: Element): Promise<StepResult> {
+/** Le bouton « Client » ou « Partenaire » du composeur, s'il est déjà affiché. */
+function findRecipient(who: MailRecipient): { target: HTMLElement | null; reason: string } {
+  const editor = visibleEl(deepAll<HTMLElement>('.ql-editor'));
+  if (!editor) return { target: null, reason: 'éditeur introuvable' };
   const scope = composerOf(editor);
-  if (!scope) return { ok: false, msg: 'composeur non repéré' };
+  if (!scope) return { target: null, reason: 'composeur non repéré' };
   const re = new RegExp(`^${who}$`, 'i');
   const target = deepAll<HTMLElement>('input[type="radio"], button, [role="radio"]', scope)
     .filter((el) => re.test(choiceLabel(el).trim()))
     .find((el) => isRendered(el) || (el instanceof HTMLInputElement && !!el.labels?.[0] && isRendered(el.labels[0])));
-  if (!target) return { ok: false, msg: `bouton « ${who} » introuvable` };
+  return { target: target ?? null, reason: `bouton « ${who} » introuvable` };
+}
+
+/**
+ * Coche « Client » ou « Partenaire » en haut du composeur. Juste après l'ouverture, Salesforce
+ * affiche l'éditeur avant ces boutons : on les attend jusqu'à `waitMs`.
+ */
+async function setMailRecipient(who: MailRecipient, waitMs: number): Promise<StepResult & { changed?: boolean }> {
+  let found = findRecipient(who);
+  const deadline = Date.now() + waitMs;
+  while (!found.target && Date.now() < deadline) {
+    await sleep(200);
+    found = findRecipient(who);
+  }
+  const target = found.target;
+  if (!target) return { ok: false, msg: found.reason };
   if (choiceChecked(target)) return { ok: true, msg: `destinataire déjà sur ${who}` };
   target.click();
   let done = await waitFor(() => choiceChecked(target), 1500, 100);
@@ -286,22 +304,16 @@ async function setMailRecipient(who: MailRecipient, editor: Element): Promise<St
     if (label) { label.click(); done = await waitFor(() => choiceChecked(target), 1500, 100); }
   }
   if (!done) return { ok: false, msg: "le clic n'a pas pris" };
-  await sleep(800);
-  return { ok: true, msg: `destinataire : ${who}` };
+  return { ok: true, msg: `destinataire : ${who}`, changed: true };
 }
 
-export async function insertMail(subject: string, html: string, recipient?: MailRecipient): Promise<ActionResult> {
-  const opened = await openComposer();
-  if (!opened.ok) return opened;
-  let dest: StepResult | null = null;
-  if (recipient) {
-    const first = visibleEl(deepAll<HTMLElement>('.ql-editor'));
-    if (first) dest = await setMailRecipient(recipient, first);
-  }
-  // Changer de destinataire peut redessiner le composeur : on relit l'éditeur ensuite.
-  const ed = await waitFor(() => visibleEl(deepAll<HTMLElement>('.ql-editor')), 3000, 150);
-  if (!ed) return { ok: false, msg: 'éditeur introuvable' };
-  const si = deepFirst<HTMLInputElement>('input[placeholder="L\'objet"]');
+const plainText = (html: string) => (new DOMParser().parseFromString(html, 'text/html').body.textContent ?? '').replace(/s+/g, '');
+
+/** Met l'objet et le corps dans le composeur affiché. */
+function fillComposer(subject: string, html: string): boolean {
+  const ed = visibleEl(deepAll<HTMLElement>('.ql-editor'));
+  if (!ed) return false;
+  const si = visibleEl(deepAll<HTMLInputElement>(`input[placeholder="L'objet"]`));
   if (si && subject) {
     si.focus();
     setNativeValue(si, subject);
@@ -309,6 +321,35 @@ export async function insertMail(subject: string, html: string, recipient?: Mail
   ed.focus();
   Object.getOwnPropertyDescriptor(Element.prototype, 'innerHTML')!.set!.call(ed, html);
   ed.dispatchEvent(new Event('input', { bubbles: true }));
+  return true;
+}
+
+/** Le corps affiché contient-il bien le début du texte inséré ? */
+function bodyStillThere(html: string): boolean {
+  const ed = visibleEl(deepAll<HTMLElement>('.ql-editor'));
+  if (!ed) return false;
+  const want = plainText(html).slice(0, 40);
+  return !want || (ed.textContent ?? '').replace(/s+/g, '').includes(want);
+}
+
+export async function insertMail(subject: string, html: string, recipient?: MailRecipient): Promise<ActionResult> {
+  const wasOpen = !!visibleEl(deepAll('.ql-editor'));
+  const opened = await openComposer();
+  if (!opened.ok) return opened;
+  const dest = recipient ? await setMailRecipient(recipient, wasOpen ? 1500 : 6000) : null;
+  // Un composeur qui vient de s'ouvrir, ou dont on vient de changer le destinataire, se redessine
+  // encore un instant et peut vider le corps : on laisse passer ce moment, puis on vérifie.
+  const unstable = !wasOpen || !!dest?.changed;
+  if (unstable) await sleep(900);
+  if (!(await waitFor(() => fillComposer(subject, html), 3000, 150))) return { ok: false, msg: 'éditeur introuvable' };
+  if (unstable) {
+    for (let i = 0; i < 2; i++) {
+      await sleep(900);
+      if (bodyStillThere(html)) break;
+      fillComposer(subject, html);
+    }
+    if (!bodyStillThere(html)) return { ok: false, msg: 'Salesforce a vidé le mail après insertion : clique à nouveau sur « Insérer dans Salesforce ».' };
+  }
   if (dest && !dest.ok) return { ok: false, msg: `Mail inséré. Coche « ${recipient} » à la main avant d'envoyer (${dest.msg}).` };
-  return { ok: true, msg: recipient ? `Mail inséré pour le ${recipient.toLowerCase()}` : 'Mail inséré' };
+return { ok: true, msg: recipient ? `Mail inséré pour le ${recipient.toLowerCase()}` : 'Mail inséré' };
 }
