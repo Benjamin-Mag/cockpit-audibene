@@ -49,7 +49,7 @@ function nomDepuisTitre(): string {
 }
 
 /** Code postal + ville : champ « Adresse » de la Piste (« 33510 ANDERNOS LES BAINS / Région France »), sinon titre de l'Opportunité (« Nom 69110 STE FOY LES LYON - 2026/09 »). */
-export function codePostalEtVille(): { codePostal: string; ville: string } {
+function codePostalEtVille(): { codePostal: string; ville: string } {
   const parse = (text: string) => {
     const m = (text || '').match(/\b(\d{5})\s+([^\n]+)/);
     if (!m) return null;

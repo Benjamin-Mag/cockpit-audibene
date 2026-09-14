@@ -1,6 +1,6 @@
 import { CONTENT_VERSION, PORT_NAME, type ContentRequest, type ContentResponse, type ContextPush } from '../../shared/messages';
 import { diagSms, fillAnamnese, fillSmsSearch, insertMail, openComposer, openSmsPanel, runMv, writeChatPartenaire, writeComment } from './actions';
-import { codePostalEtVille, currentContext, readFiche } from './context';
+import { currentContext, readFiche } from './context';
 
 async function handle(req: ContentRequest): Promise<ContentResponse> {
   switch (req.type) {
@@ -52,16 +52,9 @@ export function initSalesforce(): () => void {
   const onConnect = (port: chrome.runtime.Port) => {
     if (port.name !== PORT_NAME) return;
     let lastKey = '';
-    // Le code postal d'une Piste est relu toutes les ~3 s (lecture plus coûteuse), et tout de suite
-    // quand on change de fiche, pour qu'une adresse modifiée dans Salesforce relance l'ORL Finder.
-    let adresse = { url: '', at: 0, codePostal: '', ville: '' };
     const tick = () => {
       const ctx = currentContext();
-      if (ctx.page === 'lead') {
-        if (adresse.url !== ctx.url || Date.now() - adresse.at > 2800) adresse = { url: ctx.url, at: Date.now(), ...codePostalEtVille() };
-        if (adresse.codePostal) { ctx.codePostal = adresse.codePostal; ctx.ville = adresse.ville; }
-      }
-      const key = `${ctx.url}|${ctx.composerOpen}|${ctx.codePostal ?? ''}|${ctx.ville ?? ''}`;
+      const key = `${ctx.url}|${ctx.composerOpen}`;
       if (key === lastKey) return;
       lastKey = key;
       const push: ContextPush = { type: 'contextChanged', context: ctx };
