@@ -26,6 +26,9 @@ export interface SfContext {
   url: string;
 }
 
+/** Destinataire choisi en haut du composeur d'e-mail Salesforce. */
+export type MailRecipient = 'Client' | 'Partenaire';
+
 export interface StepResult {
   ok: boolean;
   msg: string;

@@ -176,7 +176,7 @@ export function App() {
       setBusy(null);
     }
   };
-  const insertMail = (subject: string, body: string) => act('mail', { type: 'insertMail', subject, html: buildMailHtml(body, data?.reglages.emailFooter ?? '') });
+  const insertMail = (subject: string, body: string, audience: 'patient' | 'partenaire') => act('mail', { type: 'insertMail', subject, html: buildMailHtml(body, data?.reglages.emailFooter ?? ''), recipient: audience === 'partenaire' ? 'Partenaire' : 'Client' });
   const ficheName = fiche ? [fiche.prenom, fiche.nom].filter(Boolean).join(' ') : '';
   const salePrefill = ficheName && ctx ? { name: ficheName, url: ctx.url.split('?')[0] } : null;
   /** Vente en un clic depuis l'Opportunité ouverte, dans le mois courant. */

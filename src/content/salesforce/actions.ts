@@ -1,4 +1,4 @@
-import type { ActionResult, StepResult } from '../../shared/types';
+import type { ActionResult, MailRecipient, StepResult } from '../../shared/types';
 import { clickTabByTitle, climbUp, deepAll, deepFirst, expandSection, fillCommentAndSave, inputBehindLabel, isRendered, labelledControl, saveButtonNear, setNativeValue, sleep, textOf, visibleEl, waitFor } from './dom';
 
 // ---------------------------------------------------------------- MV non joignable
@@ -220,10 +220,86 @@ export async function openComposer(): Promise<ActionResult> {
   return ed ? { ok: true, msg: 'composeur ouvert' } : { ok: false, msg: 'le composeur ne s\'est pas ouvert' };
 }
 
-export async function insertMail(subject: string, html: string): Promise<ActionResult> {
+/** Texte d'un choix du composeur : libellé associé, aria-label, valeur ou texte du bouton. */
+function choiceLabel(el: Element): string {
+  if (el instanceof HTMLInputElement) {
+    const root = el.getRootNode() as ParentNode;
+    const byFor = el.id ? root.querySelector(`label[for="${CSS.escape(el.id)}"]`) : null;
+    const label = el.labels?.[0] ?? byFor ?? el.closest('label');
+    return (label ? textOf(label) : '') || el.getAttribute('aria-label') || el.value || '';
+  }
+  return textOf(el) || el.getAttribute('aria-label') || el.getAttribute('title') || '';
+}
+
+function choiceChecked(el: Element): boolean {
+  if (el instanceof HTMLInputElement) return el.checked;
+  return el.getAttribute('aria-pressed') === 'true' || el.getAttribute('aria-checked') === 'true' || /slds-is-selected|slds-button_brand/.test(el.className.toString());
+}
+
+/** Ancêtres d'un élément, du plus proche au plus lointain, en traversant le shadow DOM. */
+function ancestors(el: Element): Element[] {
+  const out: Element[] = [];
+  for (let n: Element | null = el; n && out.length < 80; n = climbUp(n)) out.push(n);
+  return out;
+}
+
+/** Plus petit ancêtre commun de deux éléments (shadow DOM compris). */
+function commonAncestor(a: Element, b: Element): Element | null {
+  const up = new Set(ancestors(a));
+  return ancestors(b).find((n) => up.has(n)) ?? null;
+}
+
+/**
+ * Le composeur = plus petit bloc qui contient l'éditeur ET le bouton Envoyer le plus proche.
+ * Sans bouton Envoyer repérable, on ne coche rien : mieux vaut laisser choisir que cocher
+ * le « Client / Partenaire » d'un autre formulaire (résumé d'appel).
+ */
+function composerOf(editor: Element): Element | null {
+  const sends = deepAll<HTMLElement>('button').filter((b) => isRendered(b) && /^envoyer$/i.test((textOf(b) || b.getAttribute('title') || b.getAttribute('aria-label') || '').trim()));
+  let best: { scope: Element; depth: number } | null = null;
+  for (const b of sends) {
+    const scope = commonAncestor(editor, b);
+    if (!scope) continue;
+    const depth = ancestors(editor).indexOf(scope);
+    if (depth >= 0 && (!best || depth < best.depth)) best = { scope, depth };
+  }
+  return best?.scope ?? null;
+}
+
+/**
+ * Coche « Client » ou « Partenaire » en haut du composeur. Les mêmes libellés existent ailleurs
+ * (formulaire de résumé d'appel) : seuls les choix situés dans le composeur comptent.
+ */
+async function setMailRecipient(who: MailRecipient, editor: Element): Promise<StepResult> {
+  const scope = composerOf(editor);
+  if (!scope) return { ok: false, msg: 'composeur non repéré' };
+  const re = new RegExp(`^${who}$`, 'i');
+  const target = deepAll<HTMLElement>('input[type="radio"], button, [role="radio"]', scope)
+    .filter((el) => re.test(choiceLabel(el).trim()))
+    .find((el) => isRendered(el) || (el instanceof HTMLInputElement && !!el.labels?.[0] && isRendered(el.labels[0])));
+  if (!target) return { ok: false, msg: `bouton « ${who} » introuvable` };
+  if (choiceChecked(target)) return { ok: true, msg: `destinataire déjà sur ${who}` };
+  target.click();
+  let done = await waitFor(() => choiceChecked(target), 1500, 100);
+  if (!done && target instanceof HTMLInputElement) {
+    const label = target.labels?.[0];
+    if (label) { label.click(); done = await waitFor(() => choiceChecked(target), 1500, 100); }
+  }
+  if (!done) return { ok: false, msg: "le clic n'a pas pris" };
+  await sleep(800);
+  return { ok: true, msg: `destinataire : ${who}` };
+}
+
+export async function insertMail(subject: string, html: string, recipient?: MailRecipient): Promise<ActionResult> {
   const opened = await openComposer();
   if (!opened.ok) return opened;
-  const ed = visibleEl(deepAll<HTMLElement>('.ql-editor'));
+  let dest: StepResult | null = null;
+  if (recipient) {
+    const first = visibleEl(deepAll<HTMLElement>('.ql-editor'));
+    if (first) dest = await setMailRecipient(recipient, first);
+  }
+  // Changer de destinataire peut redessiner le composeur : on relit l'éditeur ensuite.
+  const ed = await waitFor(() => visibleEl(deepAll<HTMLElement>('.ql-editor')), 3000, 150);
   if (!ed) return { ok: false, msg: 'éditeur introuvable' };
   const si = deepFirst<HTMLInputElement>('input[placeholder="L\'objet"]');
   if (si && subject) {
@@ -233,5 +309,6 @@ export async function insertMail(subject: string, html: string): Promise<ActionR
   ed.focus();
   Object.getOwnPropertyDescriptor(Element.prototype, 'innerHTML')!.set!.call(ed, html);
   ed.dispatchEvent(new Event('input', { bubbles: true }));
-  return { ok: true, msg: 'Mail inséré' };
+  if (dest && !dest.ok) return { ok: false, msg: `Mail inséré. Coche « ${recipient} » à la main avant d'envoyer (${dest.msg}).` };
+  return { ok: true, msg: recipient ? `Mail inséré pour le ${recipient.toLowerCase()}` : 'Mail inséré' };
 }
