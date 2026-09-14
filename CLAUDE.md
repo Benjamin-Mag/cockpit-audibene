@@ -47,7 +47,7 @@ src/panel.html + src/panel/
   storage/legacy.ts          formats anciens (data.json générateur, export ventes), fusion, partage, substitution de nom
   views/                     Header, Anamnese (=COSI), Commentaire (=Anamnèse), Mails, ChatPartenaire, Ventes, Reglages, Setup
   views/OrlFinder.tsx        ORL Finder (Piste) : ORL Doctolib proches avec prochain créneau, TOP 3, message type
-  doctolib.ts, geo.ts        appels Doctolib (recherche, créneaux, fiche praticien) ; code postal → GPS (public/data/codes-postaux.json, script scripts/codes-postaux.mjs)
+  doctolib.ts, geo.ts        appels Doctolib (recherche, créneaux, fiche praticien), via Doctolib Pro (session du conseiller) puis site public en secours, toujours exécutés dans un onglet du site (fetchViaTab) ; code postal → GPS (public/data/codes-postaux.json, script scripts/codes-postaux.mjs)
   components/ui.tsx          Btn, Chip, Seg, Field, DeleteBtn, EditablePreview, Toast, icônes
 src/index.html               page d'installation (GitHub Pages)
 .github/workflows/           pages.yml (site à chaque push main), release.yml (zip à chaque tag v*)

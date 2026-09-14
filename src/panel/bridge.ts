@@ -216,6 +216,20 @@ export async function writeClipboard(text: string): Promise<boolean> {
 
 // ---- Appels réseau exécutés depuis un onglet du site (anti-robot) ----
 
+/** L'onglet a quitté le site demandé (par exemple renvoyé vers une page de connexion). */
+export class HorsSite extends Error {
+  tabId: number;
+  constructor(tabId: number) {
+    super("L'onglet a été renvoyé vers une page de connexion.");
+    this.name = 'HorsSite';
+    this.tabId = tabId;
+  }
+}
+
+const memeOrigine = (url: string | undefined, motif: string) => {
+  try { return !!url && new URL(url).origin === new URL(motif.replace(/\*$/, '')).origin; } catch { return false; }
+};
+
 export interface ProxyInit { method?: string; headers?: Record<string, string>; body?: string }
 export interface ProxyResponse { status: number; contentType: string; body: string }
 
@@ -244,39 +258,49 @@ const muets = new Set<number>();
 /**
  * Un onglet chargé et éveillé sur le site, sinon un nouvel onglet en arrière-plan. On ne recharge
  * jamais un onglet existant : l'utilisateur peut y avoir un formulaire en cours.
+ * `horsSite` : adresse vers laquelle le site renvoie quand il faut se connecter (onglet inutilisable).
  */
-async function tabOn(match: string, home: string): Promise<number> {
+async function tabOn(match: string, home: string, horsSite?: string): Promise<number> {
   const tabs = (await chrome.tabs.query({ url: match })).filter((t) => t.id !== undefined && !muets.has(t.id) && !endormi(t));
   const awake = tabs.find((t) => t.status === 'complete') ?? tabs[0];
   if (awake?.id !== undefined) {
     if (awake.status !== 'complete') await waitLoaded(awake.id, 20000);
     return awake.id;
   }
+  if (horsSite) {
+    const perdu = (await chrome.tabs.query({ url: horsSite })).find((t) => t.id !== undefined);
+    if (perdu?.id !== undefined) throw new HorsSite(perdu.id);
+  }
   // Plusieurs appels simultanés partagent le même nouvel onglet au lieu d'en ouvrir chacun un.
-  creation ??= (async () => {
-    const tab = await chrome.tabs.create({ url: home, active: false });
-    if (tab.id === undefined) throw new Error("Impossible d'ouvrir l'onglet.");
-    await waitLoaded(tab.id, 25000);
-    await new Promise((r) => setTimeout(r, 1500));
-    return tab.id;
-  })().finally(() => { creation = null; });
-  return creation;
+  let enCours = creations.get(match);
+  if (!enCours) {
+    enCours = (async () => {
+      const tab = await chrome.tabs.create({ url: home, active: false });
+      if (tab.id === undefined) throw new Error("Impossible d'ouvrir l'onglet.");
+      await waitLoaded(tab.id, 25000);
+      await new Promise((r) => setTimeout(r, 1500));
+      if (horsSite && !memeOrigine((await chrome.tabs.get(tab.id)).url, match)) throw new HorsSite(tab.id);
+      return tab.id;
+    })().finally(() => { creations.delete(match); });
+    creations.set(match, enCours);
+  }
+  return enCours;
 }
 
-let creation: Promise<number> | null = null;
+const creations = new Map<string, Promise<number>>();
 
 /**
  * Exécute un `fetch` DANS la page du site (monde principal de l'onglet) : mêmes cookies,
  * mêmes en-têtes et même origine que le site lui-même, ce qui passe la vérification
  * anti-robot qui bloque un appel parti du panneau.
  */
-export async function fetchViaTab(match: string, home: string, url: string, init: ProxyInit): Promise<ProxyResponse> {
+export async function fetchViaTab(match: string, home: string, url: string, init: ProxyInit, horsSite?: string): Promise<ProxyResponse> {
   try {
-    return await fetchDansOnglet(await tabOn(match, home), url, init);
+    return await fetchDansOnglet(await tabOn(match, home, horsSite), url, init);
   } catch (e) {
     if (!(e instanceof Delai)) throw e;
     // Onglet muet (souvent mis en veille sans que l'API le signale) : on l'écarte et on réessaie une fois.
-    return fetchDansOnglet(await tabOn(match, home), url, init);
+    return fetchDansOnglet(await tabOn(match, home, horsSite), url, init);
   }
 }
 

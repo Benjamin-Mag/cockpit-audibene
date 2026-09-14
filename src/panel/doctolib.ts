@@ -2,11 +2,19 @@
 // présente). Appels vérifiés par le chef d'orchestre le 2026-09-09 ; c'est, avec
 // l'itinéraire Google Maps (ouvert seulement au clic), une exception assumée à la
 // règle « pas d'appel réseau » : rien du patient n'est envoyé, seulement un point GPS.
-import { type ProxyResponse, fetchViaTab, isExtension } from './bridge';
+import { HorsSite, type ProxyResponse, fetchViaTab, isExtension } from './bridge';
 
-const BASE = 'https://www.doctolib.fr';
-/** Onglets utilisables pour porter les appels (site patient uniquement). */
+/** Doctolib Pro (session du conseiller) d'abord, site public en secours : mêmes adresses d'API. */
+export type Source = 'pro' | 'public';
+const BASES: Record<Source, string> = { pro: 'https://pro.doctolib.fr', public: 'https://www.doctolib.fr' };
+const BASE = BASES.public;
+/** Onglets utilisables pour porter les appels publics. */
 const ONGLET = 'https://www.doctolib.fr/*';
+/** Page Doctolib Pro « Prendre rendez-vous chez un confrère », ouverte telle quelle. */
+export const PAGE_PRO = 'https://pro.doctolib.fr/doctor_referrals_booking';
+const ONGLET_PRO = 'https://pro.doctolib.fr/*';
+/** Sans session, toute page Pro renvoie ici. */
+const CONNEXION_PRO = 'https://auth.doctolib.fr/pro/*';
 export const SPECIALITE = 'orl-oto-rhino-laryngologie';
 /** Pause entre deux lectures de créneaux : Doctolib n'aime pas les rafales. */
 export const PAUSE_MS = 150;
@@ -15,6 +23,8 @@ export type Secteur = 'S1' | 'S2' | null;
 
 /** Un praticien à un lieu d'exercice (le même médecin peut avoir plusieurs cabinets). */
 export interface Orl {
+  /** Site d'où vient la ligne (absent dans les résultats mémorisés avant la v1.0.30 : public). */
+  source?: Source;
   /** Clé unique praticien + lieu. */
   key: string;
   nom: string;
@@ -68,15 +78,46 @@ interface RawProvider {
 
 interface CallInit { method?: string; headers?: Record<string, string>; body?: string }
 
-/** Depuis l'extension, l'appel part de l'onglet Doctolib (voir fetchViaTab) ; en mode web, appel direct. */
-async function transport(path: string, init: CallInit): Promise<ProxyResponse> {
-  if (isExtension) return fetchViaTab(ONGLET, `${BASE}/`, `${BASE}${path}`, init);
-  const r = await fetch(`${BASE}${path}`, { ...init, credentials: 'include' });
+/** Pas de session Doctolib Pro dans le navigateur : le panneau bascule sur le site public. */
+export class ProDeconnecte extends Error {
+  constructor() {
+    super('Pas connecté à Doctolib Pro.');
+    this.name = 'ProDeconnecte';
+  }
+}
+
+/**
+ * Après un échec de connexion Pro, on ne retente pas avant 10 min (ni ne rouvre de page de connexion
+ * en arrière-plan), sauf si l'utilisateur relance (↻) ou clique « Se connecter à Doctolib Pro ».
+ */
+let proEnPauseJusqua = 0;
+export const reessayerPro = () => { proEnPauseJusqua = 0; };
+const proAbsent = () => { proEnPauseJusqua = Date.now() + 10 * 60 * 1000; return new ProDeconnecte(); };
+
+/** Depuis l'extension, l'appel part d'un onglet du site (voir fetchViaTab) ; en mode web, appel direct au site public. */
+async function transport(source: Source, path: string, init: CallInit): Promise<ProxyResponse> {
+  const base = BASES[source];
+  if (isExtension) {
+    if (source === 'pro') {
+      if (Date.now() < proEnPauseJusqua) throw new ProDeconnecte();
+      try {
+        return await fetchViaTab(ONGLET_PRO, PAGE_PRO, `${base}${path}`, init, CONNEXION_PRO);
+      } catch (e) {
+        if (e instanceof HorsSite) throw proAbsent();
+        throw e;
+      }
+    }
+    return fetchViaTab(ONGLET, `${base}/`, `${base}${path}`, init);
+  }
+  if (source === 'pro') throw new ProDeconnecte();
+  const r = await fetch(`${base}${path}`, { ...init, credentials: 'include' });
   return { status: r.status, contentType: r.headers.get('content-type') ?? '', body: await r.text() };
 }
 
-async function call(path: string, init: CallInit = {}): Promise<{ json: () => Promise<unknown> }> {
-  const r = await transport(path, { ...init, headers: { Accept: 'application/json', ...(init.headers ?? {}) } });
+async function call(source: Source, path: string, init: CallInit = {}): Promise<{ json: () => Promise<unknown> }> {
+  const r = await transport(source, path, { ...init, headers: { Accept: 'application/json', ...(init.headers ?? {}) } });
+  // Session Pro expirée : la requête est renvoyée vers la connexion (échec réseau, 401 ou page HTML).
+  if (source === 'pro' && (r.status === 0 || r.status === 401 || r.contentType.includes('text/html'))) throw proAbsent();
   if (r.status === 0) throw new Error(`Doctolib injoignable (${r.body || 'pas de réponse'}).`);
   if (r.status === 403 || r.status === 429 || r.contentType.includes('text/html')) throw new DoctolibRefus(r.status);
   if (r.status < 200 || r.status >= 300) throw new Error(`Doctolib a répondu ${r.status}.`);
@@ -102,15 +143,22 @@ export class DoctolibRefus extends Error {
   }
 }
 
-/** Met l'onglet Doctolib au premier plan (celui qui porte les appels), ou en ouvre un. */
-export async function voirOngletDoctolib(): Promise<void> {
-  if (!isExtension) { window.open(`${BASE}/`, '_blank', 'noopener'); return; }
-  const [tab] = (await chrome.tabs.query({ url: ONGLET })).filter((t) => t.id !== undefined);
+/** Met au premier plan l'onglet Doctolib qui porte les appels (ou la page de connexion Pro), ou en ouvre un. */
+export async function voirOngletDoctolib(source: Source = 'public'): Promise<void> {
+  if (source === 'pro') reessayerPro();
+  const accueil = source === 'pro' ? PAGE_PRO : `${BASE}/`;
+  if (!isExtension) { window.open(accueil, '_blank', 'noopener'); return; }
+  const motifs = source === 'pro' ? [ONGLET_PRO, CONNEXION_PRO] : [ONGLET];
+  let tab: chrome.tabs.Tab | undefined;
+  for (const url of motifs) {
+    tab = (await chrome.tabs.query({ url })).find((t) => t.id !== undefined);
+    if (tab) break;
+  }
   if (tab?.id !== undefined) {
     await chrome.tabs.update(tab.id, { active: true });
     if (tab.windowId !== undefined) await chrome.windows.update(tab.windowId, { focused: true });
   } else {
-    await chrome.tabs.create({ url: `${BASE}/`, active: true });
+    await chrome.tabs.create({ url: accueil, active: true });
   }
 }
 
@@ -128,7 +176,7 @@ export function secteurDe(brut: string | null | undefined): Secteur {
 /** Ordre des groupes : secteur 1 → secteur 2 / OPTAM / non conventionné → non renseigné. */
 export const groupeSecteur = (s: Secteur) => (s === 'S1' ? 0 : s === 'S2' ? 1 : 2);
 
-function toOrl(raw: RawProvider): Orl | null {
+function toOrl(raw: RawProvider, source: Source): Orl | null {
   const nom = [raw.title, raw.firstName, raw.name].filter(Boolean).join(' ').trim();
   const loc = raw.location ?? {};
   if (!nom || typeof loc.lat !== 'number' || typeof loc.lng !== 'number') return null;
@@ -138,6 +186,7 @@ function toOrl(raw: RawProvider): Orl | null {
   const id = String(raw.references?.id ?? raw.references?.profileId ?? slug);
   const motive = raw.matchedVisitMotive ?? null;
   return {
+    source,
     key: `${id}@${practiceId}`,
     nom,
     specialite: raw.speciality?.name ?? 'ORL',
@@ -149,7 +198,7 @@ function toOrl(raw: RawProvider): Orl | null {
     distanceKm: (loc.distanceInMeters ?? 0) / 1000,
     secteur: secteurDe(raw.regulationSector),
     secteurBrut: raw.regulationSector ?? null,
-    lien: link ? `${BASE}${link}` : '',
+    lien: link ? `${BASES[source]}${link}` : '',
     slug,
     practiceId,
     visitMotiveId: motive?.visitMotiveId ?? null,
@@ -160,14 +209,14 @@ function toOrl(raw: RawProvider): Orl | null {
 }
 
 /** Une page de résultats (16 praticiens, déjà triés par distance). */
-export async function rechercherOrl(lat: number, lng: number, opts: SearchOptions = {}): Promise<{ total: number; items: Orl[] }> {
+export async function rechercherOrl(lat: number, lng: number, opts: SearchOptions = {}, source: Source = 'public'): Promise<{ total: number; items: Orl[] }> {
   const filters: Record<string, unknown> = {};
   if (opts.secteurs?.length) filters.regulationSector = opts.secteurs;
   if (opts.delaiJours) filters.availabilitiesBefore = opts.delaiJours;
   const body = { keyword: SPECIALITE, location: { gpsPoint: { lat, lng } }, ...(Object.keys(filters).length ? { filters } : {}) };
-  const res = await call(`/patient-health-search/api/v1/hcp/search?page=${opts.page ?? 0}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+  const res = await call(source, `/patient-health-search/api/v1/hcp/search?page=${opts.page ?? 0}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
   const json = (await res.json()) as { total?: number; healthcareProviders?: RawProvider[] };
-  const items = (json.healthcareProviders ?? []).map(toOrl).filter((o): o is Orl => !!o);
+  const items = (json.healthcareProviders ?? []).map((raw) => toOrl(raw, source)).filter((o): o is Orl => !!o);
   return { total: json.total ?? items.length, items };
 }
 
@@ -180,7 +229,7 @@ export function isoLocal(d = new Date()): string {
 }
 
 /** Prochain créneau d'un praticien à ce lieu (un appel ; à espacer de PAUSE_MS entre praticiens). */
-export async function prochainCreneau(o: Orl): Promise<Creneau> {
+export async function prochainCreneau(o: Orl, source: Source = o.source ?? 'public'): Promise<Creneau> {
   if (!o.visitMotiveId || !o.agendaIds.length || !o.practiceId) return { next: null, raison: 'Pas de prise de RDV en ligne' };
   const q = new URLSearchParams({
     telehealth: 'false',
@@ -190,7 +239,7 @@ export async function prochainCreneau(o: Orl): Promise<Creneau> {
     agenda_ids: o.agendaIds.join(','),
     practice_ids: o.practiceId,
   });
-  const res = await call(`/search/availabilities.json?${q.toString()}`);
+  const res = await call(source, `/search/availabilities.json?${q.toString()}`);
   const json = (await res.json()) as { next_slot?: string | null; reason?: string | null; availabilities?: { date: string; slots: unknown[] }[] };
   const first = json.availabilities?.find((a) => a.slots?.length);
   const slot = first?.slots?.[0];
@@ -222,9 +271,9 @@ interface RawProfile {
 }
 
 /** Fiche praticien pour un lieu (un appel ; à espacer de PAUSE_MS). Ne pas appeler pour tout le monde : seulement les retenus. */
-export async function ficheOrl(o: Orl): Promise<FicheOrl> {
+export async function ficheOrl(o: Orl, source: Source = o.source ?? 'public'): Promise<FicheOrl> {
   if (!o.slug || !o.practiceId) throw new Error('Fiche introuvable (pas de lien Doctolib).');
-  const res = await call(`/profiles/${encodeURIComponent(o.slug)}.json?pid=practice-${encodeURIComponent(o.practiceId)}&locale=fr`);
+  const res = await call(source, `/profiles/${encodeURIComponent(o.slug)}.json?pid=practice-${encodeURIComponent(o.practiceId)}&locale=fr`);
   const json = (await res.json()) as RawProfile;
   const d = json.data ?? {};
   const place = d.places?.find((p) => p.id === `practice-${o.practiceId}`);
@@ -255,8 +304,15 @@ export function secteurLabel(clair: string, brut: string | null): string {
 
 export const MESSAGE_TYPE = "Bonjour, je souhaite prendre rendez-vous pour un bilan auditif complet incluant une audiométrie tonale et vocale, dans le cadre d'un projet d'appareillage. Pouvez-vous me confirmer que ce bilan est bien réalisé dans votre cabinet ? Merci.";
 
-/** Recherche Doctolib pré-remplie, pour l'ouvrir dans un onglet. */
-export const lienRechercheDoctolib = (codePostal: string) => `${BASE}/search?speciality=${SPECIALITE}&location=${encodeURIComponent(codePostal)}`;
+const slugVille = (ville: string) => ville.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+
+/**
+ * Recherche à ouvrir dans un onglet. Pro : la page d'adressage telle quelle (sa recherche exige un lieu
+ * choisi dans sa liste). Public : Doctolib attend le nom de la ville (« andernos-les-bains ») ;
+ * un simple code postal le renvoie vers une recherche sans lieu.
+ */
+export const lienRechercheDoctolib = (codePostal: string, ville = '', source: Source = 'public') =>
+  source === 'pro' ? PAGE_PRO : `${BASE}/search?keyword=${SPECIALITE}&location=${encodeURIComponent(slugVille(ville) || codePostal)}`;
 
 export const lienItineraire = (origine: string, destination: string) => `https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(origine)}&destination=${encodeURIComponent(destination)}`;
 
