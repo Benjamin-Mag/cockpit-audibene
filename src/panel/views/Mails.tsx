@@ -16,7 +16,7 @@ interface Props {
   fiche: Fiche | null;
   connected: boolean;
   busy: boolean;
-  onInsert: (subject: string, body: string) => void;
+  onInsert: (subject: string, body: string, audience: 'patient' | 'partenaire') => void;
   onNeedPartner: () => Promise<Fiche | null>;
   toast: (msg: string, kind?: 'ok' | 'err' | 'info') => void;
 }
@@ -353,7 +353,7 @@ export function Mails({ data, update, fiche, connected, busy, onInsert, onNeedPa
 
           {sel.type === 'email' ? (
             <div class="row">
-              <Btn big icon="send" busy={busy} disabled={!connected} onClick={() => requireGenre() && onInsert(subject, body)} class="grow" title="Ouvre le composeur Salesforce et y met l'objet, le logo, le texte et le pied de page">
+              <Btn big icon="send" busy={busy} disabled={!connected} onClick={() => requireGenre() && onInsert(subject, body, sel.audience)} class="grow" title={`Ouvre le composeur Salesforce, choisit « ${sel.audience === 'partenaire' ? 'Partenaire' : 'Client'} » et y met l'objet, le logo, le texte et le pied de page`}>
                 Insérer dans Salesforce
               </Btn>
               <Btn kind="ghost" icon="copy" title="Copier (objet + texte)" onClick={() => requireGenre() && copy(subject ? `${subject}\n${body}` : body, 'Message')} />

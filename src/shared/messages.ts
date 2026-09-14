@@ -1,4 +1,4 @@
-import type { ActionResult, Fiche, PatientData, SfContext } from './types';
+import type { ActionResult, Fiche, PatientData, SfContext, MailRecipient } from './types';
 
 /** Change à chaque build : un script de page d'une autre version est remplacé par le panneau. */
 export const CONTENT_VERSION: string = __COCKPIT_BUILD__;
@@ -17,7 +17,7 @@ export type ContentRequest =
   | { type: 'fillSmsSearch'; text: string }
   | { type: 'diagSms' }
   | { type: 'openComposer' }
-  | { type: 'insertMail'; subject: string; html: string }
+  | { type: 'insertMail'; subject: string; html: string; recipient?: MailRecipient }
   | { type: 'pastePatient'; data: PatientData; note: string };
 
 export type ContentResponse =

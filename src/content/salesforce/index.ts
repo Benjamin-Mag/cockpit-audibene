@@ -25,7 +25,7 @@ async function handle(req: ContentRequest): Promise<ContentResponse> {
     case 'openComposer':
       return { type: 'result', result: await openComposer() };
     case 'insertMail':
-      return { type: 'result', result: await insertMail(req.subject, req.html) };
+      return { type: 'result', result: await insertMail(req.subject, req.html, req.recipient) };
     default:
       return { type: 'result', result: { ok: false, msg: `action inconnue sur Salesforce : ${(req as { type: string }).type}` } };
   }
