@@ -24,6 +24,9 @@ export interface SfContext {
   recordId: string;
   composerOpen: boolean;
   url: string;
+  /** Piste : code postal et ville du champ Adresse, relus régulièrement pour suivre une modification. */
+  codePostal?: string;
+  ville?: string;
 }
 
 /** Destinataire choisi en haut du composeur d'e-mail Salesforce. */
