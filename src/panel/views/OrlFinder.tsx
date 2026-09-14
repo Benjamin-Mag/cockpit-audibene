@@ -43,9 +43,15 @@ function SecteurBadge({ l }: { l: Ligne }) {
   return <span class={['badge', s1 ? '' : 'sms'].join(' ')} style={s1 ? 'background:var(--success-soft);color:var(--success);border-color:transparent' : ''} title={l.fiche?.secteurClair || l.orl.secteurBrut || ''}>{label}</span>;
 }
 
+/** Code postal et ville écrits dans une adresse (« 12 rue X, 33000 Bordeaux »). */
+function lireAdresse(adresse: string): { codePostal: string; ville: string } | null {
+  const m = adresse.match(/\b(\d{5})\b\s*([^,\n]*)/);
+  return m ? { codePostal: m[1], ville: m[2].trim() } : null;
+}
+
 export function OrlFinder({ fiche, toast }: Props) {
-  const cpPatient = fiche?.codePostal ?? '';
-  const lieu = [cpPatient, fiche?.ville].filter(Boolean).join(' ');
+  const cpFiche = fiche?.codePostal ?? '';
+  const lieuFiche = [cpFiche, fiche?.ville].filter(Boolean).join(' ');
 
   const [geo, setGeo] = useState<GeoTable | null | undefined>(undefined);
   const [prefs, setPrefs] = useState<OrlPrefs | null>(null);
@@ -56,12 +62,24 @@ export function OrlFinder({ fiche, toast }: Props) {
   const [depuisCache, setDepuisCache] = useState<number | null>(null);
   const [error, setError] = useState<{ msg: string; refus: boolean } | null>(null);
   const [origine, setOrigine] = useState<Origine | null>(null);
-  const [adressePatient, setAdressePatient] = useState(lieu);
+  const [adressePatient, setAdressePatient] = useState(lieuFiche);
+  /** Dernier code postal lu dans l'adresse saisie (frappe arrêtée ou Entrée) ; une adresse sans code postal le garde. */
+  const [saisie, setSaisie] = useState<{ codePostal: string; ville: string } | null>(null);
   const [tick, setTick] = useState(0);
   const force = useRef(false);
 
   useEffect(() => { loadGeo().then(setGeo); loadPrefs().then(setPrefs); }, []);
-  useEffect(() => { setAdressePatient(lieu); }, [lieu]);
+  useEffect(() => { setAdressePatient(lieuFiche); setSaisie(null); }, [lieuFiche]);
+  const retenir = (adresse: string) => { const lu = lireAdresse(adresse); if (lu) setSaisie(lu); };
+  useEffect(() => {
+    const t = setTimeout(() => retenir(adressePatient), 900);
+    return () => clearTimeout(t);
+  }, [adressePatient]);
+
+  const cpPatient = saisie?.codePostal ?? cpFiche;
+  const lieu = saisie ? [saisie.codePostal, saisie.ville || (saisie.codePostal === cpFiche ? fiche?.ville : '')].filter(Boolean).join(' ') : lieuFiche;
+  const cpSaisiDifferent = !!saisie && !!cpFiche && saisie.codePostal !== cpFiche;
+  const adresseSansCp = !!adressePatient.trim() && !lireAdresse(adressePatient);
 
   const changePrefs = (p: OrlPrefs) => { setPrefs(p); void savePrefs(p); };
   const relancer = () => { force.current = true; setTick((n) => n + 1); };
@@ -204,7 +222,8 @@ export function OrlFinder({ fiche, toast }: Props) {
         </div>
       )}
 
-      {!cpPatient && <div class="note">Aucun code postal lu sur cette Piste — relis la fiche (↻ en haut).</div>}
+      {!cpPatient && <div class="note">Aucun code postal lu sur cette Piste : écris l'adresse du patient avec son code postal ci-dessous, ou relis la fiche (↻ en haut).</div>}
+      {cpSaisiDifferent && <div class="note"><Icon name="pin" size={12} /> Recherche depuis le code postal saisi ({cpPatient}) ; la fiche Salesforce indique {cpFiche}.</div>}
       {cpPatient && geo === null && <div class="banner"><Icon name="alert" /><span class="grow">Table des codes postaux absente de cette version : impossible de situer le patient.</span></div>}
       {cpPatient && geo && origine === null && etape === 'fini' && <div class="note">Code postal {cpPatient} inconnu de la table des codes postaux.</div>}
       {origine?.mode === 'departement' && <div class="note">Code postal {cpPatient} inconnu : recherche depuis le centre du département {cpPatient.slice(0, 2)}.</div>}
@@ -223,13 +242,15 @@ export function OrlFinder({ fiche, toast }: Props) {
         </div>
       )}
 
-      {cpPatient && (
+      {(cpPatient || fiche) && (
         <div class="field">
           <div class="field-head">
-            <span class="label">Adresse du patient (pour l'itinéraire)</span>
+            <span class="label">Adresse du patient (recherche et itinéraire)</span>
             <Btn kind="ghost" icon="message" title="Copier le message type à envoyer au cabinet" onClick={() => copier(MESSAGE_TYPE, 'Message type copié')}>Message type</Btn>
           </div>
-          <input value={adressePatient} placeholder="Rue, code postal, ville" onInput={(e) => setAdressePatient((e.target as HTMLInputElement).value)} />
+          <input value={adressePatient} placeholder="Rue, code postal, ville" onInput={(e) => setAdressePatient((e.target as HTMLInputElement).value)}
+            onKeyDown={(e) => { if (e.key === 'Enter') retenir((e.target as HTMLInputElement).value); }} />
+          {adresseSansCp && <span class="note">Sans code postal dans l'adresse, la recherche reste sur {cpPatient || 'aucun code postal'}.</span>}
         </div>
       )}
 
