@@ -18,6 +18,7 @@ import { Ventes } from './views/Ventes';
 import { buildMailHtml } from '../shared/mail-html';
 import { monthKey, monthShort } from './ventes';
 import { Setup } from './views/Setup';
+import { VERIFICATION_MS, chargerBrouillons, effacerBrouillon, verifierOngletsOuverts } from './brouillons';
 
 type TabId = 'anamnese' | 'commentaire' | 'orl' | 'mails' | 'chat' | 'reglages';
 const TABS: { id: TabId; label: string; icon: IconName }[] = [
@@ -50,6 +51,10 @@ export function App() {
   const [busy, setBusy] = useState<string | null>(null);
   const [toast, setToastState] = useState<ToastMsg | null>(null);
   const [footerEl, setFooterEl] = useState<HTMLElement | null>(null);
+  /** Onglet Salesforce gardé pendant que l'utilisateur regarde un autre site (recherche internet…). */
+  const [arrierePlan, setArrierePlan] = useState(false);
+  const [brouillonsPrets, setBrouillonsPrets] = useState(false);
+  const ongletSf = useRef<number | null>(null);
 
   const showToast = (msg: string, kind: ToastMsg['kind'] = 'info') => setToastState({ msg, kind, id: Date.now() });
 
@@ -75,7 +80,38 @@ export function App() {
     if (isExtension) chrome.storage.local.remove('partenairesCache').catch(() => { /* rien à nettoyer */ });
   }, []);
 
-  useEffect(() => watchActiveTab((t) => { setSite(siteOf(t?.url)); setTabId(t?.id ?? null); }), []);
+  // Le panneau suit l'onglet actif, sauf pour un onglet sans rapport (recherche internet, messagerie…) :
+  // il garde alors la dernière fiche Salesforce et ses saisies, et les actions visent toujours cet onglet.
+  useEffect(() => {
+    let appel = 0;
+    return watchActiveTab(async (t) => {
+      const n = ++appel;
+      const s = siteOf(t?.url);
+      if (s === 'none' && ongletSf.current != null && isExtension) {
+        const garde = ongletSf.current;
+        const encore = await chrome.tabs.get(garde).then((x) => siteOf(x.url) === 'salesforce', () => false);
+        if (n !== appel) return;
+        if (encore) { setArrierePlan(true); setSite('salesforce'); setTabId(garde); return; }
+      }
+      if (s === 'salesforce') ongletSf.current = t?.id ?? null;
+      else if (s === 'none') ongletSf.current = null;
+      setArrierePlan(false);
+      setSite(s);
+      setTabId(t?.id ?? null);
+    });
+  }, []);
+  const revenirSurSalesforce = async () => {
+    if (!isExtension || ongletSf.current == null) return;
+    const t = await chrome.tabs.update(ongletSf.current, { active: true }).catch(() => null);
+    if (t?.windowId !== undefined) await chrome.windows.update(t.windowId, { focused: true }).catch(() => undefined);
+  };
+
+  // Brouillons par fiche : chargés avant d'afficher les saisies, puis ménage régulier des fiches fermées.
+  useEffect(() => {
+    chargerBrouillons().then(() => { setBrouillonsPrets(true); void verifierOngletsOuverts(); });
+    const t = window.setInterval(() => { void verifierOngletsOuverts(); }, VERIFICATION_MS);
+    return () => clearInterval(t);
+  }, []);
   useEffect(() => { loadRecent().then(setRecent); return onRecentChanged(setRecent); }, []);
 
   useEffect(() => {
@@ -250,7 +286,7 @@ export function App() {
   };
 
   // ---------------------------------------------------------------- rendu
-  if (!storage) return <div class="empty"><div class="skeleton" style="width:40%;margin:40px auto" /></div>;
+  if (!storage || !brouillonsPrets) return <div class="empty"><div class="skeleton" style="width:40%;margin:40px auto" /></div>;
 
   if (storage.status === 'needs-folder' || !data || !data.onboardingDone) {
     return (
@@ -306,7 +342,7 @@ export function App() {
   return (
     <>
       <div class="top" style="padding-bottom:0">{pageSwitch}</div>
-      <Header site={site} ctx={ctx} fiche={fiche} ficheState={ficheState} recent={recent} busy={busy} onMv={runMv} onPaste={pastePatient} onAddSale={addSaleFromFiche} onSms={openSms} onRefresh={() => setFicheTick((n) => n + 1)} goTo={goTo} />
+      <Header site={site} ctx={ctx} fiche={fiche} ficheState={ficheState} recent={recent} busy={busy} arrierePlan={arrierePlan} onRevenir={() => void revenirSurSalesforce()} onMv={runMv} onPaste={pastePatient} onAddSale={addSaleFromFiche} onSms={openSms} onRefresh={() => setFicheTick((n) => n + 1)} goTo={goTo} />
       {storage.sync === 'paused' && (
         <div class="banner" style="margin:8px 12px 0">
           <Icon name="folder" />
@@ -323,22 +359,22 @@ export function App() {
       </nav>
       <main class="content">
         {activeTab === 'anamnese' && (
-          <Anamnese key={recordKey} data={data} update={update} connected={connected && ctx?.page !== 'opportunity'} busy={busy === 'anamnese'} footerEl={footerEl}
-            onApply={(picklists, texts) => act('anamnese', { type: 'fillAnamnese', picklists, texts })}
+          <Anamnese key={recordKey} ficheKey={recordKey} data={data} update={update} connected={connected && ctx?.page !== 'opportunity'} busy={busy === 'anamnese'} footerEl={footerEl}
+            onApply={(picklists, texts) => act('anamnese', { type: 'fillAnamnese', picklists, texts }).then((r) => { if (r?.ok) effacerBrouillon(recordKey, 'cosi.'); })}
             onEmpty={() => showToast('Aucune valeur choisie', 'info')} />
         )}
         {activeTab === 'commentaire' && (
-          <Commentaire key={recordKey} data={data} update={update} fiche={fiche} connected={connected && ctx?.page !== 'opportunity'} busy={busy === 'comment'}
-            onWrite={(text) => act('comment', { type: 'writeComment', text, save: data.reglages.autoSaveComment })} toast={showToast} />
+          <Commentaire key={recordKey} ficheKey={recordKey} data={data} update={update} fiche={fiche} connected={connected && ctx?.page !== 'opportunity'} busy={busy === 'comment'}
+            onWrite={(text) => act('comment', { type: 'writeComment', text, save: data.reglages.autoSaveComment }).then((r) => { if (r?.ok) effacerBrouillon(recordKey, 'anamnese.'); })} toast={showToast} />
         )}
         {activeTab === 'orl' && <OrlFinder key={recordKey} fiche={fiche} toast={showToast} />}
         {activeTab === 'mails' && (
-          <Mails key={recordKey} data={data} update={update} fiche={fiche} connected={connected} busy={busy === 'mail'}
-            onInsert={insertMail} onNeedPartner={readPartner} toast={showToast} />
+          <Mails key={recordKey} ficheKey={recordKey} data={data} update={update} fiche={fiche} connected={connected} busy={busy === 'mail'}
+            onInsert={(subject, body, audience) => insertMail(subject, body, audience).then((r) => { if (r?.ok) effacerBrouillon(recordKey, 'mail.'); })} onNeedPartner={readPartner} toast={showToast} />
         )}
         {activeTab === 'chat' && (
-          <ChatPartenaire key={recordKey} data={data} update={update} fiche={fiche} connected={connected && ctx?.page !== 'lead'} busy={busy === 'chat'}
-            onWrite={(text) => act('chat', { type: 'writeChatPartenaire', text })} toast={showToast} />
+          <ChatPartenaire key={recordKey} ficheKey={recordKey} data={data} update={update} fiche={fiche} connected={connected && ctx?.page !== 'lead'} busy={busy === 'chat'}
+            onWrite={(text) => act('chat', { type: 'writeChatPartenaire', text }).then((r) => { if (r?.ok) effacerBrouillon(recordKey, 'chat.'); })} toast={showToast} />
         )}
         {activeTab === 'reglages' && <Reglages data={data} update={update} storage={storage} onChangeFolder={doChooseFolder} onAuthorize={doAuthorize} onImport={doImport} onExport={doExport} onExportShare={doExportShare} onExportLegacy={doExportLegacy} version={VERSION} />}
       </main>

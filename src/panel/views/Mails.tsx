@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import type { Fiche, Genre } from '../../shared/types';
 import { writeClipboard } from '../bridge';
 import { moveById, useDragReorder } from '../components/drag';
+import { ficheLue, useBrouillon, useRemiseSiChangement } from '../brouillons';
 import { Btn, Chip, DeleteBtn, EditablePreview, Field, Icon, Seg, previewHtml } from '../components/ui';
 import { frToIso, frToTime, isDateVar, isHeureVar, isoToFr, timeToFr } from '../dates';
 import { type AppData, type Template, fillVars, resolveGenre, systemValues, uid } from '../model';
@@ -11,6 +12,8 @@ const SYSTEM_VARS = ['nom_conseiller', 'tel_conseiller', 'email_conseiller', 'ti
 const FIELD_LABELS: Record<string, string> = { nom: 'Nom du patient', heure: 'Heure du RDV', date: 'Date du RDV', 'nom partenaire': 'Nom du partenaire', adresse: 'Adresse du partenaire' };
 
 interface Props {
+  /** Fiche Salesforce affichée : modèle choisi, champs et retouches y sont gardés comme brouillon. */
+  ficheKey: string;
   data: AppData;
   update: (fn: (d: AppData) => void) => void;
   fiche: Fiche | null;
@@ -29,14 +32,14 @@ function extractVars(text: string): string[] {
 
 const fieldLabel = (v: string) => FIELD_LABELS[v] ?? v.charAt(0).toUpperCase() + v.slice(1).replace(/_/g, ' ');
 
-export function Mails({ data, update, fiche, connected, busy, onInsert, onNeedPartner, toast }: Props) {
-  const [audience, setAudience] = useState<Audience>('patient');
-  const [cat, setCat] = useState<string | null>(null);
-  const [selId, setSelId] = useState<string | null>(null);
-  const [listOpen, setListOpen] = useState(true);
-  const [values, setValues] = useState<Record<string, string>>({});
-  const [genre, setGenre] = useState<Genre>(null);
-  const [edits, setEdits] = useState<{ subject?: string; body?: string; sms?: string }>({});
+export function Mails({ ficheKey, data, update, fiche, connected, busy, onInsert, onNeedPartner, toast }: Props) {
+  const [audience, setAudience] = useBrouillon<Audience>(ficheKey, 'mail.destinataire', 'patient');
+  const [cat, setCat] = useBrouillon<string | null>(ficheKey, 'mail.categorie', null);
+  const [selId, setSelId] = useBrouillon<string | null>(ficheKey, 'mail.modele', null);
+  const [listOpen, setListOpen] = useBrouillon(ficheKey, 'mail.listeOuverte', true);
+  const [values, setValues] = useBrouillon<Record<string, string>>(ficheKey, 'mail.champs', {});
+  const [genre, setGenre] = useBrouillon<Genre>(ficheKey, 'mail.genre', null);
+  const [edits, setEdits] = useBrouillon<{ subject?: string; body?: string; sms?: string }>(ficheKey, 'mail.retouches', {});
   const [editing, setEditing] = useState<Template | null>(null);
   const [partnerLoading, setPartnerLoading] = useState(false);
   const [catManage, setCatManage] = useState(false);
@@ -172,7 +175,7 @@ export function Mails({ data, update, fiche, connected, busy, onInsert, onNeedPa
   const genSubject = sel?.type === 'email' && sel.subject ? compose(sel.subject) : '';
   const genBody = sel ? compose(sel.body) : '';
   const genSms = sel?.audience === 'patient' && sel.type === 'email' && sel.smsCompanion ? compose(sel.smsCompanion) : '';
-  useEffect(() => { setEdits({}); }, [genSubject, genBody, genSms]);
+  useRemiseSiChangement(JSON.stringify([genSubject, genBody, genSms]), ficheLue(ficheKey, fiche), () => setEdits({}));
   const subject = edits.subject ?? genSubject;
   const body = edits.body ?? genBody;
   const sms = sel?.type === 'sms' ? body : edits.sms ?? genSms;
@@ -344,8 +347,8 @@ export function Mails({ data, update, fiche, connected, busy, onInsert, onNeedPa
           </div>
 
           <div class="stack" style="gap:6px">
-            {genSubject && <EditablePreview class="subj-line" html={previewHtml(genSubject)} onChange={(t) => setEdits((e) => ({ ...e, subject: t.trim() }))} />}
-            <EditablePreview html={previewHtml(genBody)} onChange={(t) => setEdits((e) => ({ ...e, body: t }))} />
+            {genSubject && <EditablePreview class="subj-line" html={previewHtml(genSubject)} retouche={edits.subject} onChange={(t) => setEdits((e) => ({ ...e, subject: t.trim() }))} />}
+            <EditablePreview html={previewHtml(genBody)} retouche={edits.body} onChange={(t) => setEdits((e) => ({ ...e, body: t }))} />
             {(edits.subject !== undefined || edits.body !== undefined) && (
               <div class="row"><span class="note grow">Texte retouché à la main</span><Btn kind="ghost" icon="refresh" onClick={() => setEdits((e) => ({ ...e, subject: undefined, body: undefined }))}>Revenir au modèle</Btn></div>
             )}
@@ -363,7 +366,7 @@ export function Mails({ data, update, fiche, connected, busy, onInsert, onNeedPa
           )}
           {sms && sel.type === 'email' && (
             <div class="stack" style="gap:6px">
-              <EditablePreview style="font-size:12.3px" html={previewHtml(genSms)} onChange={(t) => setEdits((e) => ({ ...e, sms: t }))} />
+              <EditablePreview style="font-size:12.3px" html={previewHtml(genSms)} retouche={edits.sms} onChange={(t) => setEdits((e) => ({ ...e, sms: t }))} />
               <Btn kind="soft" icon="copy" onClick={() => requireGenre() && copy(sms, 'SMS')}>Copier le SMS</Btn>
             </div>
           )}

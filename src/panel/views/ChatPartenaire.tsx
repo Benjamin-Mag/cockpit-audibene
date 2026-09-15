@@ -1,11 +1,14 @@
-import { useEffect, useState } from 'preact/hooks';
+import { useState } from 'preact/hooks';
 import type { Fiche, Genre } from '../../shared/types';
 import { writeClipboard } from '../bridge';
 import { type AppData, fillVars, resolveGenre, systemValues, uid } from '../model';
+import { ficheLue, useBrouillon, useRemiseSiChangement } from '../brouillons';
 import { moveById, useDragReorder } from '../components/drag';
 import { Btn, Chip, DeleteBtn, EditablePreview, Seg, previewHtml } from '../components/ui';
 
 interface Props {
+  /** Fiche Salesforce affichée : texte choisi et retouches y sont gardés comme brouillon. */
+  ficheKey: string;
   data: AppData;
   update: (fn: (d: AppData) => void) => void;
   fiche: Fiche | null;
@@ -15,10 +18,10 @@ interface Props {
   toast: (msg: string, kind?: 'ok' | 'err' | 'info') => void;
 }
 
-export function ChatPartenaire({ data, update, fiche, connected, busy, onWrite, toast }: Props) {
+export function ChatPartenaire({ ficheKey, data, update, fiche, connected, busy, onWrite, toast }: Props) {
   const list = data.chatPartenaire;
-  const [selId, setSelId] = useState<string | null>(list[0]?.id ?? null);
-  const [genre, setGenre] = useState<Genre>(null);
+  const [selId, setSelId] = useBrouillon<string | null>(ficheKey, 'chat.texte', list[0]?.id ?? null);
+  const [genre, setGenre] = useBrouillon<Genre>(ficheKey, 'chat.genre', null);
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState({ label: '', text: '' });
   const [manage, setManage] = useState(false);
@@ -27,8 +30,8 @@ export function ChatPartenaire({ data, update, fiche, connected, busy, onWrite, 
   const sel = list.find((t) => t.id === selId) ?? null;
   const effectiveGenre = genre ?? fiche?.genre ?? null;
   const generated = sel ? resolveGenre(fillVars(sel.text, systemValues(data.reglages)), effectiveGenre).trim() : '';
-  const [edited, setEdited] = useState<string | null>(null);
-  useEffect(() => { setEdited(null); }, [generated]);
+  const [edited, setEdited] = useBrouillon<string | null>(ficheKey, 'chat.texteRetouche', null);
+  useRemiseSiChangement(generated, ficheLue(ficheKey, fiche), () => setEdited(null));
   const compose = () => (edited ?? generated).trim();
 
   const startNew = () => { setDraft({ label: '', text: '' }); setEditing(true); setSelId(null); };
@@ -106,7 +109,7 @@ export function ChatPartenaire({ data, update, fiche, connected, busy, onWrite, 
 
       {sel && (
         <>
-          <EditablePreview html={previewHtml(generated)} onChange={(t) => setEdited(t)} />
+          <EditablePreview html={previewHtml(generated)} retouche={edited} onChange={(t) => setEdited(t)} />
           <div class="row">
             <Btn big icon="send" busy={busy} disabled={!connected} onClick={() => onWrite(compose())} class="grow" title="Ouvre l'onglet Chat Partenaire, écrit le texte et clique « Envoyer un message »">
               Envoyer dans Chat Partenaire

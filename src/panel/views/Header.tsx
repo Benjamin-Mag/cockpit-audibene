@@ -9,6 +9,9 @@ interface Props {
   ficheState: 'idle' | 'loading' | 'error';
   recent: RecentPatient[];
   busy: string | null;
+  /** L'utilisateur regarde un autre site : la fiche affichée est celle de l'onglet Salesforce gardé. */
+  arrierePlan: boolean;
+  onRevenir: () => void;
   onMv: () => void;
   onRefresh: () => void;
   onPaste: (p: RecentPatient) => void;
@@ -23,7 +26,7 @@ const ago = (t: number) => {
   return m < 1 ? "à l'instant" : m < 60 ? `il y a ${m} min` : m < 1440 ? `il y a ${Math.round(m / 60)} h` : `il y a ${Math.round(m / 1440)} j`;
 };
 
-export function Header({ site, ctx, fiche, ficheState, recent, busy, onMv, onRefresh, onPaste, onAddSale, onSms, goTo }: Props) {
+export function Header({ site, ctx, fiche, ficheState, recent, busy, arrierePlan, onRevenir, onMv, onRefresh, onPaste, onAddSale, onSms, goTo }: Props) {
   const page = ctx?.page ?? 'other';
   const onSf = site === 'salesforce' && !!ctx;
   const hasFiche = !!fiche && !!(fiche.prenom || fiche.nom);
@@ -36,6 +39,12 @@ export function Header({ site, ctx, fiche, ficheState, recent, busy, onMv, onRef
       <div class="brand">
         <span class={['dot', onSf || isForm ? 'on' : ''].join(' ')} />
         <span>{siteLabel}</span>
+        {arrierePlan && (
+          <>
+            <span class="note" title="Tu regardes un autre site : Cockpit garde ta fiche et tes saisies, et continue d'agir sur l'onglet Salesforce">· onglet en arrière-plan</span>
+            <Btn kind="ghost" icon="external" onClick={onRevenir} title="Revenir sur l'onglet Salesforce">Revenir</Btn>
+          </>
+        )}
       </div>
 
       <div class="card">

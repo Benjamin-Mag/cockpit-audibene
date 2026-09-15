@@ -9,7 +9,7 @@ Extension Chrome/Edge (Manifest V3) : un panneau latéral à côté de Salesforc
 3. **Pas de `confirm()` / `alert()` / `prompt()`** : bloqués dans un panneau latéral. Utiliser `DeleteBtn` (deux temps) et les toasts.
 4. **Aucune donnée ne quitte le poste** : pas de télémétrie, pas d'appel réseau — seule exception : l'ORL Finder interroge Doctolib avec les coordonnées GPS du code postal du patient (jamais son nom). Les données vivent dans `chrome.storage.local` + `cockpit.json`.
 5. Design : palette de l'ancien générateur (`--accent #1b4f9b`, fond `#eaf3fb`, Poppins), animations lentes et douces (≥ 280 ms), tout texte généré affiché dans un `EditablePreview`.
-6. TypeScript strict, pas de commentaires explicatifs inutiles, commits en français avec le trailer `Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>`.
+6. TypeScript strict, pas de commentaires explicatifs inutiles, commits en français avec le trailer `Co-Authored-By` du modèle Claude utilisé.
 
 ## Commandes
 
@@ -41,7 +41,8 @@ src/content/doctolib.ts, acuitis.ts, forms.ts   collage du patient dans les form
 src/shared/                  messages.ts (protocole panneau ↔ page), types.ts, anamnese-catalog.ts (champs COSI), mail-html.ts
 src/panel.html + src/panel/
   app.tsx                    état global, stockage, pont vers la page, pages Cockpit/Ventes, onglets adaptés à la fiche
-  bridge.ts                  chrome.tabs/scripting/webNavigation : envoi aux cadres, injection, fiches récentes, presse-papier
+  bridge.ts                  chrome.tabs/scripting/webNavigation : envoi aux cadres, injection, fiches récentes, presse-papier, délais maximum
+  brouillons.ts              saisies en cours gardées par fiche (useBrouillon), mémoire de session, ménage (onglets fermés 2 h, 30 fiches, 12 h)
   model.ts                   AppData (reglages, anamnese, chatPartenaire, templates, categories, ventes), variables, genre
   storage/data.ts            navigateur d'abord + dossier synchronisé (fusion), import/export
   storage/legacy.ts          formats anciens (data.json générateur, export ventes), fusion, partage, substitution de nom
@@ -71,6 +72,7 @@ Le panneau envoie des `ContentRequest` (`src/shared/messages.ts`) via `chrome.ta
 - Un `<label>` créé par nous dans la page entrerait en collision avec la recherche de labels Salesforce : le panneau vit dans le side panel, pas dans la page.
 - « Traitement médical » (liste double) refuse les clics scriptés (`event.isTrusted`) : reste manuel.
 - Après « Enregistrer », attendre ~1,2 s avant le clic suivant (re-rendu).
+- **Le panneau garde la dernière fiche Salesforce** quand l'utilisateur passe sur un site sans rapport (`ongletSf` dans `app.tsx`) : les actions visent cet onglet en arrière-plan. Toute nouvelle saisie dans un onglet du panneau doit utiliser `useBrouillon(ficheKey, 'ecran.champ', départ)` au lieu de `useState`, et un aperçu retouché passe `retouche` à `EditablePreview`.
 - **Jamais de lecture `deepAll` périodique** (minuterie) dans la page Salesforce : parcourir tout le shadow DOM Lightning toutes les quelques secondes a figé Salesforce (v1.0.27). Les lectures lourdes se font au clic ou au changement de fiche.
 - Le champ « Commentaires » des Commentaires internes n'est PAS l'anamnèse : l'anamnèse va dans « Remarques générales profil client » (rubrique Commentaire en bas de la Piste).
 - Chatter : la zone « Partager une mise à jour… » devient un éditeur riche au focus ; taper via `execCommand('insertText')`, puis bouton « Envoyer un message ».
