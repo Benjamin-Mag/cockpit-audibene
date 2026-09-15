@@ -1,23 +1,46 @@
 import type { Fiche, Genre, SfContext, SfPage } from '../../shared/types';
 import { deepAll, expandSection, fieldValue, sleep, textOf, visibleEl } from './dom';
 
+/** Type de fiche d'après l'adresse seule : aucune lecture de la page, appelable aussi souvent qu'on veut. */
+function pageParAdresse(url: string): { page: SfPage; recordId: string } | null {
+  const m = url.match(/\/lightning\/r\/([A-Za-z0-9_]+)\/([A-Za-z0-9]{15,18})(?:\/|\?|$)/);
+  if (!m) return null;
+  const obj = m[1].toLowerCase();
+  return { page: obj === 'lead' ? 'lead' : obj === 'opportunity' ? 'opportunity' : 'other', recordId: m[2] };
+}
+
 export function pageInfo(): { page: SfPage; recordId: string } {
-  const m = location.href.match(/\/lightning\/r\/([A-Za-z0-9_]+)\/([A-Za-z0-9]{15,18})(?:\/|\?|$)/);
-  if (m) {
-    const obj = m[1].toLowerCase();
-    return { page: obj === 'lead' ? 'lead' : obj === 'opportunity' ? 'opportunity' : 'other', recordId: m[2] };
-  }
-  // URL non standard : le bandeau d'actions a un onglet "Lead" seulement sur une Piste.
+  const parAdresse = pageParAdresse(location.href);
+  if (parAdresse) return parAdresse;
+  // URL non standard : le bandeau d'actions a un onglet "Lead" seulement sur une Piste (lecture de toute la page : coûteuse).
   if (visibleEl(deepAll('[title="Lead"]'))) return { page: 'lead', recordId: 'dom' };
   return { page: 'other', recordId: '' };
 }
 
-export function isComposerOpen(): boolean {
-  return !!visibleEl(deepAll('.ql-editor'));
-}
+/**
+ * Contexte poussé au panneau toutes les 0,8 s : il doit rester quasi gratuit. Salesforce Console garde
+ * en mémoire toutes les fiches ouvertes dans la journée ; parcourir toute la page à chaque fois figeait
+ * Salesforce, de plus en plus au fil des onglets. Seule l'adresse est lue ; la lecture de la page
+ * (adresse non standard) n'est tentée qu'au changement d'adresse, puis deux fois le temps qu'elle s'affiche.
+ */
+let memo: { url: string; depuis: number; essais: number; info: { page: SfPage; recordId: string } } | null = null;
+const RELECTURES_MS = [2000, 6000];
 
 export function currentContext(): SfContext {
-  return { ...pageInfo(), composerOpen: isComposerOpen(), url: location.href };
+  const url = location.href;
+  const parAdresse = pageParAdresse(url);
+  if (parAdresse) {
+    memo = null;
+    return { ...parAdresse, url };
+  }
+  const maintenant = Date.now();
+  if (!memo || memo.url !== url) {
+    memo = { url, depuis: maintenant, essais: 0, info: pageInfo() };
+  } else if (memo.essais < RELECTURES_MS.length && maintenant - memo.depuis >= RELECTURES_MS[memo.essais]) {
+    memo.essais++;
+    memo.info = pageInfo();
+  }
+  return { ...memo.info, url };
 }
 
 function splitNomEtGenre(nomComplet: string): { genre: Genre; prenom: string; nom: string } {

@@ -54,7 +54,7 @@ export function initSalesforce(): () => void {
     let lastKey = '';
     const tick = () => {
       const ctx = currentContext();
-      const key = `${ctx.url}|${ctx.composerOpen}`;
+      const key = `${ctx.url}|${ctx.page}|${ctx.recordId}`;
       if (key === lastKey) return;
       lastKey = key;
       const push: ContextPush = { type: 'contextChanged', context: ctx };
