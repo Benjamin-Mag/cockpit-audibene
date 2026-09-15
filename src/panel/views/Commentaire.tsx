@@ -1,10 +1,13 @@
-import { useEffect, useState } from 'preact/hooks';
+import { useState } from 'preact/hooks';
 import type { Fiche, Genre } from '../../shared/types';
 import { readClipboard, writeClipboard } from '../bridge';
 import { type AppData, RESUME_TAG, composeComment, fillVars, resolveGenre, systemValues, uid } from '../model';
+import { ficheLue, useBrouillon, useRemiseSiChangement } from '../brouillons';
 import { Btn, Chip, DeleteBtn, EditablePreview, Seg, previewHtml } from '../components/ui';
 
 interface Props {
+  /** Fiche Salesforce affichée : genre, situation, résumé et retouches y sont gardés comme brouillon. */
+  ficheKey: string;
   data: AppData;
   update: (fn: (d: AppData) => void) => void;
   fiche: Fiche | null;
@@ -24,10 +27,10 @@ function usable(text: string): string | null {
   return null;
 }
 
-export function Commentaire({ data, update, fiche, connected, busy, onWrite, toast }: Props) {
-  const [genre, setGenre] = useState<Genre>(fiche?.genre ?? null);
-  const [sit, setSit] = useState<string | null>(data.anamnese.situations[0]?.id ?? null);
-  const [resume, setResume] = useState('');
+export function Commentaire({ ficheKey, data, update, fiche, connected, busy, onWrite, toast }: Props) {
+  const [genre, setGenre] = useBrouillon<Genre>(ficheKey, 'anamnese.genre', fiche?.genre ?? null);
+  const [sit, setSit] = useBrouillon<string | null>(ficheKey, 'anamnese.situation', data.anamnese.situations[0]?.id ?? null);
+  const [resume, setResume] = useBrouillon(ficheKey, 'anamnese.resume', '');
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState('');
   const [genreAlert, setGenreAlert] = useState(0);
@@ -65,9 +68,9 @@ export function Commentaire({ data, update, fiche, connected, busy, onWrite, toa
   };
 
   // Aperçu modifiable à la volée (résumé compris) ; se régénère si la situation, le genre ou le résumé change.
-  const [edited, setEdited] = useState<string | null>(null);
+  const [edited, setEdited] = useBrouillon<string | null>(ficheKey, 'anamnese.texteRetouche', null);
   const generated = composeComment(raw, resume, data.reglages, effectiveGenre);
-  useEffect(() => { setEdited(null); }, [generated]);
+  useRemiseSiChangement(generated, ficheLue(ficheKey, fiche), () => setEdited(null));
   const previewMarkup = () => {
     const t = resolveGenre(fillVars(raw, systemValues(data.reglages)), effectiveGenre);
     const [before, after] = t.split(RESUME_TAG);
@@ -76,7 +79,7 @@ export function Commentaire({ data, update, fiche, connected, busy, onWrite, toa
     const middle = resume.trim() ? `<mark class="ok">${esc(resume.trim())}</mark>` : '<mark>résumé Salesforce — copie-le, il s\'insère ici</mark>';
     return previewHtml(before) + middle + previewHtml(after);
   };
-  const preview = () => <EditablePreview html={previewMarkup()} onChange={(t) => setEdited(t)} />;
+  const preview = () => <EditablePreview html={previewMarkup()} retouche={edited} onChange={(t) => setEdited(t)} />;
 
   const grabResume = async () => {
     const txt = await readClipboard();

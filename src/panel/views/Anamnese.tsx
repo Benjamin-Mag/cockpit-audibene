@@ -1,5 +1,5 @@
 import { createPortal } from 'preact/compat';
-import { useState } from 'preact/hooks';
+import { useBrouillon } from '../brouillons';
 import { type AnamField, CONDITIONAL_FIELDS, FIELDS_CATALOG, SITUATION_COMMENT_FIELD, SITUATION_COSI_FIELD } from '../../shared/anamnese-catalog';
 import type { AppData } from '../model';
 import { Btn, Chip, Field, Icon } from '../components/ui';
@@ -7,6 +7,8 @@ import { Btn, Chip, Field, Icon } from '../components/ui';
 type Pair = { label: string; value: string };
 
 interface Props {
+  /** Fiche Salesforce affichée : les choix en cours y sont gardés comme brouillon. */
+  ficheKey: string;
   data: AppData;
   update: (fn: (d: AppData) => void) => void;
   connected: boolean;
@@ -19,12 +21,12 @@ interface Props {
 
 const isBinaryOuiNon = (f: AnamField) => f.section === 'Antécédents médicaux' && f.options?.length === 2 && f.options.includes('Oui') && f.options.includes('Non');
 
-export function Anamnese({ data, update, connected, busy, footerEl, onApply, onEmpty }: Props) {
-  const [picks, setPicks] = useState<Record<string, string>>({});
-  const [phrases, setPhrases] = useState<Record<string, string[]>>({});
-  const [cosi, setCosi] = useState<Record<string, number>>({});
-  const [free, setFree] = useState<Record<string, string>>({});
-  const [drafts, setDrafts] = useState<Record<string, string>>({});
+export function Anamnese({ ficheKey, data, update, connected, busy, footerEl, onApply, onEmpty }: Props) {
+  const [picks, setPicks] = useBrouillon<Record<string, string>>(ficheKey, 'cosi.choix', {});
+  const [phrases, setPhrases] = useBrouillon<Record<string, string[]>>(ficheKey, 'cosi.phrases', {});
+  const [cosi, setCosi] = useBrouillon<Record<string, number>>(ficheKey, 'cosi.intensites', {});
+  const [free, setFree] = useBrouillon<Record<string, string>>(ficheKey, 'cosi.textes', {});
+  const [drafts, setDrafts] = useBrouillon<Record<string, string>>(ficheKey, 'cosi.nouvellesPhrases', {});
 
   const pick = (label: string, value: string) => {
     const next = { ...picks };

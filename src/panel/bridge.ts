@@ -89,11 +89,13 @@ export function watchActiveTab(cb: (tab: chrome.tabs.Tab | null) => void): () =>
   chrome.tabs.onActivated.addListener(refresh);
   chrome.tabs.onUpdated.addListener(onUpdated);
   chrome.windows.onFocusChanged.addListener(refresh);
+  chrome.tabs.onRemoved.addListener(refresh);
   refresh();
   return () => {
     chrome.tabs.onActivated.removeListener(refresh);
     chrome.tabs.onUpdated.removeListener(onUpdated);
     chrome.windows.onFocusChanged.removeListener(refresh);
+    chrome.tabs.onRemoved.removeListener(refresh);
   };
 }
 

@@ -12,9 +12,23 @@ export function previewHtml(text: string): string {
  * Aperçu modifiable à la volée : le contenu est posé une fois par valeur de `html`
  * (Preact ne touche jamais l'intérieur), et chaque frappe remonte le texte brut.
  */
-export function EditablePreview({ html, onChange, class: cls, style }: { html: string; onChange: (text: string) => void; class?: string; style?: string }) {
+/**
+ * Aperçu modifiable. `retouche` : texte déjà retouché à la main (brouillon restauré ou frappe en cours) ;
+ * tant qu'il existe, il est affiché à la place du texte généré. Pendant la frappe (aperçu actif),
+ * rien n'est réécrit : le curseur ne bouge pas.
+ */
+export function EditablePreview({ html, retouche, onChange, class: cls, style }: { html: string; retouche?: string | null; onChange: (text: string) => void; class?: string; style?: string }) {
   const ref = useRef<HTMLDivElement>(null);
-  useEffect(() => { if (ref.current && ref.current.innerHTML !== html) ref.current.innerHTML = html; }, [html]);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    if (retouche != null) {
+      // Pendant la frappe, l'état a toujours une touche de retard sur l'écran : ne jamais réécrire un aperçu en cours d'édition.
+      if (el !== document.activeElement && el.innerText.trim() !== retouche.trim()) el.innerHTML = previewHtml(retouche);
+      return;
+    }
+    if (el.innerHTML !== html) el.innerHTML = html;
+  }, [html, retouche]);
   return (
     <div ref={ref} class={['preview editable', cls ?? ''].join(' ')} style={style} contentEditable spellcheck={false}
       title="Modifiable directement : tape dedans" onInput={() => onChange(ref.current?.innerText ?? '')} />
