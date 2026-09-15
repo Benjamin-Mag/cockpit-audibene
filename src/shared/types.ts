@@ -22,7 +22,6 @@ export interface Fiche {
 export interface SfContext {
   page: SfPage;
   recordId: string;
-  composerOpen: boolean;
   url: string;
 }
 
