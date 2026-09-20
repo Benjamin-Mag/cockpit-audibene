@@ -24,6 +24,24 @@ export function deepAll<T extends Element = Element>(sel: string, root: ParentNo
   return out;
 }
 
+/**
+ * Plusieurs recherches en UN SEUL parcours de la page. Le coût d'un parcours vient de la traversée
+ * du shadow DOM (un appel au navigateur par élément) : dix recherches séparées coûtent dix fois plus.
+ * Renvoie un tableau de résultats par sélecteur, dans l'ordre donné.
+ */
+export function deepGroup(selecteurs: string[], root: ParentNode = document): Element[][] {
+  const out: Element[][] = selecteurs.map(() => []);
+  const visiter = (r: ParentNode) => {
+    selecteurs.forEach((sel, i) => r.querySelectorAll(sel).forEach((e) => out[i].push(e)));
+    r.querySelectorAll('*').forEach((e) => {
+      const sr = shadowRootOf(e);
+      if (sr) visiter(sr);
+    });
+  };
+  visiter(root);
+  return out;
+}
+
 export function deepFirst<T extends Element = Element>(sel: string, root: ParentNode = document): T | null {
   const direct = root.querySelector<T>(sel);
   if (direct) return direct;
@@ -116,21 +134,25 @@ export function saveButtonNear(el: Element, maxDepth = 8): HTMLButtonElement | n
 }
 
 /** Valeur affichée d'un champ en lecture (bloc .slds-form-element). */
-export function fieldValue(labelText: string): string | null {
-  const labels = deepAll('.slds-form-element__label').filter((l) => textOf(l) === labelText);
-  const lbl = visibleEl(labels);
+/** Valeur d'un champ à partir de libellés déjà collectés (aucun nouveau parcours de la page). */
+export function valeurChamp(labels: Element[], labelText: string): string | null {
+  const lbl = visibleEl(labels.filter((l) => textOf(l) === labelText));
   const ctrl = lbl?.closest('.slds-form-element')?.querySelector('.slds-form-element__control');
   if (!ctrl) return null;
   return textOf(ctrl).replace('Modifier ' + labelText, '').trim();
 }
 
+export function fieldValue(labelText: string): string | null {
+  return valeurChamp(deepAll('.slds-form-element__label'), labelText);
+}
+
 /** Ouvre une rubrique repliée (clic sur son titre — seulement s'il est cliquable, pour ne pas confondre avec un simple libellé). */
 export function expandSection(name: string): boolean {
-  const titles = deepAll('*').filter((el) => el.children.length === 0 && (el.textContent || '').trim() === name && !!el.closest('button,[role="button"]'));
-  const target = visibleEl(titles);
-  const btn = target?.closest('button,[role="button"]');
+  // On part des boutons (quelques centaines) au lieu de tous les éléments de la page (plusieurs dizaines de milliers).
+  const boutons = deepAll<HTMLElement>('button,[role="button"]').filter((b) => (b.textContent || '').includes(name));
+  const btn = visibleEl(boutons.filter((b) => Array.from(b.querySelectorAll('*')).some((el) => !el.children.length && (el.textContent || '').trim() === name) || (b.textContent || '').trim() === name));
   if (!btn) return false;
-  (btn as HTMLElement).click();
+  btn.click();
   return true;
 }
 

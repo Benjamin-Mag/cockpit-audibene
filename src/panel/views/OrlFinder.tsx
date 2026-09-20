@@ -213,7 +213,8 @@ export function OrlFinder({ fiche, toast }: Props) {
   const finales = lignes.filter((l) => (etape === 'fini' ? !!l.fiche && !!telephoneDe(l) : l.fiche === undefined || !!telephoneDe(l)));
   const sansTel = lignes.filter((l) => l.fiche !== undefined && !telephoneDe(l)).length;
   const nonVerifies = etape === 'fini' ? lignes.filter((l) => l.fiche === undefined).length : 0;
-  const top = etape === 'fini' ? finales.filter((l) => l.creneau?.next).sort((a, b) => a.creneau!.next!.localeCompare(b.creneau!.next!)).slice(0, TOP) : [];
+  // La liste est déjà triée (créneau d'abord, secteur 1 avant secteur 2, puis le plus tôt) : le TOP en est la tête.
+  const top = etape === 'fini' ? finales.filter((l) => l.creneau?.next).slice(0, TOP) : [];
 
   const statut = etape === 'recherche' ? `Recherche des ORL sur Doctolib (${rayon} km)…`
     : etape === 'creneaux' ? `${lignes.length} ORL trouvés, lecture des créneaux… ${progress.fait}/${progress.total}`
@@ -329,14 +330,14 @@ export function OrlFinder({ fiche, toast }: Props) {
 
       {etape === 'fini' && top.length > 0 && (
         <div class="stack" style="gap:6px">
-          <span class="label"><Icon name="star" size={13} /> TOP {top.length} · les créneaux les plus rapides</span>
+          <span class="label"><Icon name="star" size={13} /> TOP {top.length} · créneaux disponibles, secteur 1 d'abord</span>
           <div class="tpl-list">{top.map((l, i) => carte(l, i))}</div>
         </div>
       )}
 
       {finales.length > 0 && (
         <div class="stack" style="gap:6px">
-          {etape === 'fini' && top.length > 0 && <span class="label">Tous, secteur 1 d'abord puis distance</span>}
+          {etape === 'fini' && top.length > 0 && <span class="label">Tous : créneau disponible d'abord, puis les ORL à appeler</span>}
           <div class="tpl-list">{finales.slice(0, limite).map((l) => carte(l))}</div>
           {etape === 'fini' && (finales.length > limite || nonVerifies > 0) && (
             <Btn kind="ghost" icon="plus" busy={chargePlus} onClick={() => void afficherPlus()} title="Affiche les ORL suivants (lit leur fiche Doctolib si besoin)">
