@@ -1,12 +1,16 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
 import type { Fiche } from '../../shared/types';
 import { isExtension, writeClipboard } from '../bridge';
-import { Btn, Icon, Seg } from '../components/ui';
+import { useBrouillon } from '../brouillons';
+import { Btn, Chip, Icon, Seg } from '../components/ui';
 import { type Creneau, DoctolibRefus, MESSAGE_TYPE, type Orl, PAUSE_MS, ProDeconnecte, type Source, reessayerPro, SECTEURS_S1, SECTEURS_S2, creneauLabel, ficheOrl, lienItineraire, lienRechercheDoctolib, prochainCreneau, rechercherOrl, secteurDe, secteurLabel, trierOrl, voirOngletDoctolib } from '../doctolib';
 import { type GeoTable, type Origine, kmLabel, loadGeo, localiser } from '../geo';
-import { type DelaiFiltre, type LigneCache, type OrlPrefs, type SecteurFiltre, cacheKey, loadPrefs, loadResultat, savePrefs, saveResultat } from '../orl-store';
+import { type DelaiFiltre, type LigneCache, type OrlPrefs, type SecteurFiltre, cacheKey, loadPrefs, loadResultat, loadTri, savePrefs, saveResultat, saveTri } from '../orl-store';
+import { AUCUN_FILTRE, FILTRES, type FiltreId, type FiltresRapides, TRIS, TRI_TITRE, type TriOrl, compter, filtreActif, filtrer, infoNouveauxPatients, trierPar } from '../orl-tri';
 
 interface Props {
+  /** Fiche Salesforce ouverte : les filtres rapides et la recherche sont gardés pour elle. */
+  ficheKey: string;
   fiche: Fiche | null;
   toast: (msg: string, kind?: 'ok' | 'err' | 'info') => void;
 }
@@ -52,7 +56,7 @@ function lireAdresse(adresse: string): { codePostal: string; ville: string } | n
   return m ? { codePostal: m[1], ville: m[2].trim() } : null;
 }
 
-export function OrlFinder({ fiche, toast }: Props) {
+export function OrlFinder({ ficheKey, fiche, toast }: Props) {
   const cpFiche = fiche?.codePostal ?? '';
   const lieuFiche = [cpFiche, fiche?.ville].filter(Boolean).join(' ');
 
@@ -74,8 +78,14 @@ export function OrlFinder({ fiche, toast }: Props) {
   const [saisie, setSaisie] = useState<{ codePostal: string; ville: string } | null>(null);
   const [tick, setTick] = useState(0);
   const force = useRef(false);
+  /** Ordre de la liste (mémorisé) ; filtres rapides et recherche gardés pour la fiche. Rien de tout cela ne relance Doctolib. */
+  const [tri, setTri] = useState<TriOrl>('pertinence');
+  const triCourant = useRef<TriOrl>('pertinence');
+  triCourant.current = tri;
+  const [filtres, setFiltres] = useBrouillon<FiltresRapides>(ficheKey, 'orl.filtres', AUCUN_FILTRE);
+  const [recherche, setRecherche] = useBrouillon<string>(ficheKey, 'orl.recherche', '');
 
-  useEffect(() => { loadGeo().then(setGeo); loadPrefs().then(setPrefs); }, []);
+  useEffect(() => { loadGeo().then(setGeo); loadPrefs().then(setPrefs); loadTri().then(setTri); }, []);
   useEffect(() => { setAdressePatient(lieuFiche); setSaisie(null); }, [lieuFiche]);
   const retenir = (adresse: string) => { const lu = lireAdresse(adresse); if (lu) setSaisie(lu); };
   useEffect(() => {
@@ -90,6 +100,9 @@ export function OrlFinder({ fiche, toast }: Props) {
   const adresseSansCp = !!adressePatient.trim() && !lireAdresse(adressePatient);
 
   const changePrefs = (p: OrlPrefs) => { setPrefs(p); void savePrefs(p); };
+  const changeTri = (t: TriOrl) => { setTri(t); void saveTri(t); };
+  const basculer = (id: FiltreId) => { setFiltres({ ...filtres, [id]: !filtres[id] }); setLimite(AFFICHES); };
+  const toutAfficher = () => { setFiltres(AUCUN_FILTRE); setRecherche(''); };
   const relancer = () => { reessayerPro(); force.current = true; setTick((n) => n + 1); };
 
   // Recherche automatique dès qu'une Piste avec code postal est ouverte (table de coordonnées et réglages chargés).
@@ -176,7 +189,8 @@ export function OrlFinder({ fiche, toast }: Props) {
         }
 
         // 3. Fiches (téléphone, secteur en clair, actes) des premiers du tri, par paquets.
-        const retenus = trierOrl(base).slice(0, MAX_FICHES);
+        // Les fiches lues suivent l'ordre choisi : avec « Plus proche », ce sont les 20 plus proches qui sont vérifiés.
+        const retenus = trierPar(base, triCourant.current).slice(0, MAX_FICHES);
         setEtape('fiches');
         setProgress({ fait: 0, total: retenus.length });
         for (let i = 0; i < retenus.length; i += PAQUET) {
@@ -213,8 +227,15 @@ export function OrlFinder({ fiche, toast }: Props) {
   const finales = lignes.filter((l) => (etape === 'fini' ? !!l.fiche && !!telephoneDe(l) : l.fiche === undefined || !!telephoneDe(l)));
   const sansTel = lignes.filter((l) => l.fiche !== undefined && !telephoneDe(l)).length;
   const nonVerifies = etape === 'fini' ? lignes.filter((l) => l.fiche === undefined).length : 0;
-  // La liste est déjà triée (créneau d'abord, secteur 1 avant secteur 2, puis le plus tôt) : le TOP en est la tête.
-  const top = etape === 'fini' ? finales.filter((l) => l.creneau?.next).slice(0, TOP) : [];
+  const filtrage = filtreActif(filtres, recherche);
+  const visibles = trierPar(filtrer(finales, filtres, recherche), tri);
+  const compteurs = compter(finales, filtres, recherche);
+  const avecNouveaux = infoNouveauxPatients(finales) || filtres.nouveaux;
+  // Fiches pas encore lues qui pourraient entrer dans la liste filtrée (l'audiométrie ne se sait qu'une fois la fiche lue).
+  const aVerifier = etape === 'fini' ? filtrer(lignes.filter((l) => l.fiche === undefined), { ...filtres, audiometrie: false }, recherche) : [];
+  // Le TOP 3 est la tête de la liste « Pertinence » (créneau d'abord, secteur 1 avant secteur 2, puis le plus tôt) ;
+  // avec un autre tri, la liste elle-même répond déjà à la question.
+  const top = etape === 'fini' && tri === 'pertinence' ? visibles.filter((l) => l.creneau?.next).slice(0, TOP) : [];
 
   const statut = etape === 'recherche' ? `Recherche des ORL sur Doctolib (${rayon} km)…`
     : etape === 'creneaux' ? `${lignes.length} ORL trouvés, lecture des créneaux… ${progress.fait}/${progress.total}`
@@ -223,7 +244,7 @@ export function OrlFinder({ fiche, toast }: Props) {
     : '';
 
   const afficherPlus = async () => {
-    const aLire = trierOrl(lignes).filter((l) => l.fiche === undefined).slice(0, PLUS);
+    const aLire = trierPar(aVerifier, tri).slice(0, PLUS);
     if (aLire.length) {
       setChargePlus(true);
       const maj = new Map<string, Ligne>();
@@ -328,6 +349,34 @@ export function OrlFinder({ fiche, toast }: Props) {
 
       {rayon > RAYONS_KM[0] && lignes.length > 0 && <div class="note"><Icon name="pin" size={12} /> Rayon élargi à {rayon} km : aucun créneau visible plus près.</div>}
 
+      {finales.length > 0 && (
+        <div class="stack" style="gap:8px">
+          <div class="row" style="gap:6px;flex-wrap:wrap"><span class="note">Trier par</span><Seg options={TRIS} value={tri} onChange={changeTri} /></div>
+          <div class="chips">
+            <Chip small on={!filtrage} onClick={toutAfficher}>Tout afficher <b>{finales.length}</b></Chip>
+            {FILTRES.filter((f) => f.id !== 'nouveaux' || avecNouveaux).map((f) => (
+              <span key={f.id} title={f.titre}><Chip small on={filtres[f.id]} onClick={() => basculer(f.id)}>{f.label} <b>{compteurs[f.id]}</b></Chip></span>
+            ))}
+          </div>
+          <div class="row" style="gap:6px">
+            <input class="grow" value={recherche} placeholder="Chercher un ORL ou une ville" onInput={(e) => { setRecherche((e.target as HTMLInputElement).value); setLimite(AFFICHES); }} />
+            {recherche && <Btn kind="ghost" icon="x" title="Effacer la recherche" onClick={() => setRecherche('')} />}
+          </div>
+          {filtrage && visibles.length > 0 && <span class="note">{visibles.length} ORL sur {finales.length} avec ces filtres.</span>}
+        </div>
+      )}
+
+      {finales.length > 0 && visibles.length === 0 && (
+        <div class="empty">
+          <div class="ico"><Icon name="ear" size={22} /></div>
+          {enCours ? "Aucun ORL ne correspond pour l'instant : la lecture continue." : `Aucun des ${finales.length} ORL ne correspond à ces filtres.`}
+          <div class="row" style="margin-top:10px;justify-content:center;flex-wrap:wrap">
+            <Btn kind="soft" icon="x" onClick={toutAfficher}>Enlever les filtres</Btn>
+            {aVerifier.length > 0 && <Btn kind="ghost" icon="plus" busy={chargePlus} onClick={() => void afficherPlus()} title="Lit la fiche Doctolib des ORL pas encore vérifiés qui correspondent">Vérifier {Math.min(aVerifier.length, PLUS)} ORL de plus</Btn>}
+          </div>
+        </div>
+      )}
+
       {etape === 'fini' && top.length > 0 && (
         <div class="stack" style="gap:6px">
           <span class="label"><Icon name="star" size={13} /> TOP {top.length} · créneaux disponibles, secteur 1 d'abord</span>
@@ -335,11 +384,11 @@ export function OrlFinder({ fiche, toast }: Props) {
         </div>
       )}
 
-      {finales.length > 0 && (
+      {visibles.length > 0 && (
         <div class="stack" style="gap:6px">
-          {etape === 'fini' && top.length > 0 && <span class="label">Tous : créneau disponible d'abord, puis les ORL à appeler</span>}
-          <div class="tpl-list">{finales.slice(0, limite).map((l) => carte(l))}</div>
-          {etape === 'fini' && (finales.length > limite || nonVerifies > 0) && (
+          {etape === 'fini' && <span class="label">{TRI_TITRE[tri]}</span>}
+          <div class="tpl-list">{visibles.slice(0, limite).map((l) => carte(l))}</div>
+          {etape === 'fini' && (visibles.length > limite || aVerifier.length > 0) && (
             <Btn kind="ghost" icon="plus" busy={chargePlus} onClick={() => void afficherPlus()} title="Affiche les ORL suivants (lit leur fiche Doctolib si besoin)">
               Afficher {PLUS} ORL de plus
             </Btn>

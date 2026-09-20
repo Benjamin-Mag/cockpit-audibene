@@ -6,6 +6,8 @@ export type DelaiFiltre = 1 | 3 | 7 | 14 | 0;
 export type SecteurFiltre = 'tous' | 's1' | 's12';
 export interface OrlPrefs { delai: DelaiFiltre; secteur: SecteurFiltre }
 export const DEFAULT_PREFS: OrlPrefs = { delai: 0, secteur: 'tous' };
+/** Ordre de la liste : ne relance jamais la recherche (il ne fait pas partie de OrlPrefs ni de la clé du cache). */
+export type TriOrl = 'pertinence' | 'tot' | 'proche';
 
 export interface LigneCache { orl: Orl; creneau: Creneau | null; fiche: FicheOrl | null | undefined; ficheErreur?: string }
 export interface Resultat {
@@ -18,6 +20,7 @@ export interface Resultat {
 
 const PREFS_KEY = 'orlFinderPrefs';
 const CACHE_KEY = 'orlFinderCache';
+const TRI_KEY = 'orlFinderTri';
 /** Durée de validité d'une recherche (code postal + filtres). */
 export const CACHE_MS = 10 * 60 * 1000;
 const CACHE_MAX = 12;
@@ -48,6 +51,13 @@ export async function loadPrefs(): Promise<OrlPrefs> {
 }
 
 export const savePrefs = (p: OrlPrefs) => set(PREFS_KEY, p);
+
+export async function loadTri(): Promise<TriOrl> {
+  const t = await get<string>(TRI_KEY);
+  return t === 'tot' || t === 'proche' ? t : 'pertinence';
+}
+
+export const saveTri = (t: TriOrl) => set(TRI_KEY, t);
 
 export const cacheKey = (cp: string, p: OrlPrefs) => `${cp}|${p.delai}|${p.secteur}`;
 
