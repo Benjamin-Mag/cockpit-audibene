@@ -48,6 +48,7 @@ src/panel.html + src/panel/
   storage/legacy.ts          formats anciens (data.json générateur, export ventes), fusion, partage, substitution de nom
   views/                     Header, Anamnese (=COSI), Commentaire (=Anamnèse), Mails, ChatPartenaire, Ventes, Reglages, Setup
   views/OrlFinder.tsx        ORL Finder (Piste) : ORL Doctolib proches avec prochain créneau, TOP 3, message type
+  orl-tri.ts                 tri (« Trier par ») et filtres rapides de l'ORL Finder : fonctions pures, aucun appel Doctolib
   doctolib.ts, geo.ts        appels Doctolib (recherche, créneaux, fiche praticien), via Doctolib Pro (session du conseiller) puis site public en secours, toujours exécutés dans un onglet du site (fetchViaTab) ; code postal → GPS (public/data/codes-postaux.json, script scripts/codes-postaux.mjs)
   components/ui.tsx          Btn, Chip, Seg, Field, DeleteBtn, EditablePreview, Toast, icônes
 src/index.html               page d'installation (GitHub Pages)
@@ -63,7 +64,7 @@ Le panneau envoie des `ContentRequest` (`src/shared/messages.ts`) via `chrome.ta
 - **Chat partenaire** = fil Chatter de l'Opportunité (`views/ChatPartenaire.tsx`).
 - **Message vocal** = commentaire « MV » dans Commentaires internes + « Piste non joignable ».
 - **Hearo** = utilitaire SMS de la barre du bas (app Canvas, libellé variable : Hearo / Nouveau message / Approbation en attente).
-- **ORL Finder** = onglet de la Piste : ORL proches du patient (Doctolib) avec créneau visible, tri créneau disponible → secteur 1 avant secteur 2 → créneau le plus tôt → distance (v1.0.33), « pas de téléphone = pas de ligne », TOP 3, message type audiométrie, itinéraire Google Maps.
+- **ORL Finder** = onglet de la Piste : ORL proches du patient (Doctolib) avec créneau visible, tri créneau disponible → secteur 1 avant secteur 2 → créneau le plus tôt → distance (v1.0.33), « pas de téléphone = pas de ligne », TOP 3, message type audiométrie, itinéraire Google Maps. « Trier par » (pertinence / plus tôt / plus proche, mémorisé), puces cumulables et recherche par nom ou ville : tout se fait sur les résultats déjà chargés (v1.0.34).
 
 ## Pièges Salesforce connus (ne pas réintroduire)
 - Salesforce Console garde plusieurs fiches montées en même temps : toujours passer par `visibleEl` (taille rendue > 0) et **ne jamais retourner un candidat invisible** par défaut.
