@@ -367,7 +367,7 @@ export function App() {
           <Commentaire key={recordKey} ficheKey={recordKey} data={data} update={update} fiche={fiche} connected={connected && ctx?.page !== 'opportunity'} busy={busy === 'comment'}
             onWrite={(text) => act('comment', { type: 'writeComment', text, save: data.reglages.autoSaveComment }).then((r) => { if (r?.ok) effacerBrouillon(recordKey, 'anamnese.'); })} toast={showToast} />
         )}
-        {activeTab === 'orl' && <OrlFinder key={recordKey} fiche={fiche} toast={showToast} />}
+        {activeTab === 'orl' && <OrlFinder key={recordKey} ficheKey={recordKey} fiche={fiche} toast={showToast} />}
         {activeTab === 'mails' && (
           <Mails key={recordKey} ficheKey={recordKey} data={data} update={update} fiche={fiche} connected={connected} busy={busy === 'mail'}
             onInsert={(subject, body, audience) => insertMail(subject, body, audience).then((r) => { if (r?.ok) effacerBrouillon(recordKey, 'mail.'); })} onNeedPartner={readPartner} toast={showToast} />

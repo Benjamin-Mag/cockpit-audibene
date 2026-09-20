@@ -88,8 +88,28 @@ Worktree : `Documents\Claude\Projects\Cockpit Audibene - partner-search` · bran
 
 - 2026-09-09 : **retour de test v1.0.22 : Doctolib (Datadome) bloque les `fetch` partis de l'origine `chrome-extension://`.** Correctif du chef (`fix/doctolib-via-onglet`, e403295) cherry-pické dans `feature/orl-finder-3` (PR #9) : `fetchViaTab` dans `bridge.ts` exécute le `fetch` **dans l'onglet Doctolib** (`chrome.scripting.executeScript`, `world: 'MAIN'` ; onglet existant réveillé, sinon créé `active: false`), `call()` passe par ce transport dans l'extension et par `fetch` direct en mode web. Conflit résolu en gardant `DoctolibRefus` (403 / 429 / HTML). Ajout : bouton **« Voir l'onglet Doctolib »** (`voirOngletDoctolib` : `chrome.tabs.update` + `windows.update`) à côté d'« Ouvrir la recherche » quand Doctolib bloque, pour que Benjamin valide lui-même la vérification dans l'onglet (on ne la contourne pas).
 
+- 2026-09-09 : PR #9 mergée (squash #10), **v1.0.23** publiée (`main` fc9ad05). Arbitrages du chef : filtre délai côté API quand l'utilisateur le choisit ; **délai par défaut « tous »** (`DEFAULT_PREFS.delai = 0`) pour ne pas perdre les ORL joignables par téléphone sans RDV en ligne. **Chantier ORL Finder complet** (3 étapes + correctif anti-robot). Benjamin teste la v1.0.23 en vrai ; pas de nouveau chantier, en attente. Journal tenu sur la branche `agent-1/journal` (pas de PR dédiée, sera embarqué dans la prochaine PR).
+
+- 2026-09-20 : nouveau chantier du chef, **filtres et tri de l'ORL Finder** (branche `feature/orl-filtres`, rebasée sur v1.0.33 d4b8634 où le chef a changé `trierOrl` : créneau disponible → secteur 1 avant 2 → plus tôt → distance). Livré : `src/panel/orl-tri.ts` (tris Pertinence / Plus tôt / Plus proche, puces cumulables « Avec créneau en ligne », « Audiométrie indiquée », « Nouveaux patients acceptés », compteurs, recherche sans accents sur nom, ville, code postal), `orl-store.ts` (`orlFinderTri` mémorisé, hors `OrlPrefs`), vue (sélecteur, puces avec nombre d'ORL restants, « Tout afficher », recherche, libellé qui suit le tri, état vide avec « Enlever les filtres » et « Vérifier N ORL de plus »), `app.tsx` (`ficheKey` passé à `OrlFinder`). Banc d'essai temporaire (`src/__test-orl-filtres.*` : faux résultats injectés dans le cache, 11 vérifications des fonctions pures, parcours des clics à 400 px) supprimé avant la PR.
+
+## Décisions (filtres et tri)
+- **Le tri ne fait pas partie de `OrlPrefs`** : `prefs` est une dépendance de l'effet de recherche, y mettre le tri aurait relancé Doctolib à chaque clic. Clé séparée `orlFinderTri`.
+- **Tri mémorisé ; filtres rapides et recherche gardés par fiche** (`useBrouillon(ficheKey, 'orl.filtres' | 'orl.recherche')`, règle des saisies du panneau) : une puce laissée allumée ne masque pas d'ORL par surprise sur la Piste suivante. À arbitrer si Benjamin préfère des puces mémorisées.
+- **Aucun appel Doctolib en plus** : tri, puces et recherche travaillent sur `lignes`. Les 20 fiches lues et « Afficher 10 de plus » suivent l'ordre choisi (avec « Plus proche », ce sont les 20 plus proches qui sont vérifiés) ; « Afficher plus » ne lit que les ORL non vérifiés qui passent les filtres indépendants de la fiche (créneau, nouveaux patients, recherche) : même plafond de 10, jamais plus.
+- Chaque puce affiche le nombre d'ORL qui resteraient une fois allumée, avec les autres filtres en cours ; « Tout afficher » porte le total et remet aussi la recherche à zéro.
+- Puce « Nouveaux patients acceptés » affichée seulement si au moins un ORL porte l'information (`nouveauxPatients` non nul).
+- TOP 3 affiché seulement avec « Pertinence » (tête de la liste, règle du chef) ; il suit les filtres. Avec « Plus tôt » ou « Plus proche », la liste répond déjà à la question.
+- « Pas de téléphone = pas de ligne » inchangé : les filtres s'appliquent après cette règle. Pendant le chargement, une fiche non lue ne passe pas « Audiométrie indiquée » et entre dans la liste dès qu'elle est lue.
+
+## État courant (lecture à froid)
+- **Livré et publié** : ORL Finder v1.0.21 → v1.0.23 (onglet sur Piste, recherche Doctolib via l'onglet du site, créneaux, fiches avec téléphone / secteur / audiométrie, TOP 3, filtres délai + secteur mémorisés, rayon 20 → 40 → 60, cache 10 min, message type, itinéraire).
+- **Abandonné** : Partner Search (étape 1 publiée en v1.0.20 puis retirée en v1.0.21 ; code de proximité réutilisé dans ORL Finder ; branche `feature/partner-search-proximite` conservée pour mémoire).
+- **Fichiers ORL Finder** : `src/panel/doctolib.ts` (API + parseurs + `DoctolibRefus` + `voirOngletDoctolib`), `src/panel/orl-store.ts` (réglages + cache), `src/panel/geo.ts` + `public/data/codes-postaux.json` (+ `scripts/codes-postaux.mjs`), `src/panel/views/OrlFinder.tsx`, `fetchViaTab` dans `src/panel/bridge.ts`.
+
+- 2026-09-11 : info du chef, **v1.0.24** (`main` 7f7ca5c, PR #11, chantier du chef) : textes du Chat partenaire réordonnables ; nouveau module partagé `src/panel/components/drag.ts` — `useDragReorder(onMove)` + `moveById(list, fromId, toId)` — **à réutiliser pour tout futur réordonnancement, ne pas réécrire de glisser-déposer local** ; accueil `Setup` corrigé (`needsFolder`). Branche `agent-1/journal` rebasée sur ce `main`.
+
 ## Reste à faire
-- Test réel depuis le panneau, avec et sans onglet Doctolib déjà ouvert : je n'ai pas accès au navigateur de Benjamin ; à confirmer par le chef / Benjamin sur la PR #9.
+- Retours de Benjamin sur la v1.0.23 (anti-robot via l'onglet, filtres, rayon élargi, « autre cabinet ») : corrections éventuelles, transmises par le chef.
 - Étape 3 : adresse patient préremplie, iframe Google Maps, « Ouvrir dans Google Maps », « Ouvrir la fiche Salesforce », « Copier l'adresse ».
 
 ## Décisions
@@ -105,5 +125,4 @@ Worktree : `Documents\Claude\Projects\Cockpit Audibene - partner-search` · bran
 - Distances arrondies au km (« < 1 km » sous 1 km), à vol d'oiseau (haversine), comme cadré.
 
 ## Questions ouvertes
-(néant)
-- Format du rapport Salesforce partenaires (CSV ? Excel ? colonnes : nom, adresse, code postal, ville, téléphone, coordonnées GPS ?) : à préciser au cadrage. « Le plus proche » = même département / préfixe de code postal, ou vraie distance (nécessite latitude/longitude ou une table code postal → coordonnées embarquée, sans appel réseau) ?
+(néant — les deux questions de l'étape 3 ont été arbitrées par le chef : filtre délai côté API quand il est choisi ; délai par défaut « tous ».)
