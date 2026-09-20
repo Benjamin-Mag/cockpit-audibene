@@ -63,10 +63,11 @@ Le panneau envoie des `ContentRequest` (`src/shared/messages.ts`) via `chrome.ta
 - **Chat partenaire** = fil Chatter de l'Opportunité (`views/ChatPartenaire.tsx`).
 - **Message vocal** = commentaire « MV » dans Commentaires internes + « Piste non joignable ».
 - **Hearo** = utilitaire SMS de la barre du bas (app Canvas, libellé variable : Hearo / Nouveau message / Approbation en attente).
-- **ORL Finder** = onglet de la Piste : ORL proches du patient (Doctolib) avec créneau visible, tri secteur 1 → distance → délai, « pas de téléphone = pas de ligne », TOP 3, message type audiométrie, itinéraire Google Maps.
+- **ORL Finder** = onglet de la Piste : ORL proches du patient (Doctolib) avec créneau visible, tri créneau disponible → secteur 1 avant secteur 2 → créneau le plus tôt → distance (v1.0.33), « pas de téléphone = pas de ligne », TOP 3, message type audiométrie, itinéraire Google Maps.
 
 ## Pièges Salesforce connus (ne pas réintroduire)
 - Salesforce Console garde plusieurs fiches montées en même temps : toujours passer par `visibleEl` (taille rendue > 0) et **ne jamais retourner un candidat invisible** par défaut.
+- **Une seule lecture de page par action** : le coût d'un `deepAll` vient de la traversée du shadow DOM (un appel navigateur par élément). Regrouper les recherches avec `deepGroup([...])` puis `valeurChamp(labels, ...)` (v1.0.33 : lecture de fiche 3 à 4 fois plus rapide).
 - Shadow DOM : `.shadowRoot` d'abord, puis `chrome.dom.openOrClosedShadowRoot` (l'ordre inverse a déjà cassé la lecture).
 - Chercher les éléments par **texte / titre / placeholder**, jamais par position ni référence gardée : Lightning re-rend après chaque clic.
 - Un `<label>` créé par nous dans la page entrerait en collision avec la recherche de labels Salesforce : le panneau vit dans le side panel, pas dans la page.

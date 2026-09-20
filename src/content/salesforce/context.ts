@@ -1,5 +1,5 @@
 import type { Fiche, Genre, SfContext, SfPage } from '../../shared/types';
-import { deepAll, expandSection, fieldValue, sleep, textOf, visibleEl } from './dom';
+import { deepAll, deepGroup, expandSection, sleep, textOf, valeurChamp, visibleEl } from './dom';
 
 /** Type de fiche d'après l'adresse seule : aucune lecture de la page, appelable aussi souvent qu'on veut. */
 function pageParAdresse(url: string): { page: SfPage; recordId: string } | null {
@@ -59,31 +59,49 @@ function splitNomEtGenre(nomComplet: string): { genre: Genre; prenom: string; no
 
 const normaliserTelephone = (tel: string) => tel.replace(/\s+/g, '').replace(/^\+33/, '0');
 
-const titreFiche = () => {
-  const el = visibleEl(deepAll('lightning-formatted-text[slot="primaryField"]'));
+/**
+ * Tout ce que la lecture d'une fiche cherche dans la page, ramassé en UN SEUL parcours :
+ * libellés de champs, titre de la fiche, colonnes de numéros, lien du partenaire.
+ */
+const SELECTEURS = ['.slds-form-element__label', 'lightning-formatted-text[slot="primaryField"]', '.c_numberColor', 'a[href*="/lightning/r/Account/"]'];
+
+interface Lecture {
+  labels: Element[];
+  titres: Element[];
+  numeros: Element[];
+  comptes: HTMLAnchorElement[];
+}
+
+function lirePage(): Lecture {
+  const [labels, titres, numeros, comptes] = deepGroup(SELECTEURS);
+  return { labels, titres, numeros, comptes: comptes as HTMLAnchorElement[] };
+}
+
+const titreFiche = (lu: Lecture) => {
+  const el = visibleEl(lu.titres);
   return el ? textOf(el) : '';
 };
 
 /** Sur une Opportunité, le nom du patient est dans le titre, suivi du code postal. */
-function nomDepuisTitre(): string {
-  const full = titreFiche();
+function nomDepuisTitre(lu: Lecture): string {
+  const full = titreFiche(lu);
   const m = full.match(/^(.*?)\s+\d{5}/);
   return m ? m[1].trim() : full;
 }
 
 /** Code postal + ville : champ « Adresse » de la Piste (« 33510 ANDERNOS LES BAINS / Région France »), sinon titre de l'Opportunité (« Nom 69110 STE FOY LES LYON - 2026/09 »). */
-function codePostalEtVille(): { codePostal: string; ville: string } {
+function codePostalEtVille(lu: Lecture): { codePostal: string; ville: string } {
   const parse = (text: string) => {
     const m = (text || '').match(/\b(\d{5})\s+([^\n]+)/);
     if (!m) return null;
     const ville = m[2].replace(/\s+-\s+\d{4}\/\d{2}.*$/, '').replace(/\s+(France)$/i, '').trim();
     return { codePostal: m[1], ville };
   };
-  return parse(fieldValue('Adresse') ?? '') ?? parse(titreFiche()) ?? { codePostal: '', ville: '' };
+  return parse(valeurChamp(lu.labels, 'Adresse') ?? '') ?? parse(titreFiche(lu)) ?? { codePostal: '', ville: '' };
 }
 
-function telephoneDepuisOpportunite(): string {
-  const cols = deepAll('.c_numberColor');
+function telephoneDepuisOpportunite(lu: Lecture): string {
+  const cols = lu.numeros;
   const pick =
     visibleEl(cols.filter((c) => /num[ée]ro mobile du client/i.test(c.textContent || ''))) ||
     visibleEl(cols.filter((c) => /num[ée]ro fixe du client/i.test(c.textContent || '')));
@@ -92,8 +110,8 @@ function telephoneDepuisOpportunite(): string {
 }
 
 /** Partenaire (lien Account) + adresse d'expédition lue dans le panneau de survol SF. */
-async function partenaireEtAdresse(): Promise<{ partenaire: string; adresse: string }> {
-  const partLink = visibleEl(deepAll<HTMLAnchorElement>('a[href*="/lightning/r/Account/"]'));
+async function partenaireEtAdresse(lu: Lecture): Promise<{ partenaire: string; adresse: string }> {
+  const partLink = visibleEl(lu.comptes);
   if (!partLink) return { partenaire: '', adresse: '' };
   const partenaire = textOf(partLink);
 
@@ -139,27 +157,30 @@ async function partenaireEtAdresse(): Promise<{ partenaire: string; adresse: str
 
 export async function readFiche(withPartner: boolean): Promise<Fiche> {
   const { page, recordId } = pageInfo();
-  let email = fieldValue('Adresse e-mail');
-  let naissance = fieldValue('Date de naissance');
+  let lu = lirePage();
+  let email = valeurChamp(lu.labels, 'Adresse e-mail');
+  let naissance = valeurChamp(lu.labels, 'Date de naissance');
   if (email === null || naissance === null) {
+    // Rubrique repliée : on ne relit la page qu'après l'avoir dépliée.
     if (expandSection('Coordonnées client')) {
       await sleep(400);
-      email = fieldValue('Adresse e-mail');
-      naissance = fieldValue('Date de naissance');
+      lu = lirePage();
+      email = valeurChamp(lu.labels, 'Adresse e-mail');
+      naissance = valeurChamp(lu.labels, 'Date de naissance');
     }
   }
-  const nomComplet = fieldValue('Nom complet');
-  const telMobile = fieldValue('Téléphone mobile');
-  const telFixe = fieldValue('Téléphone');
+  const nomComplet = valeurChamp(lu.labels, 'Nom complet');
+  const telMobile = valeurChamp(lu.labels, 'Téléphone mobile');
+  const telFixe = valeurChamp(lu.labels, 'Téléphone');
   let telephone = normaliserTelephone(telMobile || telFixe || '');
   let np = splitNomEtGenre(nomComplet || '');
-  if (!np.prenom && !np.nom) np = splitNomEtGenre(nomDepuisTitre());
-  if (!telephone) telephone = normaliserTelephone(telephoneDepuisOpportunite());
+  if (!np.prenom && !np.nom) np = splitNomEtGenre(nomDepuisTitre(lu));
+  if (!telephone) telephone = normaliserTelephone(telephoneDepuisOpportunite(lu));
 
   let pa: { partenaire: string; adresse: string };
-  if (withPartner) pa = await partenaireEtAdresse();
+  if (withPartner) pa = await partenaireEtAdresse(lu);
   else {
-    const link = visibleEl(deepAll('a[href*="/lightning/r/Account/"]'));
+    const link = visibleEl(lu.comptes);
     pa = { partenaire: link ? textOf(link) : '', adresse: '' };
   }
 
@@ -172,7 +193,7 @@ export async function readFiche(withPartner: boolean): Promise<Fiche> {
     email: email || '',
     naissance: naissance || '',
     telephone,
-    ...codePostalEtVille(),
+    ...codePostalEtVille(lu),
     partenaire: pa.partenaire,
     adresse: pa.adresse,
   };

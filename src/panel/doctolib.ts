@@ -316,16 +316,20 @@ export const lienRechercheDoctolib = (codePostal: string, ville = '', source: So
 
 export const lienItineraire = (origine: string, destination: string) => `https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(origine)}&destination=${encodeURIComponent(destination)}`;
 
-/** Tri du prompt du collègue : secteur 1 d'abord, puis distance, puis délai. */
+/**
+ * Tri voulu par Benjamin : un créneau disponible d'abord, secteur 1 avant secteur 2,
+ * puis le créneau le plus tôt, puis la distance. Les ORL sans créneau en ligne ferment
+ * la liste, toujours secteur 1 d'abord puis distance (on les appelle).
+ */
 export function trierOrl<T extends { orl: Orl; creneau: Creneau | null }>(list: T[]): T[] {
   return [...list].sort((a, b) => {
+    const da = a.creneau?.next ?? '';
+    const db = b.creneau?.next ?? '';
+    if (!!da !== !!db) return da ? -1 : 1;
     const g = groupeSecteur(a.orl.secteur) - groupeSecteur(b.orl.secteur);
     if (g) return g;
-    const d = a.orl.distanceKm - b.orl.distanceKm;
-    if (Math.abs(d) > 0.05) return d;
-    const na = a.creneau?.next ?? '9999';
-    const nb = b.creneau?.next ?? '9999';
-    return na.localeCompare(nb);
+    if (da && db && da !== db) return da < db ? -1 : 1;
+    return a.orl.distanceKm - b.orl.distanceKm;
   });
 }
 
