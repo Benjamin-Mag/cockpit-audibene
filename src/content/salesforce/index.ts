@@ -1,6 +1,7 @@
 import { CONTENT_VERSION, PORT_NAME, type ContentRequest, type ContentResponse, type ContextPush } from '../../shared/messages';
 import { diagSms, fillAnamnese, fillSmsSearch, insertMail, openComposer, openSmsPanel, runMv, writeChatPartenaire, writeComment } from './actions';
 import { currentContext, readFiche } from './context';
+import { lirePartnerSearch } from './partnerSearch';
 
 async function handle(req: ContentRequest): Promise<ContentResponse> {
   switch (req.type) {
@@ -26,6 +27,8 @@ async function handle(req: ContentRequest): Promise<ContentResponse> {
       return { type: 'result', result: await openComposer() };
     case 'insertMail':
       return { type: 'result', result: await insertMail(req.subject, req.html, req.recipient) };
+    case 'lirePartnerSearch':
+      return { type: 'partenaires', ...(await lirePartnerSearch()) };
     default:
       return { type: 'result', result: { ok: false, msg: `action inconnue sur Salesforce : ${(req as { type: string }).type}` } };
   }
