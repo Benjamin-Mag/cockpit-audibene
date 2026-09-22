@@ -119,9 +119,12 @@ Worktree : `Documents\Claude\Projects\Cockpit Audibene - partner-search` · bran
 - Le tri est recalculé au fil de la lecture (partenaires à créneau en tête, puis ordre Partner Search) ; le cache mémorise le résultat trié, 10 min, 12 fiches max, ↻ force.
 - Hors Piste, la page affiche seulement une note ; `surPiste` = connecté et `ctx.page === 'lead'`.
 
+- 2026-09-22 : PR #26 intégrée par le chef et publiée en **v1.0.36** (`main` cac9d70, via PR #27). Mon rebase sur sa PR #25 (commit f8f2b3e, jamais mergé) était arrivé trop tard : il a rebasé lui-même, gardé le protocole de `main` (`{ ok, msg, partenaires }`) et refait les deux ajouts (commentaire ouvert d'office, autres liens via `hote()`), plus : note « N partenaires lus » seulement si la liste est vide, « + N autres créneaux ». Test de bout en bout par le chef (vrai panneau, 5 vrais partenaires, vraies réponses Doctolib enregistrées) : Fontaine en tête, Réserver ouvre la bonne page, 4 appels Doctolib. Arbitrages : clic sur une heure = page Doctolib du partenaire (gardé) ; `CLAUDE.md` mis à jour avec ma proposition. Reporté par le chef dans Cockpit Benjamin v2.0.1 (rien à faire de mon côté). **Chantier Partner Search Doctolib complet.**
+- **Leçon** : quand un message du chef est en file d'attente, vérifier `origin/main` avant de pousser une mise à jour de PR — ma branche partait d'avant sa PR #25 et le rebase a dû être refait par lui.
+
 ## Reste à faire
-- Fusion avec la lecture Salesforce du chef (`lirePartnerSearch` côté script de page) ; test réel sur la Piste 00QSc00000yXaq9MAC (30610, Audition de la Fontaine - Nimes).
-- Plus tard, selon retours : créneaux via Doctolib Pro, plus de motifs, réservation directe.
+- Pas de chantier en cours. Avant le prochain : `git fetch && git rebase origin/main`.
+- Plus tard, selon retours de Benjamin sur la v1.0.36 : créneaux via Doctolib Pro, plus de motifs, réservation directe.
 
 ## Décisions
 - Colonnes du rapport repérées par **libellé** (`detailColumnInfo[api].label`, regex tolérantes FR/EN), jamais par position : l'ordre du rapport peut changer.
