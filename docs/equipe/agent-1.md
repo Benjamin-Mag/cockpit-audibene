@@ -119,8 +119,10 @@ Worktree : `Documents\Claude\Projects\Cockpit Audibene - partner-search` · bran
 - Le tri est recalculé au fil de la lecture (partenaires à créneau en tête, puis ordre Partner Search) ; le cache mémorise le résultat trié, 10 min, 12 fiches max, ↻ force.
 - Hors Piste, la page affiche seulement une note ; `surPiste` = connecté et `ctx.page === 'lead'`.
 
+- 2026-09-22 : la lecture Salesforce du chef est sur `main` (aeb66fc, PR #25) : branche rebasée, ses versions de `types.ts` / `messages.ts` / `bridge.ts` prises telles quelles (`lirePartnerSearch(tabId)` → `{ ok, msg, partenaires }`, ~1 s pour 5 partenaires ; appelée à l'ouverture de la page et sur ↻, jamais en boucle). Ajouts demandés : **commentaire affiché en entier sous les créneaux, ouvert d'emblée quand un créneau est visible** (il dit quel motif prendre), et **liens secondaires** (ORL, Oxance…) en petites puces « Autres liens ». Banc rejoué avec son jeu d'essai réel (5 partenaires de la Piste 00QSc00000yXaq9MAC) puis supprimé.
+
 ## Reste à faire
-- Fusion avec la lecture Salesforce du chef (`lirePartnerSearch` côté script de page) ; test réel sur la Piste 00QSc00000yXaq9MAC (30610, Audition de la Fontaine - Nimes).
+- Test réel par le chef sur la Piste 00QSc00000yXaq9MAC, puis publication.
 - Plus tard, selon retours : créneaux via Doctolib Pro, plus de motifs, réservation directe.
 
 ## Décisions
