@@ -14,9 +14,7 @@ import { Header } from './views/Header';
 import { Mails } from './views/Mails';
 import { OrlFinder } from './views/OrlFinder';
 import { Reglages } from './views/Reglages';
-import { Ventes } from './views/Ventes';
 import { buildMailHtml } from '../shared/mail-html';
-import { monthKey, monthShort } from './ventes';
 import { Setup } from './views/Setup';
 import { VERIFICATION_MS, chargerBrouillons, effacerBrouillon, verifierOngletsOuverts } from './brouillons';
 
@@ -29,7 +27,6 @@ const TABS: { id: TabId; label: string; icon: IconName }[] = [
   { id: 'chat', label: 'Chat partenaire', icon: 'message' },
   { id: 'reglages', label: '', icon: 'settings' },
 ];
-type PageId = 'cockpit' | 'ventes';
 const VERSION = isExtension ? chrome.runtime.getManifest().version : 'web';
 const RDV_NOTE = 'Rendez-vous Audibene';
 
@@ -40,7 +37,6 @@ export function App() {
   const saveTimer = useRef<number | undefined>(undefined);
 
   const [tab, setTab] = useState<TabId>('anamnese');
-  const [pageMode, setPageMode] = useState<PageId>('cockpit');
   const [site, setSite] = useState<Site>('none');
   const [tabId, setTabId] = useState<number | null>(null);
   const [ctx, setCtx] = useState<SfContext | null>(null);
@@ -216,15 +212,6 @@ export function App() {
   };
   const insertMail = (subject: string, body: string, audience: 'patient' | 'partenaire') => act('mail', { type: 'insertMail', subject, html: buildMailHtml(body, data?.reglages.emailFooter ?? ''), recipient: audience === 'partenaire' ? 'Partenaire' : 'Client' });
   const ficheName = fiche ? [fiche.prenom, fiche.nom].filter(Boolean).join(' ') : '';
-  const salePrefill = ficheName && ctx ? { name: ficheName, url: ctx.url.split('?')[0] } : null;
-  /** Vente en un clic depuis l'Opportunité ouverte, dans le mois courant. */
-  const addSaleFromFiche = (cat: 1 | 2) => {
-    if (!salePrefill || !data) return;
-    const key = monthKey(new Date());
-    if ((data.ventes.sales[key] ?? []).some((s) => s.url === salePrefill.url)) { showToast(`${salePrefill.name} est déjà dans les ventes de ${monthShort(key)}`, 'info'); return; }
-    update((d) => { (d.ventes.sales[key] ??= []).push({ name: salePrefill.name, cat, url: salePrefill.url }); });
-    showToast(`Vente CAT ${cat} ajoutée : ${salePrefill.name} (${monthShort(key)})`, 'ok');
-  };
   /** Lecture complète de la fiche (partenaire + adresse via le survol du lien Compte, ~2 s). */
   const readPartner = async (): Promise<Fiche | null> => {
     if (tabId == null) return null;
@@ -270,8 +257,8 @@ export function App() {
         if (foreign && foreign !== data.reglages.nom) merged = substituteName(merged, foreign);
       }
       setDataState(merged);
-      const n = Object.values(merged.ventes.sales).flat().length;
-      showToast(kind === 'ventes' ? `Ventes importées (${n})` : kind === 'generateur' || kind === 'partage' ? `Modèles importés (${merged.templates.length} au total)` : 'Données réunies', 'ok');
+      // Un export de l'ancien suivi des ventes est gardé dans les données (rien n'est perdu), mais cette version n'a plus de page Ventes.
+      showToast(kind === 'ventes' ? 'Suivi des ventes : fichier gardé, mais la page Ventes n\'existe que dans Cockpit Benjamin' : kind === 'generateur' || kind === 'partage' ? `Modèles importés (${merged.templates.length} au total)` : 'Données réunies', kind === 'ventes' ? 'info' : 'ok');
     } catch (e) {
       showToast((e as Error).message, 'err');
     }
@@ -311,38 +298,18 @@ export function App() {
   // Dès qu'on dialogue avec une page Salesforce, les actions sont proposées : la
   // page dit elle-même si un champ manque, plutôt que de cacher les boutons.
   const connected = site === 'salesforce' && !!ctx;
-  const goTo = (t: TabId) => { setPageMode('cockpit'); setTab(t); };
-  const pageSwitch = (
-    <div class="pages">
-      <button type="button" class={pageMode === 'cockpit' ? 'on' : ''} onClick={() => setPageMode('cockpit')}><Icon name="stetho" size={13} /> Cockpit</button>
-      <button type="button" class={pageMode === 'ventes' ? 'on' : ''} onClick={() => setPageMode('ventes')}><Icon name="coins" size={13} /> Ventes</button>
-    </div>
-  );
-
-  if (pageMode === 'ventes') {
-    return (
-      <>
-        <div class="top">{pageSwitch}</div>
-        <main class="content">
-          <Ventes data={data} update={update} prefill={ctx?.page === 'opportunity' ? salePrefill : null} onImport={doImport} toast={showToast} />
-        </main>
-        <Toast toast={toast} />
-      </>
-    );
-  }
+  const goTo = (t: TabId) => setTab(t);
 
   // Onglets adaptés à la fiche : une Piste n'envoie pas de mail, une Opportunité n'a pas d'anamnèse.
   const page = connected ? ctx!.page : 'other';
   // ORL Finder (ORL proches du code postal du patient) n'a de sens que sur une Piste.
   const hidden: TabId[] = page === 'lead' ? ['mails', 'chat'] : page === 'opportunity' ? ['anamnese', 'commentaire', 'orl'] : ['orl'];
-  // (les Ventes ont leur propre page, via le sélecteur du haut)
   const visibleTabs = TABS.filter((t) => !hidden.includes(t.id));
   const activeTab: TabId = hidden.includes(tab) ? visibleTabs[0].id : tab;
 
   return (
     <>
-      <div class="top" style="padding-bottom:0">{pageSwitch}</div>
-      <Header site={site} ctx={ctx} fiche={fiche} ficheState={ficheState} recent={recent} busy={busy} arrierePlan={arrierePlan} onRevenir={() => void revenirSurSalesforce()} onMv={runMv} onPaste={pastePatient} onAddSale={addSaleFromFiche} onSms={openSms} onRefresh={() => setFicheTick((n) => n + 1)} goTo={goTo} />
+      <Header site={site} ctx={ctx} fiche={fiche} ficheState={ficheState} recent={recent} busy={busy} arrierePlan={arrierePlan} onRevenir={() => void revenirSurSalesforce()} onMv={runMv} onPaste={pastePatient} onSms={openSms} onRefresh={() => setFicheTick((n) => n + 1)} goTo={goTo} />
       {storage.sync === 'paused' && (
         <div class="banner" style="margin:8px 12px 0">
           <Icon name="folder" />

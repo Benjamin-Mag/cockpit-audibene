@@ -54,12 +54,12 @@ export function Reglages({ data, update, storage, onChangeFolder, onAuthorize, o
           <div class="row wrap">
             {storage.sync === 'paused' && <Btn kind="soft" icon="folder" onClick={onAuthorize}>Autoriser le dossier</Btn>}
             {fsSupported && <Btn kind="ghost" icon="folder" onClick={onChangeFolder}>{storage.mode === 'folder' ? 'Changer de dossier' : 'Choisir un dossier'}</Btn>}
-            <Btn kind="ghost" icon="upload" onClick={onImport} title="data.json de l'ancien générateur, export suivi-ventes-primes-….json, ou cockpit.json">Importer un fichier</Btn>
-            <Btn kind="soft" icon="download" onClick={onExportShare} title="Modèles, textes, catégories — sans tes réglages ni tes ventes, ton nom remplacé par la variable">Partager mes modèles</Btn>
+            <Btn kind="ghost" icon="upload" onClick={onImport} title="data.json de l'ancien générateur, cockpit.json, ou fichier de modèles partagé par un collègue">Importer un fichier</Btn>
+            <Btn kind="soft" icon="download" onClick={onExportShare} title="Modèles, textes, catégories — sans tes réglages, ton nom remplacé par la variable">Partager mes modèles</Btn>
             <Btn kind="ghost" icon="download" onClick={onExport}>Exporter cockpit.json</Btn>
             <Btn kind="ghost" icon="download" onClick={onExportLegacy} title="Écrit un data.json lisible par l'ancien générateur de mails (modèles, textes, signature)">Mettre à jour data.json (ancien générateur)</Btn>
           </div>
-          <div class="note">{data.templates.length} modèle(s) · {data.anamnese.situations.length} situation(s) · {Object.values(data.ventes.sales).flat().length} vente(s)</div>
+          <div class="note">{data.templates.length} modèle(s) · {data.anamnese.situations.length} situation(s)</div>
         </div>
       </div>
 
