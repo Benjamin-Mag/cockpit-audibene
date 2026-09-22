@@ -247,6 +247,39 @@ export async function prochainCreneau(o: Orl, source: Source = o.source ?? 'publ
   return { next: json.next_slot ?? fromList ?? null, raison: json.reason ?? '' };
 }
 
+// ---------------------------------------------------------------- partenaires (page Doctolib publique d'un centre)
+export interface MotifDoctolib { id: number; nom: string; agendaIds: number[]; practiceIds: string[] }
+
+/** Motifs réservables en ligne d'une page Doctolib publique (`profile_slug`), avec leurs agendas actifs. */
+export async function motifsDoctolib(slug: string, source: Source = 'public'): Promise<MotifDoctolib[]> {
+  const res = await call(source, `/online_booking/api/slot_selection_funnel/v1/info.json?profile_slug=${encodeURIComponent(slug)}&locale=fr`);
+  const json = (await res.json()) as { data?: { visit_motives?: { id: number; name?: string }[]; agendas?: { id: number; practice_id?: number | string; booking_disabled?: boolean; visit_motive_ids?: number[] }[] } };
+  const agendas = (json.data?.agendas ?? []).filter((a) => !a.booking_disabled);
+  return (json.data?.visit_motives ?? []).map((m) => {
+    const actifs = agendas.filter((a) => (a.visit_motive_ids ?? []).includes(m.id));
+    return { id: m.id, nom: (m.name ?? '').trim(), agendaIds: actifs.map((a) => a.id), practiceIds: [...new Set(actifs.map((a) => String(a.practice_id ?? '')).filter(Boolean))] };
+  }).filter((m) => m.nom && m.agendaIds.length);
+}
+
+export interface JourCreneaux { date: string; creneaux: string[]; total: number; raison: string }
+
+/** Créneaux du jour le plus proche pour un motif (ISO avec décalage), à partir de maintenant. */
+export async function creneauxMotif(m: MotifDoctolib, source: Source = 'public'): Promise<JourCreneaux> {
+  const q = new URLSearchParams({ telehealth: 'false', limit: '5', start_date_time: isoLocal(), visit_motive_id: String(m.id), agenda_ids: m.agendaIds.join(','), practice_ids: m.practiceIds.join(',') });
+  const res = await call(source, `/search/availabilities.json?${q.toString()}`);
+  const json = (await res.json()) as { total?: number; reason?: string | null; next_slot?: string | null; availabilities?: { date: string; slots?: unknown[] }[] };
+  const slot = (s: unknown) => (typeof s === 'string' ? s : s && typeof s === 'object' && 'start_date' in s ? String((s as { start_date: unknown }).start_date) : '');
+  const jour = json.availabilities?.find((a) => a.slots?.length);
+  if (jour) return { date: jour.date, creneaux: (jour.slots ?? []).map(slot).filter(Boolean), total: json.total ?? 0, raison: '' };
+  if (json.next_slot) return { date: json.next_slot.slice(0, 10), creneaux: [json.next_slot], total: json.total ?? 0, raison: '' };
+  return { date: '', creneaux: [], total: 0, raison: json.reason ?? 'Aucune disponibilité en ligne' };
+}
+
+/** « mer. 23 sept. » */
+export const jourLabel = (iso: string) => { const d = new Date(iso); return isNaN(d.getTime()) ? iso : d.toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' }); };
+/** « 09:45 » */
+export const heureLabel = (iso: string) => { const d = new Date(iso); return isNaN(d.getTime()) ? iso : d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }); };
+
 /** Ce que la fiche publique d'un praticien apporte pour un lieu donné. */
 export interface FicheOrl {
   /** Numéro du cabinet à ce lieu ; vide = « pas de téléphone = pas de ligne » (sauf numéro d'un autre cabinet). */

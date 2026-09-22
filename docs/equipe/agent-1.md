@@ -108,9 +108,20 @@ Worktree : `Documents\Claude\Projects\Cockpit Audibene - partner-search` · bran
 
 - 2026-09-11 : info du chef, **v1.0.24** (`main` 7f7ca5c, PR #11, chantier du chef) : textes du Chat partenaire réordonnables ; nouveau module partagé `src/panel/components/drag.ts` — `useDragReorder(onMove)` + `moveById(list, fromId, toId)` — **à réutiliser pour tout futur réordonnancement, ne pas réécrire de glisser-déposer local** ; accueil `Setup` corrigé (`needsFolder`). Branche `agent-1/journal` rebasée sur ce `main`.
 
+- 2026-09-20 : PR #21 relue et testée par le chef (banc d'essai de 12 faux ORL), mergée (squash #22), **v1.0.34** publiée (`main` 42b58bc). Arbitrages : **filtres rapides gardés par fiche** (un filtre mémorisé masquerait des ORL sans que Benjamin s'en souvienne), tri mémorisé ; `CLAUDE.md` mis à jour par le chef avec ma formulation. À surveiller : `allowNewPatients` via Doctolib Pro non vérifié en vrai (la puce disparaît proprement si l'information manque).
+- **Leçon de banc d'essai** : un écran rendu seul ne restaure pas ses saisies gardées par fiche si `chargerBrouillons()` n'a pas été appelé avant (dans le panneau réel, `app.tsx` le fait).
+- 2026-09-22 : v1.0.35 (page Ventes retirée de la version d'équipe ; copie privée « Cockpit Benjamin » gérée par le chef, je n'y touche pas). **Nouveau chantier : Partner Search dans Cockpit (version Doctolib)**, branche `feature/partner-search-doctolib`. Partage : le chef lit l'onglet Partner Search dans la page Salesforce (`{ type: 'lirePartnerSearch' }` → `{ type: 'partenaires', partenaires: PartenaireSF[], msg? }`) ; moi l'écran et les créneaux Doctolib, sur données simulées. Livré : `PartenaireSF` dans `src/shared/types.ts`, la paire de messages dans `messages.ts`, `readPartnerSearch` dans `bridge.ts`, `motifsDoctolib` / `creneauxMotif` dans `doctolib.ts` (`info.json?profile_slug=` puis `availabilities.json` par motif ; forme vérifiée en vrai sur audition-de-la-fontaine : créneaux dès le lendemain 9 h 45), `src/panel/partenaires-sf.ts` (classement des liens public / Pro secrétariat / autre / aucun, motifs prioritaires test ou bilan auditif → 1re consultation avec puis sans ordonnance, 3 motifs max, tri créneau d'abord puis ordre Partner Search, cache 10 min par fiche `partnerSearchCache`), `views/Partenaires.tsx`, sélecteur « Cockpit | Partenaires » dans `app.tsx`. Banc d'essai temporaire (`src/__test-partenaires.*`, 10 vérifications + réponses Doctolib simulées) supprimé avant la PR.
+
+## Décisions (Partner Search Doctolib)
+- Un partenaire = son **meilleur lien** : page Doctolib publique d'abord (`www.doctolib.fr/<spécialité>/<ville>/<slug>`, `?pid=` ignoré), sinon agenda Pro (`pro.doctolib.fr`, bouton seul, pas de lecture), sinon autre site (bouton avec le nom du site), sinon rien (commentaire replié et conseil d'appeler).
+- **3 motifs max par partenaire** (test / bilan auditif, 1re consultation avec ordonnance, sans ordonnance), donc au plus 4 appels Doctolib par partenaire public, un à la fois avec `PAUSE_MS` ; les agendas `booking_disabled` sont ignorés.
+- Chaque motif montre **le jour le plus proche avec 3 créneaux** (+ « N autres ») ; cliquer un créneau ou « Réserver » ouvre la page Doctolib du partenaire (pas de réservation depuis le panneau).
+- Le tri est recalculé au fil de la lecture (partenaires à créneau en tête, puis ordre Partner Search) ; le cache mémorise le résultat trié, 10 min, 12 fiches max, ↻ force.
+- Hors Piste, la page affiche seulement une note ; `surPiste` = connecté et `ctx.page === 'lead'`.
+
 ## Reste à faire
-- Retours de Benjamin sur la v1.0.23 (anti-robot via l'onglet, filtres, rayon élargi, « autre cabinet ») : corrections éventuelles, transmises par le chef.
-- Étape 3 : adresse patient préremplie, iframe Google Maps, « Ouvrir dans Google Maps », « Ouvrir la fiche Salesforce », « Copier l'adresse ».
+- Fusion avec la lecture Salesforce du chef (`lirePartnerSearch` côté script de page) ; test réel sur la Piste 00QSc00000yXaq9MAC (30610, Audition de la Fontaine - Nimes).
+- Plus tard, selon retours : créneaux via Doctolib Pro, plus de motifs, réservation directe.
 
 ## Décisions
 - Colonnes du rapport repérées par **libellé** (`detailColumnInfo[api].label`, regex tolérantes FR/EN), jamais par position : l'ordre du rapport peut changer.

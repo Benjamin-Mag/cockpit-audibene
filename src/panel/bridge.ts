@@ -80,6 +80,13 @@ export async function lirePartnerSearch(tabId: number): Promise<{ ok: boolean; m
   return { ok: r.ok, msg: r.msg, partenaires: r.partenaires };
 }
 
+/** Pour l'écran Partenaires : une lecture ratée devient une erreur avec son message. */
+export async function readPartnerSearch(tabId: number): Promise<{ partenaires: PartenaireSF[]; msg?: string }> {
+  const r = await lirePartnerSearch(tabId);
+  if (!r.ok) throw new Error(r.msg || 'Partner Search non lu.');
+  return { partenaires: r.partenaires, msg: r.msg };
+}
+
 export async function readFiche(tabId: number, withPartner: boolean): Promise<Fiche> {
   const r = await send(tabId, { type: 'readFiche', withPartner });
   if (r.type !== 'fiche') throw new Error('Réponse inattendue');
