@@ -2,6 +2,8 @@
 
 Extension Chrome/Edge (Manifest V3) : un panneau latéral à côté de Salesforce pour un conseiller audibene. Elle a remplacé cinq extensions et deux sites. Propriétaire : Benjamin Magnier (conseiller, non développeur — lui parler en français, sans jargon, et viser toujours **le moins de clics possible**).
 
+> **Deux projets depuis le 2026-09-22.** Ce dépôt est la version d'équipe. Benjamin a sa copie privée **Cockpit Benjamin** (`Benjamin-Mag/cockpit-benjamin`, dossier `ProjectsCockpit Benjamin`, icône orange, versions 2.x) qui garde la page Ventes. Toute correction ou nouveauté publiée ici doit y être reportée par le chef d'orchestre (`git fetch upstream && git merge upstream/main` dans ce dossier). Rien ne remonte jamais de Cockpit Benjamin vers ce dépôt.
+
 ## Règles non négociables
 
 1. **`main` est réservé au chef d'orchestre** (la session « projets-b4 »). Tout autre agent travaille sur une branche, ouvre une Pull Request et envoie un rapport ; le chef d'orchestre relit, teste, merge et publie. Ne jamais pousser sur `main`, ne jamais créer de tag.
