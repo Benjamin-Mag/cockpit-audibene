@@ -42,13 +42,13 @@ src/content/salesforce/
 src/content/doctolib.ts, acuitis.ts, forms.ts   collage du patient dans les formulaires de RDV
 src/shared/                  messages.ts (protocole panneau ↔ page), types.ts, anamnese-catalog.ts (champs COSI), mail-html.ts
 src/panel.html + src/panel/
-  app.tsx                    état global, stockage, pont vers la page, pages Cockpit/Ventes, onglets adaptés à la fiche
+  app.tsx                    état global, stockage, pont vers la page, onglets adaptés à la fiche (la page Ventes n'existe que dans Cockpit Benjamin depuis la v1.0.35)
   bridge.ts                  chrome.tabs/scripting/webNavigation : envoi aux cadres, injection, fiches récentes, presse-papier, délais maximum
   brouillons.ts              saisies en cours gardées par fiche (useBrouillon), mémoire de session, ménage (onglets fermés 2 h, 30 fiches, 12 h)
   model.ts                   AppData (reglages, anamnese, chatPartenaire, templates, categories, ventes), variables, genre
   storage/data.ts            navigateur d'abord + dossier synchronisé (fusion), import/export
   storage/legacy.ts          formats anciens (data.json générateur, export ventes), fusion, partage, substitution de nom
-  views/                     Header, Anamnese (=COSI), Commentaire (=Anamnèse), Mails, ChatPartenaire, Ventes, Reglages, Setup
+  views/                     Header, Anamnese (=COSI), Commentaire (=Anamnèse), Mails, ChatPartenaire, Reglages, Setup
   views/OrlFinder.tsx        ORL Finder (Piste) : ORL Doctolib proches avec prochain créneau, TOP 3, message type
   orl-tri.ts                 tri (« Trier par ») et filtres rapides de l'ORL Finder : fonctions pures, aucun appel Doctolib
   doctolib.ts, geo.ts        appels Doctolib (recherche, créneaux, fiche praticien), via Doctolib Pro (session du conseiller) puis site public en secours, toujours exécutés dans un onglet du site (fetchViaTab) ; code postal → GPS (public/data/codes-postaux.json, script scripts/codes-postaux.mjs)
@@ -83,7 +83,7 @@ Le panneau envoie des `ContentRequest` (`src/shared/messages.ts`) via `chrome.ta
 - Composeur d'e-mail de l'Opportunité : boutons **Client / Partenaire** en haut (destinataire). Les mêmes libellés existent dans le formulaire de résumé d'appel : ne chercher le choix que dans le composeur, délimité par l'éditeur `.ql-editor` et son bouton « Envoyer » (`composerOf` dans `actions.ts`). Choisir le destinataire AVANT de remplir objet et corps. Juste après l'ouverture, les boutons arrivent après l'éditeur et Salesforce vide le corps en finissant son affichage : attendre, insérer, puis vérifier que le corps est toujours là.
 
 ## Données
-`AppData` (voir `model.ts`) : `reglages`, `anamnese {situations, textes ({{resume}} = emplacement du résumé), phrases}`, `chatPartenaire`, `templates`, `categories`, `ventes`. Variables de texte : `{{nom}}`, `{{date}}`, `{{heure}}`, `{{nom partenaire}}`, `{{adresse}}`, `{{nom_conseiller}}`, `{{tel_conseiller}}`, `{{email_conseiller}}`, `{{titre_conseiller}}` ; formes `patient(e)`, `il(elle)`, `conseiller(ère)` résolues par `resolveGenre`.
+`AppData` (voir `model.ts`) : `reglages`, `anamnese {situations, textes ({{resume}} = emplacement du résumé), phrases}`, `chatPartenaire`, `templates`, `categories`, `ventes` (plus affiché ici, mais **gardé** dans les données et les fusions : le même `cockpit.json` peut servir à Cockpit Benjamin). Variables de texte : `{{nom}}`, `{{date}}`, `{{heure}}`, `{{nom partenaire}}`, `{{adresse}}`, `{{nom_conseiller}}`, `{{tel_conseiller}}`, `{{email_conseiller}}`, `{{titre_conseiller}}` ; formes `patient(e)`, `il(elle)`, `conseiller(ère)` résolues par `resolveGenre`.
 Toute fusion de données passe par `mergeData` / `mergeVentes` / `mergePartage` (union, jamais de perte).
 
 ## Publier une version (chef d'orchestre uniquement)
