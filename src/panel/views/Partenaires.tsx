@@ -106,7 +106,7 @@ export function Partenaires({ ficheKey, surPiste, lire }: Props) {
         <Btn kind="ghost" icon="refresh" title="Relire Partner Search et les créneaux (ignore les résultats mémorisés)" onClick={() => { force.current = true; setTick((n) => n + 1); }} busy={enCours} />
       </div>
 
-      {note && <div class="note"><Icon name="alert" size={12} /> {note}</div>}
+      {note && lignes.length === 0 && <div class="note"><Icon name="alert" size={12} /> {note}</div>}
 
       {error && (
         <div class="card" style="animation:none">
@@ -156,15 +156,19 @@ function Motif({ m, url }: { m: MotifCreneaux; url: string }) {
           <div class="row" style="gap:5px;flex-wrap:wrap">
             <span class="note" style="color:var(--success);font-weight:600"><Icon name="calendar2" size={12} /> {jourLabel(jour.date)}</span>
             {jour.creneaux.slice(0, CRENEAUX).map((c) => <button key={c} type="button" class="chip small" title={`Réserver ${jourLabel(c)} à ${heureLabel(c)} sur Doctolib`} onClick={() => openUrl(url)}>{heureLabel(c)}</button>)}
-            {jour.total > CRENEAUX && <span class="note" style="font-size:11px">+ {jour.total - CRENEAUX} autres</span>}
+            {jour.total > CRENEAUX && <span class="note" style="font-size:11px">+ {jour.total - CRENEAUX} autres créneaux</span>}
           </div>
         )}
     </div>
   );
 }
 
+/** Nom de site lisible pour un bouton (« oxance.fr »). */
+const hote = (u: string) => { try { return new URL(u).hostname.replace(/^www\./, ''); } catch { return u; } };
+
 function Carte({ l }: { l: LignePartenaire }) {
-  const [ouvert, setOuvert] = useState(false);
+  // Le commentaire dit souvent quel motif de RDV prendre : ouvert d'office.
+  const [ouvert, setOuvert] = useState(true);
   const p = l.partenaire;
   const lien = l.lien;
   const premier = premierCreneau(l);
@@ -191,7 +195,17 @@ function Carte({ l }: { l: LignePartenaire }) {
         </div>
       )}
       {lien.sorte === 'pro' && <div class="row"><Btn kind="soft" icon="calendar2" onClick={() => openUrl(lien.url)} title="Ouvre l'agenda Doctolib Pro du partenaire (secrétariat)">Agenda Doctolib Pro</Btn></div>}
-      {lien.sorte === 'autre' && <div class="row"><Btn kind="soft" icon="external" onClick={() => openUrl(lien.url)} title={lien.url}>Prendre RDV sur {new URL(lien.url).hostname.replace(/^www\./, '')}</Btn></div>}
+      {lien.sorte === 'autre' && <div class="row"><Btn kind="soft" icon="external" onClick={() => openUrl(lien.url)} title={lien.url}>Prendre RDV sur {hote(lien.url)}</Btn></div>}
+      {(() => {
+        // Les autres liens des détails (ORL, autre agenda…) en petits boutons.
+        const principal = 'url' in lien ? lien.url : '';
+        const autres = p.liens.filter((u) => u !== principal);
+        return autres.length > 0 && (
+          <div class="row" style="gap:5px;flex-wrap:wrap">
+            {autres.map((u) => <Btn key={u} kind="ghost" icon="external" onClick={() => openUrl(u)} title={u}>{hote(u)}</Btn>)}
+          </div>
+        );
+      })()}
 
       {p.commentaire && (
         <div class="stack" style="gap:4px">

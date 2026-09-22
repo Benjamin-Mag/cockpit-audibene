@@ -39,6 +39,7 @@ src/content/salesforce/
   actions.ts                 MV, commentaire (Remarques générales profil client), Chat Partenaire (Chatter), SMS Hearo, COSI, mail
   index.ts                   écouteur de messages du cadre principal + port de contexte
   frame.ts                   cadres secondaires (dont l'app Canvas Hearo) : ping + recherche SMS
+  partnerSearch.ts           onglet « Partner Search » de la Piste : partenaires, pastilles, « Commentaire Partnersearch » et liens (ouvre « Détails », referme)
 src/content/doctolib.ts, acuitis.ts, forms.ts   collage du patient dans les formulaires de RDV
 src/shared/                  messages.ts (protocole panneau ↔ page), types.ts, anamnese-catalog.ts (champs COSI), mail-html.ts
 src/panel.html + src/panel/
@@ -50,6 +51,8 @@ src/panel.html + src/panel/
   storage/legacy.ts          formats anciens (data.json générateur, export ventes), fusion, partage, substitution de nom
   views/                     Header, Anamnese (=COSI), Commentaire (=Anamnèse), Mails, ChatPartenaire, Reglages, Setup
   views/OrlFinder.tsx        ORL Finder (Piste) : ORL Doctolib proches avec prochain créneau, TOP 3, message type
+  views/Partenaires.tsx      page « Partenaires » (sélecteur du haut) : partenaires de Partner Search avec créneaux Doctolib
+  partenaires-sf.ts          classement des liens (Doctolib public / agenda Pro / autre site), choix des motifs, tri, cache 10 min par fiche
   orl-tri.ts                 tri (« Trier par ») et filtres rapides de l'ORL Finder : fonctions pures, aucun appel Doctolib
   doctolib.ts, geo.ts        appels Doctolib (recherche, créneaux, fiche praticien), via Doctolib Pro (session du conseiller) puis site public en secours, toujours exécutés dans un onglet du site (fetchViaTab) ; code postal → GPS (public/data/codes-postaux.json, script scripts/codes-postaux.mjs)
   components/ui.tsx          Btn, Chip, Seg, Field, DeleteBtn, EditablePreview, Toast, icônes
@@ -58,13 +61,14 @@ src/index.html               page d'installation (GitHub Pages)
 ```
 
 ### Protocole panneau ↔ page
-Le panneau envoie des `ContentRequest` (`src/shared/messages.ts`) via `chrome.tabs.sendMessage` ; la page répond par un `ContentResponse`. Avant tout envoi, `ensureContent` ping la page et injecte `content.js` si absent ou périmé. Le contexte (Piste/Opportunité, composeur ouvert) est poussé par un port tant que le panneau est ouvert. Pour un cadre précis (application Canvas), `sendToFrame` + `chrome.webNavigation.getAllFrames` + permission d'origine demandée au clic (`optional_host_permissions`).
+Le panneau envoie des `ContentRequest` (`src/shared/messages.ts`) via `chrome.tabs.sendMessage` ; la page répond par un `ContentResponse`. Avant tout envoi, `ensureContent` ping la page et injecte `content.js` si absent ou périmé. Le contexte (Piste/Opportunité, composeur ouvert) est poussé par un port tant que le panneau est ouvert. `lirePartnerSearch` → `{ ok, msg, partenaires: PartenaireSF[] }` (lecture de l'onglet Partner Search, au clic seulement). Pour un cadre précis (application Canvas), `sendToFrame` + `chrome.webNavigation.getAllFrames` + permission d'origine demandée au clic (`optional_host_permissions`).
 
 ### Vocabulaire de Benjamin (à respecter dans l'interface)
 - **COSI** = remplir les champs de l'onglet Anamnèse d'une Piste par puces (`views/Anamnese.tsx`).
 - **Anamnèse** = texte intro + résumé Salesforce collé + signature, écrit dans « Remarques générales profil client » (`views/Commentaire.tsx`).
 - **Chat partenaire** = fil Chatter de l'Opportunité (`views/ChatPartenaire.tsx`).
 - **Message vocal** = commentaire « MV » dans Commentaires internes + « Piste non joignable ».
+- **Partenaires** = page à côté de Cockpit (sélecteur du haut, à la place des anciennes Ventes) : partenaires de la Piste lus dans Partner Search, créneaux Doctolib des partenaires qui ont une page publique (test auditif, première consultation avec puis sans ordonnance), agenda Doctolib Pro ou autre site en bouton, commentaire Partnersearch affiché (il dit quel motif prendre).
 - **Hearo** = utilitaire SMS de la barre du bas (app Canvas, libellé variable : Hearo / Nouveau message / Approbation en attente).
 - **ORL Finder** = onglet de la Piste : ORL proches du patient (Doctolib) avec créneau visible, tri créneau disponible → secteur 1 avant secteur 2 → créneau le plus tôt → distance (v1.0.33), « pas de téléphone = pas de ligne », TOP 3, message type audiométrie, itinéraire Google Maps. « Trier par » (pertinence / plus tôt / plus proche, mémorisé), puces cumulables et recherche par nom ou ville : tout se fait sur les résultats déjà chargés (v1.0.34).
 
