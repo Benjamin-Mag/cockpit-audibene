@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
 import type { ContentRequest } from '../shared/messages';
 import type { ActionResult, Fiche, RecentPatient, SfContext } from '../shared/types';
-import { type Site, connectContext, ensureOrigin, subFrames, isExtension, loadRecent, onCommand, onRecentChanged, pushRecent, readFiche, runAction, sendToFrame, siteOf, watchActiveTab, writeClipboard } from './bridge';
+import { type Site, connectContext, ensureOrigin, subFrames, isExtension, loadRecent, onCommand, onRecentChanged, pushRecent, readFiche, readPartnerSearch, runAction, sendToFrame, siteOf, watchActiveTab, writeClipboard } from './bridge';
 import { Btn, Icon, type IconName, Toast, type ToastMsg } from './components/ui';
 import { type AppData, defaultData } from './model';
 import { type StorageState, authorize, chooseFolder, exportLegacy, initStorage, parseAny, save, useBrowserStorage } from './storage/data';
@@ -13,6 +13,7 @@ import { Commentaire } from './views/Commentaire';
 import { Header } from './views/Header';
 import { Mails } from './views/Mails';
 import { OrlFinder } from './views/OrlFinder';
+import { Partenaires } from './views/Partenaires';
 import { Reglages } from './views/Reglages';
 import { buildMailHtml } from '../shared/mail-html';
 import { Setup } from './views/Setup';
@@ -27,6 +28,7 @@ const TABS: { id: TabId; label: string; icon: IconName }[] = [
   { id: 'chat', label: 'Chat partenaire', icon: 'message' },
   { id: 'reglages', label: '', icon: 'settings' },
 ];
+type PageId = 'cockpit' | 'partenaires';
 const VERSION = isExtension ? chrome.runtime.getManifest().version : 'web';
 const RDV_NOTE = 'Rendez-vous Audibene';
 
@@ -37,6 +39,7 @@ export function App() {
   const saveTimer = useRef<number | undefined>(undefined);
 
   const [tab, setTab] = useState<TabId>('anamnese');
+  const [pageMode, setPageMode] = useState<PageId>('cockpit');
   const [site, setSite] = useState<Site>('none');
   const [tabId, setTabId] = useState<number | null>(null);
   const [ctx, setCtx] = useState<SfContext | null>(null);
@@ -298,7 +301,13 @@ export function App() {
   // Dès qu'on dialogue avec une page Salesforce, les actions sont proposées : la
   // page dit elle-même si un champ manque, plutôt que de cacher les boutons.
   const connected = site === 'salesforce' && !!ctx;
-  const goTo = (t: TabId) => setTab(t);
+  const goTo = (t: TabId) => { setPageMode('cockpit'); setTab(t); };
+  const pageSwitch = (
+    <div class="pages">
+      <button type="button" class={pageMode === 'cockpit' ? 'on' : ''} onClick={() => setPageMode('cockpit')}><Icon name="stetho" size={13} /> Cockpit</button>
+      <button type="button" class={pageMode === 'partenaires' ? 'on' : ''} onClick={() => setPageMode('partenaires')}><Icon name="building" size={13} /> Partenaires</button>
+    </div>
+  );
 
   // Onglets adaptés à la fiche : une Piste n'envoie pas de mail, une Opportunité n'a pas d'anamnèse.
   const page = connected ? ctx!.page : 'other';
@@ -307,8 +316,21 @@ export function App() {
   const visibleTabs = TABS.filter((t) => !hidden.includes(t.id));
   const activeTab: TabId = hidden.includes(tab) ? visibleTabs[0].id : tab;
 
+  if (pageMode === 'partenaires') {
+    return (
+      <>
+        <div class="top">{pageSwitch}</div>
+        <main class="content">
+          <Partenaires key={recordKey} ficheKey={recordKey} surPiste={connected && ctx?.page === 'lead'} lire={() => (tabId == null ? Promise.reject(new Error("Pas d'onglet Salesforce.")) : readPartnerSearch(tabId))} />
+        </main>
+        <Toast toast={toast} />
+      </>
+    );
+  }
+
   return (
     <>
+      <div class="top" style="padding-bottom:0">{pageSwitch}</div>
       <Header site={site} ctx={ctx} fiche={fiche} ficheState={ficheState} recent={recent} busy={busy} arrierePlan={arrierePlan} onRevenir={() => void revenirSurSalesforce()} onMv={runMv} onPaste={pastePatient} onSms={openSms} onRefresh={() => setFicheTick((n) => n + 1)} goTo={goTo} />
       {storage.sync === 'paused' && (
         <div class="banner" style="margin:8px 12px 0">
