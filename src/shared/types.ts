@@ -25,6 +25,24 @@ export interface SfContext {
   url: string;
 }
 
+/** Un partenaire de l'onglet « Partner Search » d'une Piste, tel que Salesforce le propose. */
+export interface PartenaireSF {
+  /** « Audition de la Fontaine - Nimes » */
+  nom: string;
+  /** « 18 Avenue Franklin Roosevelt, Nimes, 30900, Occitanie » */
+  adresse: string;
+  /** Texte tel qu'affiché : « 36.1 km » */
+  distance: string;
+  /** « 40 mins » */
+  duree: string;
+  /** Titres des icônes : « RDV en ligne », « Processus ORL géré », « Pas sans ordonnance »… */
+  pastilles: string[];
+  /** Texte du « Commentaire Partnersearch » (consignes de prise de RDV). */
+  commentaire: string;
+  /** Toutes les URL trouvées dans les détails du partenaire (commentaire, processus ORL…). */
+  liens: string[];
+}
+
 /** Destinataire choisi en haut du composeur d'e-mail Salesforce. */
 export type MailRecipient = 'Client' | 'Partenaire';
 

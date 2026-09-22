@@ -1,5 +1,5 @@
 import { CONTENT_VERSION, PORT_NAME, type ContentRequest, type ContentResponse, type ContextPush } from '../shared/messages';
-import type { ActionResult, Fiche, RecentPatient, SfContext } from '../shared/types';
+import type { ActionResult, Fiche, PartenaireSF, RecentPatient, SfContext } from '../shared/types';
 
 export type Site = 'salesforce' | 'doctolib' | 'acuitis' | 'none';
 
@@ -71,6 +71,13 @@ export async function runAction(tabId: number, req: ContentRequest): Promise<Act
   const r = await send(tabId, req);
   if (r.type !== 'result') throw new Error('Réponse inattendue');
   return r.result;
+}
+
+/** Partenaires de l'onglet Partner Search de la Piste ouverte (ouvre les détails de chacun, puis les referme). */
+export async function lirePartnerSearch(tabId: number): Promise<{ ok: boolean; msg: string; partenaires: PartenaireSF[] }> {
+  const r = await send(tabId, { type: 'lirePartnerSearch' });
+  if (r.type !== 'partenaires') throw new Error('Réponse inattendue');
+  return { ok: r.ok, msg: r.msg, partenaires: r.partenaires };
 }
 
 export async function readFiche(tabId: number, withPartner: boolean): Promise<Fiche> {

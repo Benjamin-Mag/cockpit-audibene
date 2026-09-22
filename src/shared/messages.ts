@@ -1,4 +1,4 @@
-import type { ActionResult, Fiche, PatientData, SfContext, MailRecipient } from './types';
+import type { ActionResult, Fiche, MailRecipient, PartenaireSF, PatientData, SfContext } from './types';
 
 /** Change à chaque build : un script de page d'une autre version est remplacé par le panneau. */
 export const CONTENT_VERSION: string = __COCKPIT_BUILD__;
@@ -18,13 +18,15 @@ export type ContentRequest =
   | { type: 'diagSms' }
   | { type: 'openComposer' }
   | { type: 'insertMail'; subject: string; html: string; recipient?: MailRecipient }
-  | { type: 'pastePatient'; data: PatientData; note: string };
+  | { type: 'pastePatient'; data: PatientData; note: string }
+  | { type: 'lirePartnerSearch' };
 
 export type ContentResponse =
   | { type: 'pong'; version: string; site: 'salesforce' | 'doctolib' | 'acuitis' }
   | { type: 'context'; context: SfContext }
   | { type: 'fiche'; fiche: Fiche }
-  | { type: 'result'; result: ActionResult };
+  | { type: 'result'; result: ActionResult }
+  | { type: 'partenaires'; ok: boolean; msg: string; partenaires: PartenaireSF[] };
 
 /** Script de contenu → panneau (port). */
 export type ContextPush = { type: 'contextChanged'; context: SfContext };
