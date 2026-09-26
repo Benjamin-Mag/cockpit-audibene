@@ -23,6 +23,8 @@ const CACHE_KEY = 'orlFinderCache';
 const TRI_KEY = 'orlFinderTri';
 /** Durée de validité d'une recherche (code postal + filtres). */
 export const CACHE_MS = 10 * 60 * 1000;
+/** Au-delà de CACHE_MS, les résultats sont encore réaffichés (et rafraîchis derrière) jusqu'à ce délai. */
+export const CACHE_VUE_MS = 2 * 60 * 60 * 1000;
 const CACHE_MAX = 12;
 
 const isExtension = typeof chrome !== 'undefined' && !!chrome.runtime?.id && !!chrome.storage;
@@ -61,16 +63,16 @@ export const saveTri = (t: TriOrl) => set(TRI_KEY, t);
 
 export const cacheKey = (cp: string, p: OrlPrefs) => `${cp}|${p.delai}|${p.secteur}`;
 
-export async function loadResultat(key: string): Promise<Resultat | null> {
+export async function loadResultat(key: string, maxAge = CACHE_MS): Promise<Resultat | null> {
   const all = (await get<Record<string, Resultat>>(CACHE_KEY)) ?? {};
   const r = all[key];
-  return r && Array.isArray(r.lignes) && Date.now() - r.at < CACHE_MS ? r : null;
+  return r && Array.isArray(r.lignes) && Date.now() - r.at < maxAge ? r : null;
 }
 
 export async function saveResultat(key: string, r: Resultat): Promise<void> {
   const all = (await get<Record<string, Resultat>>(CACHE_KEY)) ?? {};
   const now = Date.now();
-  for (const [k, v] of Object.entries(all)) if (!v || now - v.at >= CACHE_MS) delete all[k];
+  for (const [k, v] of Object.entries(all)) if (!v || now - v.at >= CACHE_VUE_MS) delete all[k];
   all[key] = r;
   const keys = Object.keys(all).sort((a, b) => all[a].at - all[b].at);
   while (keys.length > CACHE_MAX) delete all[keys.shift()!];
