@@ -325,7 +325,6 @@ export function App() {
   const connected = site === 'salesforce' && !!ctx;
   // Le bandeau du dossier ne sort que s'il y a vraiment quelque chose à y copier.
   const aCopier = (data.updatedAt ?? 0) > dossierEcritLe();
-  const goTo = (t: TabId) => { setPageMode('cockpit'); setTab(t); };
   const pageSwitch = (
     <div class="pages">
       <button type="button" class={pageMode === 'cockpit' ? 'on' : ''} onClick={() => setPageMode('cockpit')}><Icon name="stetho" size={13} /> Cockpit</button>
@@ -355,7 +354,7 @@ export function App() {
   return (
     <>
       <div class="top" style="padding-bottom:0">{pageSwitch}</div>
-      <Header site={site} ctx={ctx} fiche={fiche} ficheState={ficheState} recent={recent} busy={busy} arrierePlan={arrierePlan} onRevenir={() => void revenirSurSalesforce()} onMv={runMv} onPaste={pastePatient} onSms={openSms} onRefresh={() => setFicheTick((n) => n + 1)} goTo={goTo} />
+      <Header site={site} ctx={ctx} fiche={fiche} ficheState={ficheState} recent={recent} busy={busy} arrierePlan={arrierePlan} onRevenir={() => void revenirSurSalesforce()} onMv={runMv} onPaste={pastePatient} onSms={openSms} onRefresh={() => setFicheTick((n) => n + 1)} />
       {storage.sync === 'paused' && !silence && aCopier && (
         <div class="banner" style="margin:8px 12px 0">
           <Icon name="folder" />

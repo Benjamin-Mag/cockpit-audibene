@@ -16,7 +16,6 @@ interface Props {
   onRefresh: () => void;
   onPaste: (p: RecentPatient) => void;
   onSms: () => void;
-  goTo: (tab: 'anamnese' | 'commentaire' | 'mails' | 'chat') => void;
 }
 
 const civ = (g: 'M' | 'F' | null) => (g === 'F' ? 'Mme' : g === 'M' ? 'M.' : '');
@@ -25,7 +24,7 @@ const ago = (t: number) => {
   return m < 1 ? "à l'instant" : m < 60 ? `il y a ${m} min` : m < 1440 ? `il y a ${Math.round(m / 60)} h` : `il y a ${Math.round(m / 1440)} j`;
 };
 
-export function Header({ site, ctx, fiche, ficheState, recent, busy, arrierePlan, onRevenir, onMv, onRefresh, onPaste, onSms, goTo }: Props) {
+export function Header({ site, ctx, fiche, ficheState, recent, busy, arrierePlan, onRevenir, onMv, onRefresh, onPaste, onSms }: Props) {
   const page = ctx?.page ?? 'other';
   const onSf = site === 'salesforce' && !!ctx;
   const hasFiche = !!fiche && !!(fiche.prenom || fiche.nom);
@@ -123,16 +122,6 @@ export function Header({ site, ctx, fiche, ficheState, recent, busy, arrierePlan
                 </Btn>
               </div>
             )}
-            <div class="actions" style="margin-top:8px">
-              {page !== 'opportunity' && (
-                <>
-                  <Btn kind="soft" icon="stetho" onClick={() => goTo('anamnese')}>COSI</Btn>
-                  <Btn kind="soft" icon="pen" onClick={() => goTo('commentaire')}>Anamnèse</Btn>
-                </>
-              )}
-              {page !== 'lead' && <Btn kind="soft" icon="mail" onClick={() => goTo('mails')}>Mail</Btn>}
-              {page !== 'lead' && <Btn kind="soft" icon="message" onClick={() => goTo('chat')}>Chat partenaire</Btn>}
-            </div>
           </div>
         )}
       </div>
