@@ -1,5 +1,7 @@
 import { defineConfig } from '@playwright/test';
 
+const PORT = Number(process.env.PW_PORT ?? 5199);
+
 // Banc d'essai du panneau : le vrai panneau (npm run dev) dans un faux navigateur
 // (tests/e2e/faux-navigateur.js) qui joue Salesforce, Doctolib et Acuitis.
 // Lancer : npm test  (rapport : npx playwright show-report)
@@ -11,7 +13,7 @@ export default defineConfig({
   workers: 4,
   reporter: [['list'], ['html', { open: 'never', outputFolder: 'tests/rapport' }]],
   use: {
-    baseURL: 'http://localhost:5199',
+    baseURL: `http://localhost:${PORT}`,
     viewport: { width: 400, height: 860 },
     locale: 'fr-FR',
     timezoneId: 'Europe/Paris',
@@ -21,8 +23,8 @@ export default defineConfig({
     launchOptions: process.env.CHROMIUM_PATH ? { executablePath: process.env.CHROMIUM_PATH } : {},
   },
   webServer: {
-    command: 'npx vite --port 5199 --strictPort',
-    url: 'http://localhost:5199/panel.html',
+    command: `npx vite --port ${PORT} --strictPort`,
+    url: `http://localhost:${PORT}/panel.html`,
     reuseExistingServer: true,
     timeout: 60_000,
   },
