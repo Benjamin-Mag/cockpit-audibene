@@ -228,18 +228,22 @@ export function isoLocal(d = new Date()): string {
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}${sign}${p(Math.floor(Math.abs(off) / 60))}:${p(Math.abs(off) % 60)}`;
 }
 
+/**
+ * Paramètres de /search/availabilities.json. Les listes (agendas, lieux) doivent partir en
+ * « agenda_ids[]=1&agenda_ids[]=2 » : séparées par des virgules, Doctolib répond 400
+ * « agenda_ids: must be an array » dès qu'un centre a plusieurs agendas.
+ */
+function paramsCreneaux(visitMotiveId: number, agendaIds: (number | string)[], practiceIds: (number | string)[]): string {
+  const q = new URLSearchParams({ telehealth: 'false', limit: '5', start_date_time: isoLocal(), visit_motive_id: String(visitMotiveId) });
+  for (const a of agendaIds) q.append('agenda_ids[]', String(a));
+  for (const p of practiceIds) q.append('practice_ids[]', String(p));
+  return q.toString();
+}
+
 /** Prochain créneau d'un praticien à ce lieu (un appel ; à espacer de PAUSE_MS entre praticiens). */
 export async function prochainCreneau(o: Orl, source: Source = o.source ?? 'public'): Promise<Creneau> {
   if (!o.visitMotiveId || !o.agendaIds.length || !o.practiceId) return { next: null, raison: 'Pas de prise de RDV en ligne' };
-  const q = new URLSearchParams({
-    telehealth: 'false',
-    limit: '5',
-    start_date_time: isoLocal(),
-    visit_motive_id: String(o.visitMotiveId),
-    agenda_ids: o.agendaIds.join(','),
-    practice_ids: o.practiceId,
-  });
-  const res = await call(source, `/search/availabilities.json?${q.toString()}`);
+  const res = await call(source, `/search/availabilities.json?${paramsCreneaux(o.visitMotiveId, o.agendaIds, [o.practiceId])}`);
   const json = (await res.json()) as { next_slot?: string | null; reason?: string | null; availabilities?: { date: string; slots: unknown[] }[] };
   const first = json.availabilities?.find((a) => a.slots?.length);
   const slot = first?.slots?.[0];
@@ -265,8 +269,7 @@ export interface JourCreneaux { date: string; creneaux: string[]; total: number;
 
 /** Créneaux du jour le plus proche pour un motif (ISO avec décalage), à partir de maintenant. */
 export async function creneauxMotif(m: MotifDoctolib, source: Source = 'public'): Promise<JourCreneaux> {
-  const q = new URLSearchParams({ telehealth: 'false', limit: '5', start_date_time: isoLocal(), visit_motive_id: String(m.id), agenda_ids: m.agendaIds.join(','), practice_ids: m.practiceIds.join(',') });
-  const res = await call(source, `/search/availabilities.json?${q.toString()}`);
+  const res = await call(source, `/search/availabilities.json?${paramsCreneaux(m.id, m.agendaIds, m.practiceIds)}`);
   const json = (await res.json()) as { total?: number; reason?: string | null; next_slot?: string | null; availabilities?: { date: string; slots?: unknown[] }[] };
   const slot = (s: unknown) => (typeof s === 'string' ? s : s && typeof s === 'object' && 'start_date' in s ? String((s as { start_date: unknown }).start_date) : '');
   const jour = json.availabilities?.find((a) => a.slots?.length);
