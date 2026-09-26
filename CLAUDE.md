@@ -9,9 +9,10 @@ Extension Chrome/Edge (Manifest V3) : un panneau latéral à côté de Salesforc
 1. **`main` est réservé au chef d'orchestre** (la session « projets-b4 »). Tout autre agent travaille sur une branche, ouvre une Pull Request et envoie un rapport ; le chef d'orchestre relit, teste, merge et publie. Ne jamais pousser sur `main`, ne jamais créer de tag.
 2. **Ne jamais modifier les anciens repos** (`Générateur de mail`, `Suivi Ventes Primes`, `Colleur*`, `Extension Message Vocal`) : les collègues les utilisent encore. Lecture seule, comme référence.
 3. **Pas de `confirm()` / `alert()` / `prompt()`** : bloqués dans un panneau latéral. Utiliser `DeleteBtn` (deux temps) et les toasts.
-4. **Aucune donnée ne quitte le poste** : pas de télémétrie, pas d'appel réseau — seules exceptions : l'ORL Finder interroge Doctolib avec les coordonnées GPS du code postal du patient (jamais son nom), et la page Partenaires demande à Doctolib ou à rdv.acuitis.com les créneaux libres d'un partenaire (rien du patient n'est envoyé). Les données vivent dans `chrome.storage.local` + `cockpit.json`.
-5. Design : palette de l'ancien générateur (`--accent #1b4f9b`, fond `#eaf3fb`, Poppins), animations lentes et douces (≥ 280 ms), tout texte généré affiché dans un `EditablePreview`.
-6. TypeScript strict, pas de commentaires explicatifs inutiles, commits en français avec le trailer `Co-Authored-By` du modèle Claude utilisé.
+4. **Rien d'identifiable dans le dépôt** (il est public) : ni identifiant de fiche Salesforce (`00Q…`, `006…`), ni nom de patient, ni téléphone, ni e-mail, ni nom de partenaire réel, ni identifiant de rapport interne — y compris dans les journaux de `docs/`, les messages de commit et les Pull Requests. Pour un exemple, écrire « une Piste de test », « un centre partenaire ». Les vrais jeux d'essai restent en local.
+5. **Aucune donnée ne quitte le poste** : pas de télémétrie, pas d'appel réseau — seules exceptions : l'ORL Finder interroge Doctolib avec les coordonnées GPS du code postal du patient (jamais son nom), et la page Partenaires demande à Doctolib ou à rdv.acuitis.com les créneaux libres d'un partenaire (rien du patient n'est envoyé). Les données vivent dans `chrome.storage.local` + `cockpit.json`.
+6. Design : palette de l'ancien générateur (`--accent #1b4f9b`, fond `#eaf3fb`, Poppins), animations lentes et douces (≥ 280 ms), tout texte généré affiché dans un `EditablePreview`.
+7. TypeScript strict, pas de commentaires explicatifs inutiles, commits en français avec le trailer `Co-Authored-By` du modèle Claude utilisé.
 
 ## Commandes
 
