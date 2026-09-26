@@ -20,6 +20,8 @@ export interface Scenario {
   creneauxEnDouble?: boolean;
   /** La page Salesforce répond au ping mais plus à aucune autre demande (script figé). */
   pageMuette?: boolean;
+  /** Page Salesforce qui répond au ping mais ne pousse jamais son contexte (connexion, page Setup…). */
+  sansContexte?: boolean;
   /** Partenaire et adresse absents de la lecture rapide : lus seulement quand le panneau les demande. */
   partenaireALaDemande?: boolean;
   /** 30 ORL au lieu de 6 (plus que l'affichage initial de l'ORL Finder). */

@@ -21,4 +21,11 @@ test.describe('Relecture : correctifs', () => {
     await expect.poll(async () => (await p.demandes('runMv')).length).toBe(2);
     expect(p.erreurs).toEqual([]);
   });
+
+  test('Réglages reste accessible quand la page Salesforce ne répond pas', async ({ page }) => {
+    await ouvrir(page, { onglet: ONGLET.piste, sansContexte: true });
+    await expect(page.getByText('Connexion à la page Salesforce…')).toBeVisible();
+    await page.getByRole('button', { name: 'Réglages', exact: true }).first().click();
+    await expect(page.getByText('Signature', { exact: true })).toBeVisible();
+  });
 });

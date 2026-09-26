@@ -148,7 +148,7 @@
     const onDisconnect = ecouteurs();
     const port = { name: info?.name, onMessage, onDisconnect, disconnect: () => note('tabs', 'disconnect', { tabId }), postMessage: () => {} };
     ports.push({ tabId, port });
-    setTimeout(() => onMessage._emit({ type: 'contextChanged', context: ctxDe(tabId) }), 30);
+    if (!S.sansContexte) setTimeout(() => onMessage._emit({ type: 'contextChanged', context: ctxDe(tabId) }), 30);
     return port;
   };
 

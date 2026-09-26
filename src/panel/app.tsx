@@ -362,6 +362,7 @@ export function App() {
         </div>
       )}
       <main class="content">
+        {/* Réglages reste joignable même quand la page Salesforce ne répond pas (connexion, page Setup, script figé). */}
         {site === 'salesforce' && !ctx ? null : <>
         {activeTab === 'fiche' && parcours.length > 1 && site !== 'doctolib' && site !== 'acuitis' && (
           <div class="view accueil">
@@ -400,8 +401,8 @@ export function App() {
           <ChatPartenaire key={recordKey} ficheKey={recordKey} data={data} update={update} fiche={fiche} connected={connected && ctx?.page !== 'lead'} busy={busy === 'chat'}
             onWrite={(text) => act('chat', { type: 'writeChatPartenaire', text }).then((r) => { if (r?.ok) effacerBrouillon(recordKey, 'chat.'); })} toast={showToast} />
         )}
-        {activeTab === 'reglages' && <Reglages data={data} update={update} storage={storage} aCopier={aCopier} silence={silence} onSilence={(v) => { setDossierSilencieux(v); setSilence(v); }} onChangeFolder={doChooseFolder} onAuthorize={doAuthorize} onImport={doImport} onExport={doExport} onExportShare={doExportShare} onExportLegacy={doExportLegacy} version={VERSION} />}
         </>}
+        {activeTab === 'reglages' && <Reglages data={data} update={update} storage={storage} aCopier={aCopier} silence={silence} onSilence={(v) => { setDossierSilencieux(v); setSilence(v); }} onChangeFolder={doChooseFolder} onAuthorize={doAuthorize} onImport={doImport} onExport={doExport} onExportShare={doExportShare} onExportLegacy={doExportLegacy} version={VERSION} />}
       </main>
       <div class="footer" ref={setFooterEl} />
       <nav class="barre" aria-label="Écrans">
@@ -409,7 +410,7 @@ export function App() {
           const e = ECRANS[id];
           const enCours = !!e.brouillon && aUnBrouillon(recordKey, e.brouillon) && activeTab !== id;
           return (
-            <button key={id} type="button" class={activeTab === id ? 'on' : ''} aria-current={activeTab === id ? 'page' : undefined} onClick={() => setTab(id)} title={e.titre}>
+            <button key={id} type="button" class={activeTab === id ? 'on' : ''} aria-current={activeTab === id ? 'page' : undefined} disabled={site === 'salesforce' && !ctx} onClick={() => setTab(id)} title={e.titre}>
               <span class="pill"><Icon name={e.icon} size={18} />{enCours && <span class="marque" title="Saisie en cours" />}</span>
               {e.label}
             </button>
