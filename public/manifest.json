@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "Cockpit Audibene",
+  "name": "Cockpit Essai",
   "version": "1.0.41",
-  "description": "Panneau latéral pour Salesforce : anamnèse, MV non joignable, commentaires, mails, prise de RDV et ORL Finder — en un clic.",
+  "description": "Version d’essai de Cockpit : nouveau design en cours de test. S’installe à côté de la version habituelle.",
   "permissions": ["sidePanel", "scripting", "activeTab", "tabs", "storage", "clipboardRead", "clipboardWrite", "webNavigation"],
   "host_permissions": [
     "*://*.salesforce.com/*",
