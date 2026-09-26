@@ -111,7 +111,7 @@ Toute fusion de données passe par `mergeData` / `mergeVentes` / `mergePartage` 
 2. Monter `version` dans `public/manifest.json` et `npm pkg set version=X.Y.Z`.
 3. `main` est protégé : commit sur une branche `chore/vX.Y.Z`, `gh pr create`, `gh pr merge --squash --delete-branch`, puis `git checkout main && git pull`, `git tag vX.Y.Z && git push origin vX.Y.Z`.
 4. Vérifier `gh run list --repo Benjamin-Mag/cockpit-audibene` : Release (zip) en succès.
-5. **Copier la version chez Benjamin** : `cp -r dist/. ~/Downloads/cockpit-audibene/` (et `cockpit-benjamin`, `cockpit-essai` pour leurs dépôts) — il n'a plus qu'à faire ↻ dans `edge://extensions`.
+5. **Copier la version chez Benjamin** : `cp -r dist/. "../Extensions installees/Cockpit Audibene/"` (et, depuis le dépôt Cockpit Benjamin, vers `../Extensions installees/Cockpit Benjamin/`). Toutes ses extensions non empaquetées vivent dans `Documents\Claude\Projects\Extensions installees\` — plus rien dans Téléchargements depuis le 2026-09-26. Il n'a plus qu'à faire ↻ dans `edge://extensions`. Edge lie une extension à son chemin : ne jamais déplacer ces dossiers.
 6. **Mettre le zip à disposition des collègues** : ce dépôt est **privé** depuis le 2026-09-26, donc `npm run zip` puis
    `gh release create vX.Y.Z --repo Benjamin-Mag/cockpit-audibene-install release/cockpit-audibene.zip release/cockpit-audibene-X.Y.Z.zip`.
    Le dépôt public `cockpit-audibene-install` (dossier `Projects/Page installation Cockpit`) ne contient **que** la page d'installation et les zips : jamais de code, jamais de journal.
