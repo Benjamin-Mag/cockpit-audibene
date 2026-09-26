@@ -45,7 +45,7 @@ src/shared/                  messages.ts (protocole panneau ↔ page), types.ts,
 src/panel.html + src/panel/
   app.tsx                    état global, stockage, pont vers la page, onglets adaptés à la fiche (la page Ventes n'existe que dans Cockpit Benjamin depuis la v1.0.35)
   bridge.ts                  chrome.tabs/scripting/webNavigation : envoi aux cadres, injection, fiches récentes, presse-papier, délais maximum
-  brouillons.ts              saisies en cours gardées par fiche (useBrouillon), mémoire de session, ménage (onglets fermés 2 h, 30 fiches, 12 h)
+  brouillons.ts              mémoire de session : saisies en cours par fiche (useBrouillon), dernière fiche lue (ficheMemo) et onglet Salesforce suivi (ongletSfGarde) ; ménage (onglets fermés 2 h, 30 fiches, 12 h)
   model.ts                   AppData (reglages, anamnese, chatPartenaire, templates, categories, ventes), variables, genre
   storage/data.ts            navigateur d'abord + dossier synchronisé (fusion), import/export
   storage/legacy.ts          formats anciens (data.json générateur, export ventes), fusion, partage, substitution de nom
@@ -81,15 +81,20 @@ Le panneau envoie des `ContentRequest` (`src/shared/messages.ts`) via `chrome.ta
 - Un `<label>` créé par nous dans la page entrerait en collision avec la recherche de labels Salesforce : le panneau vit dans le side panel, pas dans la page.
 - « Traitement médical » (liste double) refuse les clics scriptés (`event.isTrusted`) : reste manuel.
 - Après « Enregistrer », attendre ~1,2 s avant le clic suivant (re-rendu).
+- **Le navigateur recharge le panneau à chaque changement d'onglet** : aucune information ne survit dans une variable ou un `useRef`. Ce qui doit survivre va en mémoire de session (`brouillons.ts`) : les saisies, la dernière fiche lue (`ficheMemo`, réaffichée aussitôt, relue seulement si elle a plus de `FICHE_FRAICHE_MS`) et l'onglet Salesforce suivi (`ongletSfGarde`, sans lequel le panneau perdait la fiche en passant sur un site quelconque — v1.0.40).
 - **Le panneau garde la dernière fiche Salesforce** quand l'utilisateur passe sur un site sans rapport (`ongletSf` dans `app.tsx`) : les actions visent cet onglet en arrière-plan. Toute nouvelle saisie dans un onglet du panneau doit utiliser `useBrouillon(ficheKey, 'ecran.champ', départ)` au lieu de `useState`, et un aperçu retouché passe `retouche` à `EditablePreview`.
 - **Jamais de lecture `deepAll` périodique** (minuterie) dans la page Salesforce : parcourir tout le shadow DOM Lightning toutes les quelques secondes a figé Salesforce (v1.0.27, puis v1.0.32 : le suivi de contexte toutes les 0,8 s cherchait le composeur d'e-mail dans toute la page, coût proportionnel aux fiches gardées par la console, d'où des gels « de plus en plus » fréquents). Le port de contexte ne lit que l'adresse (`currentContext`). Les lectures lourdes se font au clic ou au changement de fiche.
 - Le champ « Commentaires » des Commentaires internes n'est PAS l'anamnèse : l'anamnèse va dans « Remarques générales profil client » (rubrique Commentaire en bas de la Piste).
 - Chatter : la zone « Partager une mise à jour… » devient un éditeur riche au focus ; taper via `execCommand('insertText')`, puis bouton « Envoyer un message ».
+- **Les champs d'une fiche ne sont dans la page que si son sous-onglet est affiché** : sur « Partner Search », plus rien n'est lisible. `readFiche` passe alors sur le sous-onglet des champs (« Anamnèse » / « Détails », jamais un onglet portant un autre nom), lit **tout** — y compris le code postal — puis rend l'utilisateur à son sous-onglet (v1.0.40).
 - Composeur d'e-mail de l'Opportunité : boutons **Client / Partenaire** en haut (destinataire). Les mêmes libellés existent dans le formulaire de résumé d'appel : ne chercher le choix que dans le composeur, délimité par l'éditeur `.ql-editor` et son bouton « Envoyer » (`composerOf` dans `actions.ts`). Choisir le destinataire AVANT de remplir objet et corps. Juste après l'ouverture, les boutons arrivent après l'éditeur et Salesforce vide le corps en finissant son affichage : attendre, insérer, puis vérifier que le corps est toujours là.
 
 ## Pièges Doctolib connus (ne pas réintroduire)
 - `/search/availabilities.json` : les listes se passent en **`agenda_ids[]=1&agenda_ids[]=2`** (idem `practice_ids[]`). Avec des virgules, Doctolib répond **400 « agenda_ids: must be an array »** dès qu'un centre a plusieurs agendas — un centre à agenda unique passait, d'où un bug invisible en test (v1.0.38). Tout passe par `paramsCreneaux()` dans `doctolib.ts`.
 - `start_date_time` doit être une heure **locale avec décalage** (`2026-09-26T16:00:00+02:00`), pas un `Z`.
+
+### Autorisation du dossier
+Le navigateur oublie l'autorisation d'écrire dans le dossier dès que le panneau se ferme, et rien ne permet de la redonner sans un clic de l'utilisateur. Le bandeau « Sauvegarde en pause » propose donc **Ne plus demander** (mémorisé dans `localStorage`, propre à ce navigateur, jamais dans `cockpit.json`) ; les données restent dans le navigateur et l'autorisation se redonne quand on veut depuis Réglages (v1.0.40).
 
 ## Données
 `AppData` (voir `model.ts`) : `reglages`, `anamnese {situations, textes ({{resume}} = emplacement du résumé), phrases}`, `chatPartenaire`, `templates`, `categories`, `ventes` (plus affiché ici, mais **gardé** dans les données et les fusions : le même `cockpit.json` peut servir à Cockpit Benjamin). Variables de texte : `{{nom}}`, `{{date}}`, `{{heure}}`, `{{nom partenaire}}`, `{{adresse}}`, `{{nom_conseiller}}`, `{{tel_conseiller}}`, `{{email_conseiller}}`, `{{titre_conseiller}}` ; formes `patient(e)`, `il(elle)`, `conseiller(ère)` résolues par `resolveGenre`.

@@ -4,7 +4,7 @@ import type { ActionResult, Fiche, RecentPatient, SfContext } from '../shared/ty
 import { type Site, connectContext, ensureOrigin, subFrames, isExtension, loadRecent, onCommand, onRecentChanged, pushRecent, readFiche, readPartnerSearch, runAction, sendToFrame, siteOf, watchActiveTab, writeClipboard } from './bridge';
 import { Btn, Icon, type IconName, Toast, type ToastMsg } from './components/ui';
 import { type AppData, defaultData } from './model';
-import { type StorageState, authorize, chooseFolder, exportLegacy, initStorage, parseAny, save, useBrowserStorage } from './storage/data';
+import { type StorageState, authorize, chooseFolder, dossierSilencieux, exportLegacy, initStorage, parseAny, save, setDossierSilencieux, useBrowserStorage } from './storage/data';
 import { mergeData, substituteName, toPartage } from './storage/legacy';
 import { downloadJson, pickJsonFile } from './storage/fs';
 import { Anamnese } from './views/Anamnese';
@@ -17,7 +17,7 @@ import { Partenaires } from './views/Partenaires';
 import { Reglages } from './views/Reglages';
 import { buildMailHtml } from '../shared/mail-html';
 import { Setup } from './views/Setup';
-import { VERIFICATION_MS, chargerBrouillons, effacerBrouillon, verifierOngletsOuverts } from './brouillons';
+import { FICHE_FRAICHE_MS, VERIFICATION_MS, chargerBrouillons, effacerBrouillon, ficheMemo, ongletSfGarde, setFicheMemo, setOngletSfGarde, verifierOngletsOuverts } from './brouillons';
 
 type TabId = 'anamnese' | 'commentaire' | 'orl' | 'mails' | 'chat' | 'reglages';
 const TABS: { id: TabId; label: string; icon: IconName }[] = [
@@ -34,6 +34,8 @@ const RDV_NOTE = 'Rendez-vous Audibene';
 
 export function App() {
   const [storage, setStorage] = useState<StorageState | null>(null);
+  // Le navigateur oublie l'autorisation du dossier à chaque fermeture : Benjamin peut cesser qu'on la redemande.
+  const [silence, setSilence] = useState(dossierSilencieux());
   const [data, setDataState] = useState<AppData | null>(null);
   const skipSave = useRef(true);
   const saveTimer = useRef<number | undefined>(undefined);
@@ -83,21 +85,31 @@ export function App() {
   // il garde alors la dernière fiche Salesforce et ses saisies, et les actions visent toujours cet onglet.
   useEffect(() => {
     let appel = 0;
-    return watchActiveTab(async (t) => {
-      const n = ++appel;
-      const s = siteOf(t?.url);
-      if (s === 'none' && ongletSf.current != null && isExtension) {
-        const garde = ongletSf.current;
-        const encore = await chrome.tabs.get(garde).then((x) => siteOf(x.url) === 'salesforce', () => false);
-        if (n !== appel) return;
-        if (encore) { setArrierePlan(true); setSite('salesforce'); setTabId(garde); return; }
-      }
-      if (s === 'salesforce') ongletSf.current = t?.id ?? null;
-      else if (s === 'none') ongletSf.current = null;
-      setArrierePlan(false);
-      setSite(s);
-      setTabId(t?.id ?? null);
-    });
+    let stop = () => { /* pas encore branché */ };
+    let annule = false;
+    // Le panneau est rechargé à chaque changement d'onglet : l'onglet Salesforce suivi est
+    // relu en mémoire de session, sinon on perdrait la fiche en passant sur un site quelconque.
+    void (async () => {
+      const garde = await ongletSfGarde();
+      if (annule) return;
+      if (ongletSf.current == null) ongletSf.current = garde;
+      stop = watchActiveTab(async (t) => {
+        const n = ++appel;
+        const s = siteOf(t?.url);
+        if (s === 'none' && ongletSf.current != null && isExtension) {
+          const suivi = ongletSf.current;
+          const encore = await chrome.tabs.get(suivi).then((x) => siteOf(x.url) === 'salesforce', () => false);
+          if (n !== appel) return;
+          if (encore) { setArrierePlan(true); setSite('salesforce'); setTabId(suivi); return; }
+        }
+        if (s === 'salesforce') { ongletSf.current = t?.id ?? null; setOngletSfGarde(ongletSf.current); }
+        else if (s === 'none') { ongletSf.current = null; setOngletSfGarde(null); }
+        setArrierePlan(false);
+        setSite(s);
+        setTabId(t?.id ?? null);
+      });
+    })();
+    return () => { annule = true; stop(); };
   }, []);
   const revenirSurSalesforce = async () => {
     if (!isExtension || ongletSf.current == null) return;
@@ -120,10 +132,17 @@ export function App() {
 
   // Toute page Salesforce est tentée (une fiche non reconnue par l'URL peut quand même se lire).
   const recordKey = ctx ? (ctx.recordId ? `${ctx.page}:${ctx.recordId}` : ctx.url) : '';
+  // Le navigateur recharge le panneau à chaque changement d'onglet : on réaffiche d'abord la fiche
+  // gardée (aucun « chargement… »), et on ne relit Salesforce que si elle date.
+  const tickVu = useRef(ficheTick);
   useEffect(() => {
     if (!recordKey || tabId == null) { setFiche(null); setFicheState('idle'); return; }
+    const force = ficheTick !== tickVu.current;
+    tickVu.current = ficheTick;
     let alive = true;
-    setFicheState('loading');
+    const memo = ficheMemo(recordKey);
+    if (memo) { setFiche(memo.fiche); setFicheState('idle'); } else setFicheState('loading');
+    if (memo && !force && Date.now() - memo.at < FICHE_FRAICHE_MS) return () => { alive = false; };
     (async () => {
       // La page Salesforce peut encore se dessiner : on réessaie tant que la fiche est vide.
       for (let attempt = 0; attempt < 4 && alive; attempt++) {
@@ -133,6 +152,7 @@ export function App() {
           if (f.prenom || f.nom || attempt === 3) {
             setFiche(f);
             setFicheState('idle');
+            if (f.prenom || f.nom) setFicheMemo(recordKey, f);
             if (f.prenom || f.nom) {
               const { page: _p, partenaire: _pa, adresse: _a, codePostal: _cp, ville: _v, recordId, ...patient } = f;
               setRecent(await pushRecent({ ...patient, recordId: recordId || f.prenom + f.nom, savedAt: Date.now() }));
@@ -141,8 +161,8 @@ export function App() {
           }
         } catch (e) {
           // Page muette : inutile de réessayer trois fois 20 s de plus.
-          if (/ne répond pas/.test((e as Error)?.message ?? '')) { if (alive) setFicheState('error'); return; }
-          if (attempt === 3 && alive) setFicheState('error');
+          if (/ne répond pas/.test((e as Error)?.message ?? '')) { if (alive) setFicheState(memo ? 'idle' : 'error'); return; }
+          if (attempt === 3 && alive) setFicheState(memo ? 'idle' : 'error');
         }
         await new Promise((r) => setTimeout(r, 900));
       }
@@ -332,11 +352,12 @@ export function App() {
     <>
       <div class="top" style="padding-bottom:0">{pageSwitch}</div>
       <Header site={site} ctx={ctx} fiche={fiche} ficheState={ficheState} recent={recent} busy={busy} arrierePlan={arrierePlan} onRevenir={() => void revenirSurSalesforce()} onMv={runMv} onPaste={pastePatient} onSms={openSms} onRefresh={() => setFicheTick((n) => n + 1)} goTo={goTo} />
-      {storage.sync === 'paused' && (
+      {storage.sync === 'paused' && !silence && (
         <div class="banner" style="margin:8px 12px 0">
           <Icon name="folder" />
           <span class="grow">Sauvegarde dans <b>{storage.folderName}</b> en pause — les données sont bien dans le navigateur.</span>
           <Btn kind="soft" onClick={doAuthorize}>Autoriser</Btn>
+          <Btn kind="ghost" onClick={() => { setDossierSilencieux(true); setSilence(true); showToast('Demande masquée — réactivable dans Réglages', 'ok'); }} title="Le navigateur redemande cette autorisation à chaque ouverture du panneau : on peut la masquer, les données restent dans le navigateur">Ne plus demander</Btn>
         </div>
       )}
       <nav class="tabs">
@@ -365,7 +386,7 @@ export function App() {
           <ChatPartenaire key={recordKey} ficheKey={recordKey} data={data} update={update} fiche={fiche} connected={connected && ctx?.page !== 'lead'} busy={busy === 'chat'}
             onWrite={(text) => act('chat', { type: 'writeChatPartenaire', text }).then((r) => { if (r?.ok) effacerBrouillon(recordKey, 'chat.'); })} toast={showToast} />
         )}
-        {activeTab === 'reglages' && <Reglages data={data} update={update} storage={storage} onChangeFolder={doChooseFolder} onAuthorize={doAuthorize} onImport={doImport} onExport={doExport} onExportShare={doExportShare} onExportLegacy={doExportLegacy} version={VERSION} />}
+        {activeTab === 'reglages' && <Reglages data={data} update={update} storage={storage} silence={silence} onSilence={(v) => { setDossierSilencieux(v); setSilence(v); }} onChangeFolder={doChooseFolder} onAuthorize={doAuthorize} onImport={doImport} onExport={doExport} onExportShare={doExportShare} onExportLegacy={doExportLegacy} version={VERSION} />}
       </main>
       <div class="footer" ref={setFooterEl} />
       <Toast toast={toast} />

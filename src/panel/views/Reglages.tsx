@@ -8,6 +8,9 @@ interface Props {
   data: AppData;
   update: (fn: (d: AppData) => void) => void;
   storage: StorageState;
+  /** « Ne plus demander » l'autorisation du dossier à chaque ouverture. */
+  silence: boolean;
+  onSilence: (v: boolean) => void;
   onChangeFolder: () => void;
   onAuthorize: () => void;
   onImport: () => void;
@@ -17,7 +20,7 @@ interface Props {
   version: string;
 }
 
-export function Reglages({ data, update, storage, onChangeFolder, onAuthorize, onImport, onExport, onExportShare, onExportLegacy, version }: Props) {
+export function Reglages({ data, update, storage, silence, onSilence, onChangeFolder, onAuthorize, onImport, onExport, onExportShare, onExportLegacy, version }: Props) {
   const r = data.reglages;
   const set = <K extends keyof AppData['reglages']>(k: K, v: AppData['reglages'][K]) => update((d) => { d.reglages[k] = v; });
   const input = (k: 'nom' | 'telephone' | 'email' | 'mvComment', placeholder?: string) => (
@@ -51,6 +54,12 @@ export function Reglages({ data, update, storage, onChangeFolder, onAuthorize, o
         <div class="stack">
           <div class="row"><Icon name="folder" /><span class="grow">{storage.mode === 'folder' ? <>Dossier <b>{storage.folderName}</b> · cockpit.json — {storage.sync === 'synced' ? 'synchronisé' : 'en pause'}</> : 'Enregistré dans le navigateur uniquement'}</span></div>
           <div class="note">Les données sont toujours gardées dans le navigateur ; le dossier sert de copie de sauvegarde et de passerelle avec l'ancien générateur.</div>
+          {storage.mode === 'folder' && (
+            <div class="row">
+              <span class="grow note">Le navigateur oublie l’autorisation du dossier dès que le panneau se ferme{silence ? " — demande masquée à l’ouverture." : " et la redemande à l’ouverture."}</span>
+              <Btn kind="ghost" onClick={() => onSilence(!silence)}>{silence ? 'Redemander' : 'Ne plus demander'}</Btn>
+            </div>
+          )}
           <div class="row wrap">
             {storage.sync === 'paused' && <Btn kind="soft" icon="folder" onClick={onAuthorize}>Autoriser le dossier</Btn>}
             {fsSupported && <Btn kind="ghost" icon="folder" onClick={onChangeFolder}>{storage.mode === 'folder' ? 'Changer de dossier' : 'Choisir un dossier'}</Btn>}
