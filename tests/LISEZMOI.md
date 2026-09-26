@@ -24,7 +24,7 @@ npx playwright show-report tests/rapport
 - `60-dossier` : dossier synchronisé en pause (dossier simulé dans le stockage privé du navigateur) : bandeau, Autoriser, refus, Ne plus demander.
 
 Scénarios du faux navigateur (`ouvrir(page, { … })`, voir `Scenario` dans `e2e/outils.ts`) : `echecs`, `ficheSansGenre`, `doctolibBloque`, `sansDoctolibPro`, `partnerSearchVide`, `creneauxEnDouble`, `pageMuette`, `partenaireALaDemande`, `beaucoupOrl`, `dossier`.
-Un test marqué `test.fixme` décrit un défaut connu du panneau (commentaire au-dessus du test) : il est sauté tant que le défaut n'est pas corrigé.
+Un test marqué `test.fixme` décrit un défaut connu du panneau (commentaire au-dessus du test) : il est sauté tant que le défaut n’est pas corrigé. (Aucun aujourd’hui.)
 
 Les tests cherchent les boutons par leur **nom** (texte ou titre), pas par leur place : ils servent aussi à vérifier qu'un nouveau design n'a perdu aucune fonction.
 Ce banc ne remplace pas l'essai sur le vrai Salesforce (le script de page n'est pas testé ici, seulement le panneau).

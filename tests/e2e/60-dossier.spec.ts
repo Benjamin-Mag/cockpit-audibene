@@ -100,13 +100,9 @@ test.describe('Dossier synchronisé en pause', () => {
     await expect(bandeau(page)).toBeVisible();
   });
 
-  // DÉFAUT (src/panel/app.tsx:71-72 + src/panel/storage/data.ts:150) : save() change data.updatedAt
-  // directement dans l'objet de l'état, sans nouveau rendu (setStorage garde le même état quand la synchro
-  // reste « paused »). Le bandeau (aCopier, app.tsx:325) et la phrase de Réglages ne sont donc recalculés
-  // qu'au rendu suivant : après le dernier changement (une case cochée, un nom tapé, un glisser-déposer),
-  // le bandeau n'apparaît pas tant que Benjamin ne clique pas ailleurs, et Réglages affiche encore
-  // « La copie du dossier est à jour ».
-  test.fixme('un seul changement fait apparaître le bandeau sans autre action', async ({ page }) => {
+  // Non-régression : save() date les données en place ; sans nouveau rendu, le bandeau n'apparaissait
+  // qu'au clic suivant et Réglages affichait encore « La copie du dossier est à jour ».
+  test('un seul changement fait apparaître le bandeau sans autre action', async ({ page }) => {
     await avecDossier(page);
     await aller(page, 'Réglages');
     await page.locator('.field').filter({ hasText: 'Prénom et nom' }).locator('input').fill('Benjamin Dossier');
