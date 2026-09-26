@@ -1,5 +1,5 @@
 import type { Fiche, Genre, SfContext, SfPage } from '../../shared/types';
-import { deepAll, deepGroup, expandSection, sleep, textOf, valeurChamp, visibleEl, waitFor } from './dom';
+import { deepAll, deepGroup, enSerie, expandSection, revenirSur, sleep, sousOngletActifAvec, textOf, valeurChamp, visibleEl, waitFor } from './dom';
 
 /** Type de fiche d'après l'adresse seule : aucune lecture de la page, appelable aussi souvent qu'on veut. */
 function pageParAdresse(url: string): { page: SfPage; recordId: string } | null {
@@ -159,15 +159,16 @@ async function partenaireEtAdresse(lu: Lecture): Promise<{ partenaire: string; a
 const SOUS_ONGLET_CHAMPS = /^(Anamnèse|Anamnese|Détails|Details)$/i;
 
 /** Rien de lisible sur ce sous-onglet ? On passe sur celui des champs, et on remettra l'utilisateur où il était. */
-function bascule(lu: Lecture): { cible: HTMLElement; precedent: HTMLElement | null } | null {
+function bascule(lu: Lecture): { cible: HTMLElement; precedent: string | null } | null {
   if (valeurChamp(lu.labels, 'Nom complet') !== null || valeurChamp(lu.labels, 'Adresse') !== null) return null;
   const cible = visibleEl(deepAll<HTMLElement>('[role="tab"]').filter((t) => SOUS_ONGLET_CHAMPS.test(textOf(t))));
   if (!cible || cible.getAttribute('aria-selected') === 'true') return null;
-  const precedent = cible.closest('[role="tablist"]')?.querySelector<HTMLElement>('[role="tab"][aria-selected="true"]') ?? null;
-  return { cible, precedent };
+  return { cible, precedent: sousOngletActifAvec(cible) };
 }
 
-export async function readFiche(withPartner: boolean): Promise<Fiche> {
+export const readFiche = (withPartner: boolean): Promise<Fiche> => enSerie(() => lireFiche(withPartner));
+
+async function lireFiche(withPartner: boolean): Promise<Fiche> {
   const { page, recordId } = pageInfo();
   let lu = lirePage();
   // Sur « Partner Search », les champs du patient ne sont pas dans la page : aller les chercher.
@@ -204,7 +205,7 @@ export async function readFiche(withPartner: boolean): Promise<Fiche> {
 
   // Tout doit être lu AVANT de rendre l'utilisateur à son sous-onglet : les champs redeviennent invisibles.
   const lieu = codePostalEtVille(lu);
-  if (retour?.precedent && retour.precedent.getAttribute('aria-selected') !== 'true') retour.precedent.click();
+  if (retour) revenirSur(retour.precedent);
 
   return {
     page,
