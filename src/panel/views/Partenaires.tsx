@@ -171,8 +171,6 @@ function Motif({ m, url }: { m: MotifCreneaux; url: string }) {
 const hote = (u: string) => { try { return new URL(u).hostname.replace(/^www\./, ''); } catch { return u; } };
 
 function Carte({ l }: { l: LignePartenaire }) {
-  // Le commentaire dit souvent quel motif de RDV prendre : ouvert d'office.
-  const [ouvert, setOuvert] = useState(true);
   const p = l.partenaire;
   const lien = l.lien;
   const premier = premierCreneau(l);
@@ -215,14 +213,7 @@ function Carte({ l }: { l: LignePartenaire }) {
         );
       })()}
 
-      {p.commentaire && (
-        <div class="stack" style="gap:4px">
-          <Btn kind="ghost" icon={ouvert ? 'minus' : 'plus'} onClick={() => setOuvert((v) => !v)} title="Commentaire Partnersearch de la fiche">{ouvert ? 'Masquer le commentaire' : 'Commentaire'}</Btn>
-          {ouvert && <div class="preview" style="white-space:pre-wrap;font-size:12px">{p.commentaire}</div>}
-          {ouvert && lien.sorte === 'aucun' && p.liens.length === 0 && <span class="note">Aucun lien de prise de rendez-vous dans les détails.</span>}
-        </div>
-      )}
-      {!p.commentaire && lien.sorte === 'aucun' && <span class="note">Pas de lien de prise de rendez-vous dans Partner Search : appeler le partenaire.</span>}
+      {lien.sorte === 'aucun' && p.liens.length === 0 && <span class="note">Pas de lien de prise de rendez-vous dans Partner Search : appeler le partenaire.</span>}
     </div>
   );
 }
