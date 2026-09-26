@@ -277,11 +277,22 @@ const muets = new Set<number>();
  * `horsSite` : adresse vers laquelle le site renvoie quand il faut se connecter (onglet inutilisable).
  */
 async function tabOn(match: string, home: string, horsSite?: string): Promise<number> {
-  const tabs = (await chrome.tabs.query({ url: match })).filter((t) => t.id !== undefined && !muets.has(t.id) && !endormi(t));
+  const tous = (await chrome.tabs.query({ url: match })).filter((t) => t.id !== undefined && !muets.has(t.id));
+  const tabs = tous.filter((t) => !endormi(t));
   const awake = tabs.find((t) => t.status === 'complete') ?? tabs[0];
   if (awake?.id !== undefined) {
     if (awake.status !== 'complete') await waitLoaded(awake.id, 20000);
     return awake.id;
+  }
+  // Onglet mis en veille par le navigateur : on le réveille plutôt que d'en ouvrir un de plus
+  // (il n'a plus d'état à perdre). Sinon les onglets s'accumulaient au fil de la journée.
+  const dormant = tous.find((t) => endormi(t) && t.id !== undefined);
+  if (dormant?.id !== undefined && typeof chrome.tabs.reload === 'function') {
+    const id = dormant.id;
+    await chrome.tabs.reload(id);
+    await waitLoaded(id, 25000);
+    await new Promise((r) => setTimeout(r, 1500));
+    return id;
   }
   if (horsSite) {
     const perdu = (await chrome.tabs.query({ url: horsSite })).find((t) => t.id !== undefined);
@@ -293,6 +304,8 @@ async function tabOn(match: string, home: string, horsSite?: string): Promise<nu
     enCours = (async () => {
       const tab = await chrome.tabs.create({ url: home, active: false });
       if (tab.id === undefined) throw new Error("Impossible d'ouvrir l'onglet.");
+      // Onglet de service : le navigateur ne doit pas le mettre en veille.
+      await chrome.tabs.update(tab.id, { autoDiscardable: false }).catch(() => undefined);
       await waitLoaded(tab.id, 25000);
       await new Promise((r) => setTimeout(r, 1500));
       if (horsSite && !memeOrigine((await chrome.tabs.get(tab.id)).url, match)) throw new HorsSite(tab.id);
