@@ -50,4 +50,15 @@ test.describe('Relecture : correctifs', () => {
     await aller(page, 'COSI');
     await expect(page.getByRole('button', { name: /Coller Alice Essai/ })).toBeVisible();
   });
+
+  test('le dernier écran gardé n\'est pas compté comme une saisie en cours', async ({ page }) => {
+    await ouvrir(page, { onglet: ONGLET.piste });
+    await aller(page, 'Anamnèse');
+    const lire = () => page.evaluate(() => (window as any).__mock.session._d.cockpitBrouillons?.['lead:PISTETEST0000001A']);
+    await expect.poll(async () => (await lire())?.ecran).toBe('commentaire');
+    // L'écran gardé n'est pas un champ de saisie (seule la mémoire de la fiche lue, `__fiche`, peut s'y trouver).
+    expect(Object.keys((await lire()).champs).filter((n) => n !== '__fiche')).toEqual([]);
+    await page.reload();
+    await expect(page.locator('nav.barre button.on')).toHaveText(/Anamnèse/);
+  });
 });
