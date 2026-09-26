@@ -124,13 +124,8 @@ Worktree : `Documents\Claude\Projects\Cockpit Audibene - partner-search` · bran
 - **Leçon** : quand un message du chef est en file d'attente, vérifier `origin/main` avant de pousser une mise à jour de PR — ma branche partait d'avant sa PR #25 et le rebase a dû être refait par lui.
 
 ## Reste à faire
-<<<<<<< HEAD
-- Fusion avec la lecture Salesforce du chef (`lirePartnerSearch` côté script de page) ; test réel sur une Piste de test.
-- Plus tard, selon retours : créneaux via Doctolib Pro, plus de motifs, réservation directe.
-=======
 - Pas de chantier en cours. Avant le prochain : `git fetch && git rebase origin/main`.
 - Plus tard, selon retours de Benjamin sur la v1.0.36 : créneaux via Doctolib Pro, plus de motifs, réservation directe.
->>>>>>> agent-1/journal
 
 ## Décisions
 - Colonnes du rapport repérées par **libellé** (`detailColumnInfo[api].label`, regex tolérantes FR/EN), jamais par position : l'ordre du rapport peut changer.
