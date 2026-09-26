@@ -190,3 +190,24 @@ export function useRemiseSiChangement(texte: string, lue: boolean, remettre: () 
     remettre();
   }, [texte, lue]);
 }
+
+/** Une saisie est-elle en cours pour cet écran de la fiche (champs commençant par `prefixe`) ? */
+export function aUnBrouillon(ficheKey: string, prefixe: string): boolean {
+  const champs = brouillons[ficheKey]?.champs;
+  return !!champs && Object.keys(champs).some((n) => n.startsWith(prefixe));
+}
+
+/** Dernier écran ouvert sur une fiche : on y revient quand le navigateur recharge le panneau. */
+const CHAMP_ECRAN = '__ecran';
+export function ecranGarde(ficheKey: string): string | null {
+  const v = brouillons[ficheKey]?.champs?.[CHAMP_ECRAN];
+  return typeof v === 'string' ? v : null;
+}
+export function garderEcran(ficheKey: string, ecran: string) {
+  if (!ficheAvecBrouillon(ficheKey)) return;
+  const maintenant = Date.now();
+  const f = (brouillons[ficheKey] ??= { vu: maintenant, champs: {} });
+  f.vu = maintenant;
+  f.champs[CHAMP_ECRAN] = ecran;
+  enregistrer();
+}

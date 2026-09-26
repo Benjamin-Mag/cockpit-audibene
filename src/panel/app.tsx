@@ -17,18 +17,25 @@ import { Partenaires } from './views/Partenaires';
 import { Reglages } from './views/Reglages';
 import { buildMailHtml } from '../shared/mail-html';
 import { Setup } from './views/Setup';
-import { FICHE_FRAICHE_MS, VERIFICATION_MS, chargerBrouillons, effacerBrouillon, ficheMemo, ongletSfGarde, setFicheMemo, setOngletSfGarde, verifierOngletsOuverts } from './brouillons';
+import { FICHE_FRAICHE_MS, VERIFICATION_MS, aUnBrouillon, chargerBrouillons, ecranGarde, garderEcran, effacerBrouillon, ficheMemo, ongletSfGarde, setFicheMemo, setOngletSfGarde, verifierOngletsOuverts } from './brouillons';
 
-type TabId = 'anamnese' | 'commentaire' | 'orl' | 'mails' | 'chat' | 'reglages';
-const TABS: { id: TabId; label: string; icon: IconName }[] = [
-  { id: 'anamnese', label: 'COSI', icon: 'stetho' },
-  { id: 'commentaire', label: 'Anamnèse', icon: 'pen' },
-  { id: 'orl', label: 'ORL Finder', icon: 'ear' },
-  { id: 'mails', label: 'Mails', icon: 'mail' },
-  { id: 'chat', label: 'Chat partenaire', icon: 'message' },
-  { id: 'reglages', label: '', icon: 'settings' },
-];
-type PageId = 'cockpit' | 'partenaires';
+type TabId = 'fiche' | 'anamnese' | 'commentaire' | 'orl' | 'partenaires' | 'mails' | 'chat' | 'reglages';
+interface Ecran { id: TabId; label: string; titre: string; aide: string; icon: IconName; brouillon?: string }
+const ECRANS: Record<Exclude<TabId, 'reglages'>, Ecran> = {
+  fiche: { id: 'fiche', label: 'Fiche', titre: 'Fiche', aide: '', icon: 'user' },
+  anamnese: { id: 'anamnese', label: 'COSI', titre: 'COSI', aide: "Remplir l'onglet Anamnèse par puces", icon: 'stetho', brouillon: 'cosi.' },
+  commentaire: { id: 'commentaire', label: 'Anamnèse', titre: 'Anamnèse', aide: 'Résumé + signature dans Remarques générales', icon: 'pen', brouillon: 'anamnese.' },
+  orl: { id: 'orl', label: 'ORL', titre: 'ORL Finder', aide: 'ORL proches avec un créneau', icon: 'ear' },
+  partenaires: { id: 'partenaires', label: 'Partenaires', titre: 'Partenaires', aide: 'Créneaux Doctolib et Acuitis', icon: 'building' },
+  mails: { id: 'mails', label: 'Mails', titre: 'Mails', aide: 'Modèles Client ou Partenaire', icon: 'mail', brouillon: 'mail.' },
+  chat: { id: 'chat', label: 'Chat', titre: 'Chat partenaire', aide: 'Message dans le fil Chatter', icon: 'message', brouillon: 'chat.' },
+};
+/** Écrans de la barre du bas selon la fiche : une Piste n'envoie pas de mail, une Opportunité n'a ni COSI ni anamnèse. */
+const PARCOURS: Record<'lead' | 'opportunity' | 'other', Exclude<TabId, 'reglages'>[]> = {
+  lead: ['fiche', 'anamnese', 'commentaire', 'orl', 'partenaires'],
+  opportunity: ['fiche', 'mails', 'chat'],
+  other: ['fiche', 'anamnese', 'commentaire', 'mails', 'chat'],
+};
 const VERSION = isExtension ? chrome.runtime.getManifest().version : 'web';
 const RDV_NOTE = 'Rendez-vous Audibene';
 
@@ -42,8 +49,7 @@ export function App() {
   /** save() date les données en place : ce compteur redessine le panneau pour que le bandeau du dossier suive. */
   const [, setEnregistreLe] = useState(0);
 
-  const [tab, setTab] = useState<TabId>('anamnese');
-  const [pageMode, setPageMode] = useState<PageId>('cockpit');
+  const [tab, setTabState] = useState<TabId>('fiche');
   const [site, setSite] = useState<Site>('none');
   const [tabId, setTabId] = useState<number | null>(null);
   const [ctx, setCtx] = useState<SfContext | null>(null);
@@ -171,6 +177,12 @@ export function App() {
     })();
     return () => { alive = false; };
   }, [recordKey, tabId, ficheTick]);
+
+  // En revenant sur une fiche (ou quand le navigateur recharge le panneau), on retrouve le dernier écran ouvert.
+  useEffect(() => {
+    if (!brouillonsPrets) return;
+    setTabState((ecranGarde(recordKey) as TabId | null) ?? 'fiche');
+  }, [recordKey, brouillonsPrets]);
 
   const act = async (label: string, req: ContentRequest) => {
     if (tabId == null) return;
@@ -325,36 +337,17 @@ export function App() {
   const connected = site === 'salesforce' && !!ctx;
   // Le bandeau du dossier ne sort que s'il y a vraiment quelque chose à y copier.
   const aCopier = (data.updatedAt ?? 0) > dossierEcritLe();
-  const pageSwitch = (
-    <div class="pages">
-      <button type="button" class={pageMode === 'cockpit' ? 'on' : ''} onClick={() => setPageMode('cockpit')}><Icon name="stetho" size={13} /> Cockpit</button>
-      <button type="button" class={pageMode === 'partenaires' ? 'on' : ''} onClick={() => setPageMode('partenaires')}><Icon name="building" size={13} /> Partenaires</button>
-    </div>
-  );
-
-  // Onglets adaptés à la fiche : une Piste n'envoie pas de mail, une Opportunité n'a pas d'anamnèse.
   const page = connected ? ctx!.page : 'other';
-  // ORL Finder (ORL proches du code postal du patient) n'a de sens que sur une Piste.
-  const hidden: TabId[] = page === 'lead' ? ['mails', 'chat'] : page === 'opportunity' ? ['anamnese', 'commentaire', 'orl'] : ['orl'];
-  const visibleTabs = TABS.filter((t) => !hidden.includes(t.id));
-  const activeTab: TabId = hidden.includes(tab) ? visibleTabs[0].id : tab;
-
-  if (pageMode === 'partenaires') {
-    return (
-      <>
-        <div class="top">{pageSwitch}</div>
-        <main class="content">
-          <Partenaires key={recordKey} ficheKey={recordKey} surPiste={connected && ctx?.page === 'lead'} lire={() => (tabId == null ? Promise.reject(new Error("Pas d'onglet Salesforce.")) : readPartnerSearch(tabId))} />
-        </main>
-        <Toast toast={toast} />
-      </>
-    );
-  }
+  const parcours = PARCOURS[page];
+  const activeTab: TabId = tab === 'reglages' || (parcours as TabId[]).includes(tab) ? tab : 'fiche';
+  const setTab = (t: TabId) => { setTabState(t); if (t !== 'reglages') garderEcran(recordKey, t); };
+  const hasFiche = !!fiche && !!(fiche.prenom || fiche.nom);
+  const civ = fiche?.genre === 'F' ? 'Mme' : fiche?.genre === 'M' ? 'M.' : '';
 
   return (
     <>
-      <div class="top" style="padding-bottom:0">{pageSwitch}</div>
-      <Header site={site} ctx={ctx} fiche={fiche} ficheState={ficheState} recent={recent} busy={busy} arrierePlan={arrierePlan} onRevenir={() => void revenirSurSalesforce()} onMv={runMv} onPaste={pastePatient} onSms={openSms} onRefresh={() => setFicheTick((n) => n + 1)} />
+      <Header site={site} ctx={ctx} fiche={fiche} ficheState={ficheState} recent={recent} busy={busy} arrierePlan={arrierePlan} onRevenir={() => void revenirSurSalesforce()} onMv={runMv} onPaste={pastePatient} onSms={openSms} onRefresh={() => setFicheTick((n) => n + 1)}
+        compact={activeTab !== 'fiche'} onReglages={() => setTab(activeTab === 'reglages' ? 'fiche' : 'reglages')} reglagesOuverts={activeTab === 'reglages'} />
       {storage.sync === 'paused' && !silence && aCopier && (
         <div class="banner" style="margin:8px 12px 0">
           <Icon name="folder" />
@@ -363,14 +356,26 @@ export function App() {
           <Btn kind="ghost" onClick={() => { setDossierSilencieux(true); setSilence(true); showToast('Demande masquée — réactivable dans Réglages', 'ok'); }} title="Le navigateur redemande cette autorisation à chaque ouverture du panneau : on peut la masquer, les données restent dans le navigateur">Ne plus demander</Btn>
         </div>
       )}
-      <nav class="tabs">
-        {visibleTabs.map((t) => (
-          <button key={t.id} class={activeTab === t.id ? 'on' : ''} onClick={() => setTab(t.id)} title={t.label || 'Réglages'} style={t.label ? '' : 'flex:0 0 auto;padding:6px 10px'}>
-            <Icon name={t.icon} size={14} />{t.label}
-          </button>
-        ))}
-      </nav>
       <main class="content">
+        {activeTab === 'fiche' && parcours.length > 1 && site !== 'doctolib' && site !== 'acuitis' && (
+          <div class="view accueil">
+            <div class="accueil-titre"><span>{hasFiche ? `Suivi de ${civ} ${fiche!.prenom} ${fiche!.nom}`.replace(/\s+/g, ' ') : 'Que veux-tu faire ?'}</span></div>
+            <div class="etapes">
+              {parcours.filter((id) => id !== 'fiche').map((id) => {
+                const e = ECRANS[id];
+                const enCours = !!e.brouillon && aUnBrouillon(recordKey, e.brouillon);
+                return (
+                  <button key={id} type="button" class="etape" onClick={() => setTab(id)}>
+                    <span class="ic"><Icon name={e.icon} size={18} /></span>
+                    <span class="tx"><b>{e.titre}</b><small>{e.aide}</small></span>
+                    {enCours ? <span class="etat">Reprendre</span> : <Icon name="chevron" size={16} />}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+        {activeTab === 'partenaires' && <Partenaires key={recordKey} ficheKey={recordKey} surPiste={connected && ctx?.page === 'lead'} lire={() => (tabId == null ? Promise.reject(new Error("Pas d'onglet Salesforce.")) : readPartnerSearch(tabId))} />}
         {activeTab === 'anamnese' && (
           <Anamnese key={recordKey} ficheKey={recordKey} data={data} update={update} connected={connected && ctx?.page !== 'opportunity'} busy={busy === 'anamnese'} footerEl={footerEl}
             onApply={(picklists, texts) => act('anamnese', { type: 'fillAnamnese', picklists, texts }).then((r) => { if (r?.ok) effacerBrouillon(recordKey, 'cosi.'); })}
@@ -392,6 +397,18 @@ export function App() {
         {activeTab === 'reglages' && <Reglages data={data} update={update} storage={storage} aCopier={aCopier} silence={silence} onSilence={(v) => { setDossierSilencieux(v); setSilence(v); }} onChangeFolder={doChooseFolder} onAuthorize={doAuthorize} onImport={doImport} onExport={doExport} onExportShare={doExportShare} onExportLegacy={doExportLegacy} version={VERSION} />}
       </main>
       <div class="footer" ref={setFooterEl} />
+      <nav class="barre" aria-label="Écrans">
+        {parcours.map((id) => {
+          const e = ECRANS[id];
+          const enCours = !!e.brouillon && aUnBrouillon(recordKey, e.brouillon) && activeTab !== id;
+          return (
+            <button key={id} type="button" class={activeTab === id ? 'on' : ''} aria-current={activeTab === id ? 'page' : undefined} onClick={() => setTab(id)} title={e.titre}>
+              <span class="pill"><Icon name={e.icon} size={18} />{enCours && <span class="marque" title="Saisie en cours" />}</span>
+              {e.label}
+            </button>
+          );
+        })}
+      </nav>
       <Toast toast={toast} />
     </>
   );

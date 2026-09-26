@@ -16,6 +16,10 @@ interface Props {
   onRefresh: () => void;
   onPaste: (p: RecentPatient) => void;
   onSms: () => void;
+  /** Hors de l'écran Fiche : une seule ligne (nom, téléphone, MV), pour laisser la place au travail. */
+  compact: boolean;
+  onReglages: () => void;
+  reglagesOuverts: boolean;
 }
 
 const civ = (g: 'M' | 'F' | null) => (g === 'F' ? 'Mme' : g === 'M' ? 'M.' : '');
@@ -24,7 +28,7 @@ const ago = (t: number) => {
   return m < 1 ? "à l'instant" : m < 60 ? `il y a ${m} min` : m < 1440 ? `il y a ${Math.round(m / 60)} h` : `il y a ${Math.round(m / 1440)} j`;
 };
 
-export function Header({ site, ctx, fiche, ficheState, recent, busy, arrierePlan, onRevenir, onMv, onRefresh, onPaste, onSms }: Props) {
+export function Header({ site, ctx, fiche, ficheState, recent, busy, arrierePlan, onRevenir, onMv, onRefresh, onPaste, onSms, compact, onReglages, reglagesOuverts }: Props) {
   const page = ctx?.page ?? 'other';
   const onSf = site === 'salesforce' && !!ctx;
   const hasFiche = !!fiche && !!(fiche.prenom || fiche.nom);
@@ -43,9 +47,24 @@ export function Header({ site, ctx, fiche, ficheState, recent, busy, arrierePlan
             <Btn kind="ghost" icon="external" onClick={onRevenir} title="Revenir sur l'onglet Salesforce">Revenir</Btn>
           </>
         )}
+        <span class="grow" />
+        <button type="button" class={['btn', reglagesOuverts ? 'soft' : 'ghost', 'icon'].join(' ')} title="Réglages" aria-pressed={reglagesOuverts} onClick={onReglages}><Icon name="settings" /></button>
       </div>
 
-      <div class="card">
+      {compact && (
+        onSf && hasFiche ? (
+          <div class="card fiche-mini">
+            <div class="stack" style="gap:1px;flex:1;min-width:0">
+              <div class="name">{civ(fiche!.genre)} {fiche!.prenom} {fiche!.nom} <span class="tag">{page === 'lead' ? 'Piste' : page === 'opportunity' ? 'Opportunité' : 'Fiche'}</span></div>
+              {fiche!.telephone && <span class="meta">{fiche!.telephone}</span>}
+            </div>
+            {page !== 'opportunity' && <Btn kind="soft" icon="phone-off" busy={busy === 'mv'} onClick={onMv} title="Message vocal → non joignable (écrit le commentaire MV, enregistre, puis « Piste non joignable »)">MV</Btn>}
+            <Btn kind="ghost" icon="refresh" title="Relire la fiche" onClick={onRefresh} busy={ficheState === 'loading'} />
+          </div>
+        ) : null
+      )}
+
+      {!compact && <div class="card">
         {site === 'none' && <div class="fiche"><span class="hint">Ouvre une fiche Salesforce, ou un formulaire de RDV Doctolib / Acuitis.</span></div>}
 
         {isForm && (
@@ -109,7 +128,7 @@ export function Header({ site, ctx, fiche, ficheState, recent, busy, arrierePlan
               )}
               <div class="row" style="gap:4px">
                 {page === 'opportunity' && hasFiche && (
-                  <Btn kind="soft" icon="message" title="Ouvrir les SMS (Hearo) et chercher ce patient" onClick={onSms} busy={busy === 'sms'} />
+                  <Btn kind="soft" icon="phone" title="Ouvrir les SMS (Hearo) et chercher ce patient" onClick={onSms} busy={busy === 'sms'}>SMS</Btn>
                 )}
                 <Btn kind="ghost" icon="refresh" title="Relire la fiche" onClick={onRefresh} busy={ficheState === 'loading'} />
               </div>
@@ -124,7 +143,7 @@ export function Header({ site, ctx, fiche, ficheState, recent, busy, arrierePlan
             )}
           </div>
         )}
-      </div>
+      </div>}
     </div>
   );
 }

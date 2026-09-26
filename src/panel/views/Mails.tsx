@@ -201,7 +201,7 @@ export function Mails({ ficheKey, data, update, fiche, connected, busy, onInsert
       toast('Modèle enregistré', 'ok');
     };
     return (
-      <div class="view">
+      <div class="view editeur">
         <div class="row" style="justify-content:space-between">
           <span class="label">{isNew ? 'Nouveau modèle' : 'Modifier le modèle'}</span>
           <Btn kind="ghost" icon="x" onClick={() => setEditing(null)} title="Annuler" />
