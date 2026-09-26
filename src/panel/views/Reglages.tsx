@@ -8,7 +8,9 @@ interface Props {
   data: AppData;
   update: (fn: (d: AppData) => void) => void;
   storage: StorageState;
-  /** « Ne plus demander » l'autorisation du dossier à chaque ouverture. */
+  /** Des changements attendent d'être copiés dans le dossier. */
+  aCopier: boolean;
+  /** « Ne plus demander » l'autorisation du dossier. */
   silence: boolean;
   onSilence: (v: boolean) => void;
   onChangeFolder: () => void;
@@ -20,7 +22,7 @@ interface Props {
   version: string;
 }
 
-export function Reglages({ data, update, storage, silence, onSilence, onChangeFolder, onAuthorize, onImport, onExport, onExportShare, onExportLegacy, version }: Props) {
+export function Reglages({ data, update, storage, aCopier, silence, onSilence, onChangeFolder, onAuthorize, onImport, onExport, onExportShare, onExportLegacy, version }: Props) {
   const r = data.reglages;
   const set = <K extends keyof AppData['reglages']>(k: K, v: AppData['reglages'][K]) => update((d) => { d.reglages[k] = v; });
   const input = (k: 'nom' | 'telephone' | 'email' | 'mvComment', placeholder?: string) => (
@@ -56,7 +58,7 @@ export function Reglages({ data, update, storage, silence, onSilence, onChangeFo
           <div class="note">Les données sont toujours gardées dans le navigateur ; le dossier sert de copie de sauvegarde et de passerelle avec l'ancien générateur.</div>
           {storage.mode === 'folder' && (
             <div class="row">
-              <span class="grow note">Le navigateur oublie l’autorisation du dossier dès que le panneau se ferme{silence ? " — demande masquée à l’ouverture." : " et la redemande à l’ouverture."}</span>
+              <span class="grow note">{aCopier ? "Des changements attendent d’être copiés dans le dossier." : "La copie du dossier est à jour."} Le navigateur oublie l’autorisation dès que le panneau se ferme{silence ? " ; demande masquée." : "."}</span>
               <Btn kind="ghost" onClick={() => onSilence(!silence)}>{silence ? 'Redemander' : 'Ne plus demander'}</Btn>
             </div>
           )}

@@ -4,7 +4,7 @@ import type { ActionResult, Fiche, RecentPatient, SfContext } from '../shared/ty
 import { type Site, connectContext, ensureOrigin, subFrames, isExtension, loadRecent, onCommand, onRecentChanged, pushRecent, readFiche, readPartnerSearch, runAction, sendToFrame, siteOf, watchActiveTab, writeClipboard } from './bridge';
 import { Btn, Icon, type IconName, Toast, type ToastMsg } from './components/ui';
 import { type AppData, defaultData } from './model';
-import { type StorageState, authorize, chooseFolder, dossierSilencieux, exportLegacy, initStorage, parseAny, save, setDossierSilencieux, useBrowserStorage } from './storage/data';
+import { type StorageState, authorize, chooseFolder, dossierEcritLe, dossierSilencieux, exportLegacy, initStorage, parseAny, save, setDossierSilencieux, useBrowserStorage } from './storage/data';
 import { mergeData, substituteName, toPartage } from './storage/legacy';
 import { downloadJson, pickJsonFile } from './storage/fs';
 import { Anamnese } from './views/Anamnese';
@@ -321,6 +321,8 @@ export function App() {
   // Dès qu'on dialogue avec une page Salesforce, les actions sont proposées : la
   // page dit elle-même si un champ manque, plutôt que de cacher les boutons.
   const connected = site === 'salesforce' && !!ctx;
+  // Le bandeau du dossier ne sort que s'il y a vraiment quelque chose à y copier.
+  const aCopier = (data.updatedAt ?? 0) > dossierEcritLe();
   const goTo = (t: TabId) => { setPageMode('cockpit'); setTab(t); };
   const pageSwitch = (
     <div class="pages">
@@ -352,10 +354,10 @@ export function App() {
     <>
       <div class="top" style="padding-bottom:0">{pageSwitch}</div>
       <Header site={site} ctx={ctx} fiche={fiche} ficheState={ficheState} recent={recent} busy={busy} arrierePlan={arrierePlan} onRevenir={() => void revenirSurSalesforce()} onMv={runMv} onPaste={pastePatient} onSms={openSms} onRefresh={() => setFicheTick((n) => n + 1)} goTo={goTo} />
-      {storage.sync === 'paused' && !silence && (
+      {storage.sync === 'paused' && !silence && aCopier && (
         <div class="banner" style="margin:8px 12px 0">
           <Icon name="folder" />
-          <span class="grow">Sauvegarde dans <b>{storage.folderName}</b> en pause — les données sont bien dans le navigateur.</span>
+          <span class="grow">Tes changements sont enregistrés dans le navigateur ; la copie de <b>{storage.folderName}</b> attend ton accord.</span>
           <Btn kind="soft" onClick={doAuthorize}>Autoriser</Btn>
           <Btn kind="ghost" onClick={() => { setDossierSilencieux(true); setSilence(true); showToast('Demande masquée — réactivable dans Réglages', 'ok'); }} title="Le navigateur redemande cette autorisation à chaque ouverture du panneau : on peut la masquer, les données restent dans le navigateur">Ne plus demander</Btn>
         </div>
@@ -386,7 +388,7 @@ export function App() {
           <ChatPartenaire key={recordKey} ficheKey={recordKey} data={data} update={update} fiche={fiche} connected={connected && ctx?.page !== 'lead'} busy={busy === 'chat'}
             onWrite={(text) => act('chat', { type: 'writeChatPartenaire', text }).then((r) => { if (r?.ok) effacerBrouillon(recordKey, 'chat.'); })} toast={showToast} />
         )}
-        {activeTab === 'reglages' && <Reglages data={data} update={update} storage={storage} silence={silence} onSilence={(v) => { setDossierSilencieux(v); setSilence(v); }} onChangeFolder={doChooseFolder} onAuthorize={doAuthorize} onImport={doImport} onExport={doExport} onExportShare={doExportShare} onExportLegacy={doExportLegacy} version={VERSION} />}
+        {activeTab === 'reglages' && <Reglages data={data} update={update} storage={storage} aCopier={aCopier} silence={silence} onSilence={(v) => { setDossierSilencieux(v); setSilence(v); }} onChangeFolder={doChooseFolder} onAuthorize={doAuthorize} onImport={doImport} onExport={doExport} onExportShare={doExportShare} onExportLegacy={doExportLegacy} version={VERSION} />}
       </main>
       <div class="footer" ref={setFooterEl} />
       <Toast toast={toast} />

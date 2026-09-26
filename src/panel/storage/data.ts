@@ -14,6 +14,8 @@ const LOCAL_KEY = 'cockpit-data';
 const MODE_KEY = 'cockpit-storage-mode';
 /** « Ne plus me demander l'autorisation du dossier » : propre à ce navigateur, jamais dans cockpit.json. */
 const SILENCE_KEY = 'cockpit-dossier-silence';
+/** Date des données au moment de la dernière écriture réussie du cockpit.json. */
+const ECRIT_KEY = 'cockpit-dossier-ecrit';
 
 export type SyncStatus = 'synced' | 'paused' | 'none';
 export interface StorageState {
@@ -38,6 +40,10 @@ async function localWrite(content: string) {
 const browserModeChosen = () => { try { return localStorage.getItem(MODE_KEY) === 'browser'; } catch { return false; } };
 
 /** Le navigateur oublie l'autorisation du dossier à chaque fermeture du panneau : on peut cesser de la redemander. */
+/** Rien à copier tant que les données n'ont pas bougé depuis la dernière écriture du dossier. */
+export const dossierEcritLe = (): number => { try { return Number(localStorage.getItem(ECRIT_KEY)) || 0; } catch { return 0; } };
+const marquerEcrit = (t: number) => { try { localStorage.setItem(ECRIT_KEY, String(t)); } catch { /* stockage refusé */ } };
+
 export const dossierSilencieux = () => { try { return localStorage.getItem(SILENCE_KEY) === '1'; } catch { return false; } };
 export const setDossierSilencieux = (v: boolean) => { try { if (v) localStorage.setItem(SILENCE_KEY, '1'); else localStorage.removeItem(SILENCE_KEY); } catch { /* stockage refusé */ } };
 
@@ -91,11 +97,15 @@ export async function initStorage(): Promise<{ state: StorageState; data: AppDat
     return { state: state('none', 'needs-folder'), data: local };
   }
   folderGranted = (await permissionState(handle, false)) === 'granted';
+  // Première ouverture depuis la v1.0.41 : on part du principe que le dossier est à jour,
+  // sinon le bandeau reviendrait alors que rien n'a changé.
+  if (!dossierEcritLe()) marquerEcrit(local?.updatedAt ?? Date.now());
   if (!folderGranted) return { state: state('paused'), data: local };
   const folder = await readFolder(handle);
   const data = reconcile(local, folder) ?? defaultData();
   await writeText(handle, DATA_FILE, JSON.stringify(data, null, 2)).catch(() => {});
   await localWrite(JSON.stringify(data));
+  marquerEcrit(data.updatedAt ?? Date.now());
   return { state: state('synced'), data };
 }
 
@@ -108,6 +118,7 @@ export async function authorize(current: AppData | null): Promise<{ state: Stora
   const data = reconcile(current, folder) ?? defaultData();
   await writeText(handle, DATA_FILE, JSON.stringify(data, null, 2)).catch(() => {});
   await localWrite(JSON.stringify(data));
+  marquerEcrit(data.updatedAt ?? Date.now());
   return { state: state('synced'), data };
 }
 
@@ -145,6 +156,7 @@ export async function save(data: AppData): Promise<SyncStatus> {
   if (!folderGranted) return 'paused';
   try {
     await writeText(handle, DATA_FILE, content);
+    marquerEcrit(data.updatedAt);
     return 'synced';
   } catch {
     folderGranted = false;
