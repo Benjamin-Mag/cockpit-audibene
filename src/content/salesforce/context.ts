@@ -205,7 +205,7 @@ async function lireFiche(withPartner: boolean): Promise<Fiche> {
 
   // Tout doit être lu AVANT de rendre l'utilisateur à son sous-onglet : les champs redeviennent invisibles.
   const lieu = codePostalEtVille(lu);
-  if (retour) revenirSur(retour.precedent);
+  if (retour) await revenirSur(retour.precedent);
 
   return {
     page,

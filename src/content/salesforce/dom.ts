@@ -83,11 +83,13 @@ export function sousOngletActifAvec(onglet: HTMLElement): string | null {
   return actif ? textOf(actif) : null;
 }
 
-/** Remet le sous-onglet nommé au premier plan s'il ne l'est plus (retrouvé par son texte). */
-export function revenirSur(nom: string | null): void {
+/** Remet le sous-onglet nommé au premier plan s'il ne l'est plus (retrouvé par son texte), et attend que Lightning l'ait vraiment affiché : la lecture suivante doit partir d'une barre stable. */
+export async function revenirSur(nom: string | null): Promise<void> {
   if (!nom) return;
   const t = sousOnglet(nom);
-  if (t && t.getAttribute('aria-selected') !== 'true') t.click();
+  if (!t || t.getAttribute('aria-selected') === 'true') return;
+  t.click();
+  await waitFor(() => (sousOnglet(nom)?.getAttribute('aria-selected') === 'true' ? true : null), 3000, 50);
 }
 
 /** Les lectures qui changent de sous-onglet se suivent : deux en même temps se rendraient l'une l'autre au mauvais endroit. */

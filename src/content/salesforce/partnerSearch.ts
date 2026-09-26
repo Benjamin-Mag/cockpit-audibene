@@ -2,7 +2,7 @@
 // avec le « Commentaire Partnersearch » et les liens de prise de rendez-vous de chaque partenaire.
 // Tout se fait au clic du panneau (jamais en boucle) ; les recherches sont limitées au tableau une fois trouvé.
 import type { PartenaireSF } from '../../shared/types';
-import { deepAll, enSerie, sleep, sousOnglet, textOf, visibleEl, waitFor } from './dom';
+import { deepAll, enSerie, revenirSur, sleep, sousOnglet, sousOngletActifAvec, textOf, visibleEl, waitFor } from './dom';
 
 export interface LecturePartnerSearch {
   ok: boolean;
@@ -53,14 +53,16 @@ function lireLigne(tr: HTMLTableRowElement): Omit<PartenaireSF, 'commentaire' | 
   };
 }
 
-/** Benjamin a demandé les partenaires : l'onglet Partner Search reste ouvert (seuls les « Détails » dépliés sont refermés). */
+/** Lecture invisible : si Cockpit a dû ouvrir Partner Search, il remet ensuite le sous-onglet où l'utilisateur était. */
 export const lirePartnerSearch = (): Promise<LecturePartnerSearch> => enSerie(lirePartnerSearchMaintenant);
 
 async function lirePartnerSearchMaintenant(): Promise<LecturePartnerSearch> {
   let table = tablePartenaires();
+  let precedent: string | null = null;
   if (!table) {
     const onglet = sousOnglet('Partner Search');
     if (!onglet) return { ok: false, msg: 'Onglet « Partner Search » introuvable sur cette fiche (ouvre une Piste).', partenaires: [] };
+    precedent = sousOngletActifAvec(onglet);
     onglet.click();
     table = await waitFor(tablePartenaires, 8000, 300);
   }
@@ -87,5 +89,7 @@ async function lirePartnerSearchMaintenant(): Promise<LecturePartnerSearch> {
     }
     partenaires.push({ ...base, ...lu });
   }
+  // La page est rendue comme l'utilisateur l'avait laissée (sous-onglet retrouvé par son texte).
+  await revenirSur(precedent);
   return { ok: true, msg: `${partenaires.length} partenaire(s) lu(s) dans Partner Search`, partenaires };
 }
