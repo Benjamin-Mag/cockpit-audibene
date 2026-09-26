@@ -4,3 +4,5 @@ dist-site/
 release/
 .claude/settings.local.json
 *.log
+test-results/
+tests/rapport/

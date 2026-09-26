@@ -39,6 +39,8 @@ export function App() {
   const [data, setDataState] = useState<AppData | null>(null);
   const skipSave = useRef(true);
   const saveTimer = useRef<number | undefined>(undefined);
+  /** save() date les données en place : ce compteur redessine le panneau pour que le bandeau du dossier suive. */
+  const [, setEnregistreLe] = useState(0);
 
   const [tab, setTab] = useState<TabId>('anamnese');
   const [pageMode, setPageMode] = useState<PageId>('cockpit');
@@ -69,7 +71,7 @@ export function App() {
     clearTimeout(saveTimer.current);
     saveTimer.current = window.setTimeout(() => {
       save(data).then(
-        (sync) => setStorage((s) => (s && s.sync !== sync && s.mode === 'folder' ? { ...s, sync } : s)),
+        (sync) => { setStorage((s) => (s && s.sync !== sync && s.mode === 'folder' ? { ...s, sync } : s)); setEnregistreLe(data.updatedAt ?? 0); },
         () => showToast("Erreur d'enregistrement", 'err'),
       );
     }, 350);
@@ -170,8 +172,12 @@ export function App() {
     return () => { alive = false; };
   }, [recordKey, tabId, ficheTick]);
 
+  // Une seule action Salesforce à la fois. Verrou hors de l'état : le raccourci clavier (onCommand)
+  // tient une fermeture ancienne où `busy` n'a pas encore changé.
+  const actionEnCours = useRef(false);
   const act = async (label: string, req: ContentRequest) => {
-    if (tabId == null) return;
+    if (tabId == null || actionEnCours.current) return;
+    actionEnCours.current = true;
     setBusy(label);
     try {
       const r = await runAction(tabId, req);
@@ -180,6 +186,7 @@ export function App() {
     } catch (e) {
       showToast((e as Error).message ?? String(e), 'err');
     } finally {
+      actionEnCours.current = false;
       setBusy(null);
     }
   };
