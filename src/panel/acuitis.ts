@@ -15,7 +15,7 @@ export const MOTIFS_ACUITIS: { nom: string; duree: number }[] = [
   { nom: '1er rendez-vous', duree: 60 },
 ];
 
-/** Code du magasin dans un lien Acuitis : « ?store=ALES » ou « /v3/acuitis/ALES_ACUITIS ». */
+/** Code du magasin dans un lien Acuitis : « ?store=CODE » ou « /v3/acuitis/CODE_ACUITIS ». */
 export function magasinAcuitis(url: string): string | null {
   if (!/^https?:\/\/[^/]*acuitis\.com\//i.test(url)) return null;
   try {
