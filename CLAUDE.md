@@ -23,7 +23,10 @@ npm run dev          # aperçu du panneau dans un onglet (mode web, sans Salesfo
 npm run build:site   # dist-site/ = page d'installation + version web
 npm run zip          # release/cockpit-audibene.zip
 npx tsc --noEmit     # vérification des types (à faire avant tout commit)
+npm test             # banc d'essai Playwright : le vrai panneau dans un faux navigateur (Salesforce, Doctolib, Acuitis simulés) — voir tests/LISEZMOI.md
 ```
+
+**Banc d'essai (depuis la v1.0.43)** : `tests/e2e/*.spec.ts`, faux navigateur `tests/e2e/faux-navigateur.js`, aides `tests/e2e/outils.ts`. Il teste le panneau, **pas** le script de page Salesforce. Données 100 % fictives (règle n°4). Plusieurs worktrees en même temps : donner à chacun son `PW_PORT`. Si le Chromium de Playwright n'est pas installé (`npx playwright install chromium`), utiliser le Chrome du poste : `CHROMIUM_PATH="C:/Program Files/Google/Chrome/Application/chrome.exe" npm test`. Tout correctif de comportement arrive avec un test qui échoue avant et passe après.
 
 Tester dans un vrai Salesforce : `edge://extensions` → ↻ sur la carte de l'extension, puis F5 sur l'onglet Salesforce si le script de page a changé (le panneau ré-injecte normalement tout seul un script périmé grâce à l'identifiant de build).
 
