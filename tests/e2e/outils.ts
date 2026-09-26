@@ -26,6 +26,8 @@ export interface Scenario {
   beaucoupOrl?: boolean;
   /** Dossier synchronisé simulé (OPFS) : autorisation de départ, refus au clic « Autoriser ». */
   dossier?: { permission?: 'granted' | 'prompt' | 'denied'; refus?: boolean };
+  /** chrome.storage.local survit au rechargement du panneau (réinstallation, fermeture/réouverture). */
+  localPersistant?: boolean;
 }
 
 export const MODELES = [
