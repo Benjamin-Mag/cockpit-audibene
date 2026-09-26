@@ -25,7 +25,8 @@ export default defineConfig({
   webServer: {
     command: `npx vite --port ${PORT} --strictPort`,
     url: `http://localhost:${PORT}/panel.html`,
-    reuseExistingServer: true,
+    // Chaque worktree lance son propre serveur : sinon un banc d’essai testerait le code d’un autre dossier ouvert sur le même port.
+    reuseExistingServer: false,
     timeout: 60_000,
   },
 });
