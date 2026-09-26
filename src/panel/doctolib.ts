@@ -273,7 +273,7 @@ export async function creneauxMotif(m: MotifDoctolib, source: Source = 'public')
   const json = (await res.json()) as { total?: number; reason?: string | null; next_slot?: string | null; availabilities?: { date: string; slots?: unknown[] }[] };
   const slot = (s: unknown) => (typeof s === 'string' ? s : s && typeof s === 'object' && 'start_date' in s ? String((s as { start_date: unknown }).start_date) : '');
   const jour = json.availabilities?.find((a) => a.slots?.length);
-  if (jour) return { date: jour.date, creneaux: (jour.slots ?? []).map(slot).filter(Boolean), total: json.total ?? 0, raison: '' };
+  if (jour) return { date: jour.date, creneaux: [...new Set((jour.slots ?? []).map(slot).filter(Boolean))], total: json.total ?? 0, raison: '' };
   if (json.next_slot) return { date: json.next_slot.slice(0, 10), creneaux: [json.next_slot], total: json.total ?? 0, raison: '' };
   return { date: '', creneaux: [], total: 0, raison: json.reason ?? 'Aucune disponibilité en ligne' };
 }
