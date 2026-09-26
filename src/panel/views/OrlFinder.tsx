@@ -5,7 +5,7 @@ import { useBrouillon } from '../brouillons';
 import { Btn, Chip, Icon, Seg } from '../components/ui';
 import { type Creneau, DoctolibRefus, MESSAGE_TYPE, type Orl, PAUSE_MS, ProDeconnecte, type Source, reessayerPro, SECTEURS_S1, SECTEURS_S2, creneauLabel, ficheOrl, lienItineraire, lienRechercheDoctolib, prochainCreneau, rechercherOrl, secteurDe, secteurLabel, trierOrl, voirOngletDoctolib } from '../doctolib';
 import { type GeoTable, type Origine, kmLabel, loadGeo, localiser } from '../geo';
-import { type DelaiFiltre, type LigneCache, type OrlPrefs, type SecteurFiltre, cacheKey, loadPrefs, loadResultat, loadTri, savePrefs, saveResultat, saveTri } from '../orl-store';
+import { type DelaiFiltre, type LigneCache, type OrlPrefs, type SecteurFiltre, CACHE_MS, CACHE_VUE_MS, cacheKey, loadPrefs, loadResultat, loadTri, savePrefs, saveResultat, saveTri } from '../orl-store';
 import { AUCUN_FILTRE, FILTRES, type FiltreId, type FiltresRapides, TRIS, TRI_TITRE, type TriOrl, compter, filtreActif, filtrer, infoNouveauxPatients, trierPar } from '../orl-tri';
 
 interface Props {
@@ -67,6 +67,8 @@ export function OrlFinder({ ficheKey, fiche, toast }: Props) {
   const [lignes, setLignes] = useState<Ligne[]>([]);
   const [rayon, setRayon] = useState(RAYONS_KM[0]);
   const [depuisCache, setDepuisCache] = useState<number | null>(null);
+  /** Rafraîchissement derrière les résultats déjà affichés (le panneau est rechargé à chaque changement d'onglet). */
+  const [majSilencieuse, setMajSilencieuse] = useState(false);
   const [error, setError] = useState<{ msg: string; refus: boolean } | null>(null);
   /** Site des résultats affichés : Doctolib Pro si la session est ouverte, sinon le site public. */
   const [source, setSource] = useState<Source>('pro');
@@ -119,24 +121,42 @@ export function OrlFinder({ ficheKey, fiche, toast }: Props) {
       setError(null);
       setDepuisCache(null);
       setLimite(AFFICHES);
+      // Résultats déjà connus : on les remet à l'écran tout de suite. Frais, on s'arrête là ;
+      // datés, on relance la recherche derrière, sans vider la liste (pas de « chargement »).
+      let silencieux = false;
       if (!forcer) {
-        const cached = await loadResultat(key);
+        const cached = await loadResultat(key, CACHE_VUE_MS);
         if (!alive) return;
-        if (cached) { setLignes(cached.lignes); setRayon(cached.rayonKm); setDepuisCache(cached.at); setSource(cached.source ?? 'public'); setEtape('fini'); return; }
+        if (cached) {
+          setLignes(cached.lignes);
+          setRayon(cached.rayonKm);
+          setDepuisCache(cached.at);
+          setSource(cached.source ?? 'public');
+          setEtape('fini');
+          if (Date.now() - cached.at < CACHE_MS) return;
+          silencieux = true;
+          setMajSilencieuse(true);
+        }
       }
-      setEtape('recherche');
-      setLignes([]);
-      setRayon(RAYONS_KM[0]);
+      const majLignes = (l: Ligne[]) => { if (!silencieux) setLignes(l); };
+      const majEtape = (e: Etape) => { if (!silencieux) setEtape(e); };
+      const majProgress = (p: { fait: number; total: number }) => { if (!silencieux) setProgress(p); };
+      const majRayon = (km: number) => { if (!silencieux) setRayon(km); };
+      if (!silencieux) {
+        setEtape('recherche');
+        setLignes([]);
+        setRayon(RAYONS_KM[0]);
+      }
       // Doctolib Pro d'abord ; sans session Pro, bascule une fois pour toutes sur le site public.
       let src: Source = 'pro';
-      setSource('pro');
+      if (!silencieux) setSource('pro');
       const avecRepli = async <T,>(appel: (s: Source) => Promise<T>): Promise<T> => {
         try {
           return await appel(src);
         } catch (e) {
           if (!(e instanceof ProDeconnecte) || src !== 'pro') throw e;
           src = 'public';
-          if (alive) setSource('public');
+          if (alive && !silencieux) setSource('public');
           return appel('public');
         }
       };
@@ -164,15 +184,15 @@ export function OrlFinder({ ficheKey, fiche, toast }: Props) {
         let rayonKm = RAYONS_KM[0];
         for (const km of RAYONS_KM) {
           rayonKm = km;
-          setRayon(km);
+          majRayon(km);
           await lireJusqua(km);
           if (!alive) return;
           const vus = new Set<string>();
           base = lus.filter((it) => it.distanceKm <= km && !vus.has(it.key) && vus.add(it.key)).map((orl) => ({ orl, creneau: creneaux.get(orl.key) ?? null, fiche: undefined }));
-          setLignes(trierOrl(base));
-          setEtape('creneaux');
+          majLignes(trierOrl(base));
+          majEtape('creneaux');
           const aLire = base.filter((l) => !creneaux.has(l.orl.key));
-          setProgress({ fait: 0, total: aLire.length });
+          majProgress({ fait: 0, total: aLire.length });
           for (let i = 0; i < aLire.length; i++) {
             if (!alive) return;
             let c: Creneau;
@@ -181,8 +201,8 @@ export function OrlFinder({ ficheKey, fiche, toast }: Props) {
             creneaux.set(aLire[i].orl.key, c);
             aLire[i].creneau = c;
             if (!alive) return;
-            setLignes(trierOrl(base));
-            setProgress({ fait: i + 1, total: aLire.length });
+            majLignes(trierOrl(base));
+            majProgress({ fait: i + 1, total: aLire.length });
             if (i < aLire.length - 1) await sleep(PAUSE_MS);
           }
           if (base.some((l) => l.creneau?.next)) break;
@@ -191,8 +211,8 @@ export function OrlFinder({ ficheKey, fiche, toast }: Props) {
         // 3. Fiches (téléphone, secteur en clair, actes) des premiers du tri, par paquets.
         // Les fiches lues suivent l'ordre choisi : avec « Plus proche », ce sont les 20 plus proches qui sont vérifiés.
         const retenus = trierPar(base, triCourant.current).slice(0, MAX_FICHES);
-        setEtape('fiches');
-        setProgress({ fait: 0, total: retenus.length });
+        majEtape('fiches');
+        majProgress({ fait: 0, total: retenus.length });
         for (let i = 0; i < retenus.length; i += PAQUET) {
           if (!alive) return;
           await Promise.all(retenus.slice(i, i + PAQUET).map(async (l) => {
@@ -207,14 +227,22 @@ export function OrlFinder({ ficheKey, fiche, toast }: Props) {
             }
           }));
           if (!alive) return;
-          setLignes(trierOrl(base));
-          setProgress({ fait: Math.min(i + PAQUET, retenus.length), total: retenus.length });
+          majLignes(trierOrl(base));
+          majProgress({ fait: Math.min(i + PAQUET, retenus.length), total: retenus.length });
           if (i + PAQUET < retenus.length) await sleep(PAUSE_MS);
         }
+        // Les résultats frais remplacent ceux qui étaient à l'écran.
+        setLignes(trierOrl(base));
+        setRayon(rayonKm);
+        setSource(src);
+        setDepuisCache(null);
+        setMajSilencieuse(false);
         setEtape('fini');
         void saveResultat(key, { at: Date.now(), rayonKm, lignes: base, source: src });
       } catch (e) {
         if (!alive) return;
+        // Rafraîchissement discret : on garde ce qui est affiché plutôt que d'effacer la liste.
+        if (silencieux) { setMajSilencieuse(false); return; }
         setError({ msg: (e as Error).message ?? String(e), refus: e instanceof DoctolibRefus });
         setEtape('erreur');
       }
@@ -240,7 +268,7 @@ export function OrlFinder({ ficheKey, fiche, toast }: Props) {
   const statut = etape === 'recherche' ? `Recherche des ORL sur Doctolib (${rayon} km)…`
     : etape === 'creneaux' ? `${lignes.length} ORL trouvés, lecture des créneaux… ${progress.fait}/${progress.total}`
     : etape === 'fiches' ? `Lecture des fiches (téléphone, secteur)… ${progress.fait}/${progress.total}`
-    : etape === 'fini' && lignes.length ? `${finales.length} ORL avec téléphone à moins de ${rayon} km, ${finales.filter((l) => l.creneau?.next).length} avec un créneau en ligne${source === 'pro' ? ' · Doctolib Pro' : ''}${depuisCache ? ` · résultats ${ago(depuisCache)}` : ''}`
+    : etape === 'fini' && lignes.length ? `${finales.length} ORL avec téléphone à moins de ${rayon} km, ${finales.filter((l) => l.creneau?.next).length} avec un créneau en ligne${source === 'pro' ? ' · Doctolib Pro' : ''}${depuisCache ? ` · résultats ${ago(depuisCache)}` : ''}${majSilencieuse ? ' · mise à jour…' : ''}`
     : '';
 
   const afficherPlus = async () => {
