@@ -16,7 +16,7 @@ test.describe('Mails (suite)', () => {
     await page.getByRole('button', { name: /Nouveau patient partenaire/ }).click();
     await expect.poll(async () => (await p.demandes('readFiche')).some((d) => d.withPartner === true)).toBe(true);
     await expect(champ(page, 'Nom du partenaire').locator('input')).toHaveValue('Audition Test Marseille');
-    await expect(champ(page, 'Adresse du partenaire').locator('textarea')).toHaveValue(/12 rue de la République/);
+    await expect(champ(page, 'Adresse du partenaire').locator('textarea')).toHaveValue(/7 rue de l’Essai/);
     await expect(page.locator('.preview').filter({ hasText: 'Bonjour Audition Test Marseille' }).first()).toBeVisible();
     await expect(page.locator('.preview').filter({ hasText: '13002 Marseille' }).first()).toBeVisible();
     expect(p.erreurs).toEqual([]);
