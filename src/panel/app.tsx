@@ -17,7 +17,7 @@ import { Partenaires } from './views/Partenaires';
 import { Reglages } from './views/Reglages';
 import { buildMailHtml } from '../shared/mail-html';
 import { Setup } from './views/Setup';
-import { FICHE_FRAICHE_MS, VERIFICATION_MS, aUnBrouillon, chargerBrouillons, ecranGarde, garderEcran, effacerBrouillon, ficheMemo, ongletSfGarde, setFicheMemo, setOngletSfGarde, verifierOngletsOuverts } from './brouillons';
+import { FICHE_FRAICHE_MS, VERIFICATION_MS, aUnBrouillon, chargerBrouillons, ecranGarde, ficheAvecBrouillon, garderEcran, effacerBrouillon, ficheMemo, ongletSfGarde, setFicheMemo, setOngletSfGarde, verifierOngletsOuverts } from './brouillons';
 
 type TabId = 'fiche' | 'anamnese' | 'commentaire' | 'orl' | 'partenaires' | 'mails' | 'chat' | 'reglages';
 interface Ecran { id: TabId; label: string; titre: string; aide: string; icon: IconName; brouillon?: string }
@@ -179,9 +179,11 @@ export function App() {
   }, [recordKey, tabId, ficheTick]);
 
   // En revenant sur une fiche (ou quand le navigateur recharge le panneau), on retrouve le dernier écran ouvert.
+  // Hors fiche (page Salesforce sans fiche, Doctolib…), l'adresse change à chaque navigation : on ne referme pas Réglages pour autant.
   useEffect(() => {
     if (!brouillonsPrets) return;
-    setTabState((ecranGarde(recordKey) as TabId | null) ?? 'fiche');
+    if (ficheAvecBrouillon(recordKey)) setTabState((ecranGarde(recordKey) as TabId | null) ?? 'fiche');
+    else setTabState((t) => (t === 'reglages' ? t : 'fiche'));
   }, [recordKey, brouillonsPrets]);
 
   // Une seule action Salesforce à la fois. Verrou hors de l'état : le raccourci clavier (onCommand)

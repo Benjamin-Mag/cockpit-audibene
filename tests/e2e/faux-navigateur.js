@@ -207,5 +207,5 @@
     FileSystemHandle.prototype.requestPermission = async function () { note('dossier', 'requestPermission', {}); if (!S.dossier.refus) perm = 'granted'; return perm; };
   }
 
-  window.__mock = { activer, onglets, local, session, FICHES };
+  window.__mock = { activer, onglets, local, session, FICHES, ports };
 })();
