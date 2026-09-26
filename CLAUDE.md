@@ -106,8 +106,13 @@ Toute fusion de données passe par `mergeData` / `mergeVentes` / `mergePartage` 
 1. `npx tsc --noEmit` puis `npm run build`.
 2. Monter `version` dans `public/manifest.json` et `npm pkg set version=X.Y.Z`.
 3. `main` est protégé : commit sur une branche `chore/vX.Y.Z`, `gh pr create`, `gh pr merge --squash --delete-branch`, puis `git checkout main && git pull`, `git tag vX.Y.Z && git push origin vX.Y.Z`.
-4. Vérifier `gh run list` : Release (zip) et Site (Pages) en succès.
-
+4. Vérifier `gh run list --repo Benjamin-Mag/cockpit-audibene` : Release (zip) en succès.
+5. **Copier la version chez Benjamin** : `cp -r dist/. ~/Downloads/cockpit-audibene/` (et `cockpit-benjamin`, `cockpit-essai` pour leurs dépôts) — il n'a plus qu'à faire ↻ dans `edge://extensions`.
+6. **Mettre le zip à disposition des collègues** : ce dépôt est **privé** depuis le 2026-09-26, donc `npm run zip` puis
+   `gh release create vX.Y.Z --repo Benjamin-Mag/cockpit-audibene-install release/cockpit-audibene.zip release/cockpit-audibene-X.Y.Z.zip`.
+   Le dépôt public `cockpit-audibene-install` (dossier `Projects/Page installation Cockpit`) ne contient **que** la page d'installation et les zips : jamais de code, jamais de journal.
+   Lien unique pour les collègues : https://benjamin-mag.github.io/cockpit-audibene-install/
+7. Reporter dans Cockpit Benjamin (`git fetch upstream && git merge upstream/main`, version 2.x) et remettre la branche `design/essai` au niveau si elle sert.
 ## Travailler en équipe
 - Un agent = une branche `feature/<chantier>` dans son propre worktree (`git worktree add`), jamais dans le dossier principal.
 - Avant de commencer : `git fetch && git rebase origin/main` ; petits commits ; `npx tsc --noEmit` vert.
