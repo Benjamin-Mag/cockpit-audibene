@@ -12,6 +12,8 @@ export const DATA_FILE = 'cockpit.json';
 export const LEGACY_FILE = 'data.json';
 const LOCAL_KEY = 'cockpit-data';
 const MODE_KEY = 'cockpit-storage-mode';
+/** « Ne plus me demander l'autorisation du dossier » : propre à ce navigateur, jamais dans cockpit.json. */
+const SILENCE_KEY = 'cockpit-dossier-silence';
 
 export type SyncStatus = 'synced' | 'paused' | 'none';
 export interface StorageState {
@@ -34,6 +36,10 @@ async function localWrite(content: string) {
   else localStorage.setItem(LOCAL_KEY, content);
 }
 const browserModeChosen = () => { try { return localStorage.getItem(MODE_KEY) === 'browser'; } catch { return false; } };
+
+/** Le navigateur oublie l'autorisation du dossier à chaque fermeture du panneau : on peut cesser de la redemander. */
+export const dossierSilencieux = () => { try { return localStorage.getItem(SILENCE_KEY) === '1'; } catch { return false; } };
+export const setDossierSilencieux = (v: boolean) => { try { if (v) localStorage.setItem(SILENCE_KEY, '1'); else localStorage.removeItem(SILENCE_KEY); } catch { /* stockage refusé */ } };
 
 /** Interprète le contenu d'un fichier : Cockpit, ancien générateur ou ancien suivi ventes. */
 export function parseAny(text: string, base: AppData): { data: AppData; kind: ReturnType<typeof detectKind> } {

@@ -104,6 +104,50 @@ export function effacerBrouillon(ficheKey: string, prefixe: string) {
   enregistrer();
 }
 
+/** Onglet Salesforce suivi : gardé en mémoire de session pour survivre au rechargement du panneau. */
+const CLE_ONGLET = 'cockpitOngletSf';
+
+export async function ongletSfGarde(): Promise<number | null> {
+  try {
+    const s = memoireSession();
+    const lu = s ? (await s.get(CLE_ONGLET))[CLE_ONGLET] : JSON.parse(sessionStorage.getItem(CLE_ONGLET) || 'null');
+    return typeof lu === 'number' ? lu : null;
+  } catch {
+    return null;
+  }
+}
+
+export function setOngletSfGarde(id: number | null): void {
+  try {
+    const s = memoireSession();
+    if (s) void s.set({ [CLE_ONGLET]: id }).catch(() => { /* mémoire de session indisponible */ });
+    else sessionStorage.setItem(CLE_ONGLET, JSON.stringify(id));
+  } catch { /* stockage indisponible */ }
+}
+
+/** Nom de champ réservé : la dernière fiche lue, gardée avec les brouillons (même ménage, même durée). */
+const CHAMP_FICHE = '__fiche';
+/** En dessous de ce délai, la fiche gardée est considérée à jour : pas de relecture de Salesforce. */
+export const FICHE_FRAICHE_MS = 60 * 1000;
+
+/**
+ * Le navigateur recharge le panneau à chaque changement d'onglet : sans mémoire, la fiche
+ * repartirait en « chargement… » à chaque fois. On garde la dernière lecture par fiche.
+ */
+export function ficheMemo(ficheKey: string): { fiche: Fiche; at: number } | null {
+  if (!ficheAvecBrouillon(ficheKey)) return null;
+  const garde = brouillons[ficheKey]?.champs?.[CHAMP_FICHE] as { fiche?: Fiche; at?: number } | undefined;
+  return garde?.fiche && typeof garde.at === 'number' ? { fiche: garde.fiche, at: garde.at } : null;
+}
+
+export function setFicheMemo(ficheKey: string, fiche: Fiche, at = Date.now()) {
+  if (!ficheAvecBrouillon(ficheKey)) return;
+  const f = (brouillons[ficheKey] ??= { vu: at, champs: {} });
+  f.vu = at;
+  f.champs[CHAMP_FICHE] = { fiche, at };
+  enregistrer();
+}
+
 /** Nombre de fiches ayant un brouillon (affichage, tests). */
 export const nombreDeBrouillons = () => Object.keys(brouillons).length;
 
