@@ -80,7 +80,7 @@ test.describe('Mails (suite)', () => {
     await page.getByRole('button', { name: 'Nouveau modèle' }).click();
     await expect(page.getByPlaceholder('Objet du mail')).toBeVisible();
     await expect(page.getByText('SMS accompagnateur (optionnel)')).toBeVisible();
-    await page.getByRole('button', { name: 'SMS', exact: true }).click();
+    await page.locator('.view').getByRole('button', { name: 'SMS', exact: true }).click();
     await expect(page.getByPlaceholder('Objet du mail')).toHaveCount(0);
     await expect(page.getByText('SMS accompagnateur (optionnel)')).toHaveCount(0);
     await expect(page.getByText('Texte du SMS')).toBeVisible();

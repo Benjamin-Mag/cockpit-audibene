@@ -90,7 +90,11 @@ export async function ouvrir(page: Page, s: Scenario = {}): Promise<Panneau> {
 
 /** Va sur un écran : bouton de navigation portant ce nom (onglet, barre du bas, sélecteur du haut). */
 export async function aller(page: Page, ecran: 'Fiche' | 'COSI' | 'Anamnèse' | 'ORL Finder' | 'Mails' | 'Chat partenaire' | 'Partenaires' | 'Réglages' | 'Cockpit') {
-  if (ecran === 'Réglages') { await page.getByRole('button', { name: 'Réglages', exact: true }).first().click(); return; }
+  if (ecran === 'Réglages') {
+    if (await page.locator('.section-title', { hasText: 'Signature' }).isVisible()) return;
+    await page.getByRole('button', { name: 'Réglages', exact: true }).first().click();
+    return;
+  }
   const noms: Record<string, RegExp> = {
     Fiche: /^\s*(Fiche|Cockpit)\s*$/, Cockpit: /^\s*(Cockpit|Fiche)\s*$/, COSI: /^\s*COSI\s*$/, 'Anamnèse': /^\s*Anamnèse\s*$/, 'ORL Finder': /^\s*(ORL Finder|ORL)\s*$/,
     Mails: /^\s*Mails?\s*$/, 'Chat partenaire': /^\s*(Chat partenaire|Chat)\s*$/, Partenaires: /^\s*Partenaires\s*$/,
