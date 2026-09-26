@@ -87,6 +87,10 @@ Le panneau envoie des `ContentRequest` (`src/shared/messages.ts`) via `chrome.ta
 - Chatter : la zone « Partager une mise à jour… » devient un éditeur riche au focus ; taper via `execCommand('insertText')`, puis bouton « Envoyer un message ».
 - Composeur d'e-mail de l'Opportunité : boutons **Client / Partenaire** en haut (destinataire). Les mêmes libellés existent dans le formulaire de résumé d'appel : ne chercher le choix que dans le composeur, délimité par l'éditeur `.ql-editor` et son bouton « Envoyer » (`composerOf` dans `actions.ts`). Choisir le destinataire AVANT de remplir objet et corps. Juste après l'ouverture, les boutons arrivent après l'éditeur et Salesforce vide le corps en finissant son affichage : attendre, insérer, puis vérifier que le corps est toujours là.
 
+## Pièges Doctolib connus (ne pas réintroduire)
+- `/search/availabilities.json` : les listes se passent en **`agenda_ids[]=1&agenda_ids[]=2`** (idem `practice_ids[]`). Avec des virgules, Doctolib répond **400 « agenda_ids: must be an array »** dès qu'un centre a plusieurs agendas — un centre à agenda unique passait, d'où un bug invisible en test (v1.0.38). Tout passe par `paramsCreneaux()` dans `doctolib.ts`.
+- `start_date_time` doit être une heure **locale avec décalage** (`2026-09-26T16:00:00+02:00`), pas un `Z`.
+
 ## Données
 `AppData` (voir `model.ts`) : `reglages`, `anamnese {situations, textes ({{resume}} = emplacement du résumé), phrases}`, `chatPartenaire`, `templates`, `categories`, `ventes` (plus affiché ici, mais **gardé** dans les données et les fusions : le même `cockpit.json` peut servir à Cockpit Benjamin). Variables de texte : `{{nom}}`, `{{date}}`, `{{heure}}`, `{{nom partenaire}}`, `{{adresse}}`, `{{nom_conseiller}}`, `{{tel_conseiller}}`, `{{email_conseiller}}`, `{{titre_conseiller}}` ; formes `patient(e)`, `il(elle)`, `conseiller(ère)` résolues par `resolveGenre`.
 Toute fusion de données passe par `mergeData` / `mergeVentes` / `mergePartage` (union, jamais de perte).
