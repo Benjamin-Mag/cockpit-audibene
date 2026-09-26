@@ -64,7 +64,11 @@
     switch (req.type) {
       case 'ping': return { type: 'pong', version: 'dev', site };
       case 'getContext': return { type: 'context', context: ctxDe(tabId) };
-      case 'readFiche': return { type: 'fiche', fiche: FICHES[tabId] ?? FICHES[15] };
+      case 'readFiche': {
+        const f = FICHES[tabId] ?? FICHES[15];
+        // Partenaire et adresse : seulement à la lecture complète (survol du lien Compte), comme dans Salesforce.
+        return { type: 'fiche', fiche: S.partenaireALaDemande && !req.withPartner ? { ...f, partenaire: '', adresse: '' } : f };
+      }
       case 'lirePartnerSearch': return S.partnerSearchVide ? { type: 'partenaires', ok: true, msg: '', partenaires: [] } : { type: 'partenaires', ok: true, msg: '4 partenaires', partenaires: PARTENAIRES };
       case 'diagSms': return { type: 'result', result: { ok: false, msg: 'diag test' } };
       default: {
@@ -76,10 +80,12 @@
 
   // ------------------------------------------------------------------ Doctolib / Acuitis
   const dans = (j, h = 10, m = 30) => { const d = new Date(Date.now() + j * 86400000); d.setHours(h, m, 0, 0); return d.toISOString(); };
-  const ORL = [1, 2, 3, 4, 5, 6].map((i) => ({
-    title: 'Dr', firstName: ['Anne', 'Paul', 'Luc', 'Marie', 'Nina', 'Hugo'][i - 1], name: 'Orl' + i,
+  // 6 ORL par défaut ; `beaucoupOrl` : 30 (plus que l'affichage initial), servis par pages de 16 comme Doctolib.
+  const PRENOMS = ['Anne', 'Paul', 'Luc', 'Marie', 'Nina', 'Hugo'];
+  const ORL = Array.from({ length: S.beaucoupOrl ? 30 : 6 }, (_, k) => k + 1).map((i) => ({
+    title: 'Dr', firstName: PRENOMS[i - 1] ?? 'Prenom' + i, name: 'Orl' + i,
     speciality: { name: 'ORL' },
-    location: { address: `${i} rue Test`, zipcode: '7501' + (i % 9), city: i === 4 ? 'Bègles' : 'Paris', lat: 48.85 + i / 100, lng: 2.35, distanceInMeters: i * 1200 },
+    location: { address: `${i} rue Test`, zipcode: '7501' + (i % 9), city: i === 4 ? 'Bègles' : 'Paris', lat: 48.85 + i / 100, lng: 2.35, distanceInMeters: i <= 6 ? i * 1200 : 7200 + (i - 6) * 300 },
     regulationSector: i % 2 ? 'CONTRACTED_1' : 'CONTRACTED_2',
     link: `/orl-oto-rhino-laryngologie/paris/dr-orl${i}?pid=practice-${100 + i}`,
     references: { practiceId: 100 + i, id: i },
@@ -88,7 +94,7 @@
   const reponseDoctolib = (url) => {
     const u = new URL(url);
     if (S.doctolibBloque) return { status: 403, contentType: 'text/html', body: '<html>captcha</html>' };
-    if (/\/hcp\/search/.test(u.pathname)) return json({ total: ORL.length, healthcareProviders: ORL });
+    if (/\/hcp\/search/.test(u.pathname)) { const pg = Number(u.searchParams.get('page') || 0); return json({ total: ORL.length, healthcareProviders: ORL.slice(pg * 16, pg * 16 + 16) }); }
     if (/availabilities\.json/.test(u.pathname)) {
       if (u.search.includes('agenda_ids=') ) return { status: 400, contentType: 'application/json', body: '{"error":["agenda_ids: must be an array"]}' };
       const vm = Number(u.searchParams.get('visit_motive_id'));
@@ -168,7 +174,14 @@
       sendMessage: async (tabId, req) => repondre(tabId, req),
       connect,
       update: async (id, p) => { note('tabs', 'update', { id, ...p }); if (p.active) activer(id); return onglets.find((x) => x.id === id); },
-      create: async (p) => { note('tabs', 'create', p); const o = { id: 100 + onglets.length, url: p.url, active: !!p.active, status: 'complete', windowId: 1 }; onglets.push(o); return o; },
+      create: async (p) => {
+        note('tabs', 'create', p);
+        // Sans session Doctolib Pro, toute page Pro renvoie vers la connexion.
+        const url = S.sansDoctolibPro && /^https:\/\/pro\.doctolib\.fr\//.test(p.url) ? 'https://auth.doctolib.fr/pro/sessions/new' : p.url;
+        const o = { id: 100 + onglets.length, url, active: !!p.active, status: 'complete', windowId: 1 };
+        onglets.push(o);
+        return o;
+      },
       onActivated, onUpdated, onRemoved,
     },
     windows: { update: async (id, p) => { note('windows', 'update', { id, ...p }); return {}; }, onFocusChanged: ecouteurs() },
@@ -184,6 +197,15 @@
     permissions: { contains: async () => true, request: async () => true },
     webNavigation: { getAllFrames: async () => [{ frameId: 0, url: onglets[0].url }] },
   };
+
+  // ------------------------------------------------------------------ dossier synchronisé
+  // `dossier` : le dossier est un répertoire du stockage privé du navigateur (OPFS) ; son autorisation
+  // est simulée (`permission` au départ, « granted » après le clic Autoriser si `refus` n'est pas posé).
+  if (S.dossier && typeof FileSystemHandle !== 'undefined') {
+    let perm = S.dossier.permission || 'prompt';
+    FileSystemHandle.prototype.queryPermission = async function () { return perm; };
+    FileSystemHandle.prototype.requestPermission = async function () { note('dossier', 'requestPermission', {}); if (!S.dossier.refus) perm = 'granted'; return perm; };
+  }
 
   window.__mock = { activer, onglets, local, session, FICHES };
 })();
