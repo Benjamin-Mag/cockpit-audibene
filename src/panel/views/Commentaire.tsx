@@ -105,7 +105,7 @@ export function Commentaire({ ficheKey, data, update, fiche, connected, busy, on
   };
 
   return (
-    <div class="view">
+    <div class={editing ? 'view editeur' : 'view'}>
       <div key={genreAlert} class={genreAlert ? 'row wrap shake' : 'row wrap'}>
         <Seg options={[{ id: 'M', label: 'M.' }, { id: 'F', label: 'Mme' }]} value={effectiveGenre} onChange={setGenre} />
         {!effectiveGenre ? <span class="note warn">genre requis</span> : !genre && fiche?.genre ? <span class="note">depuis la fiche</span> : null}

@@ -40,12 +40,38 @@ test.describe('Design fusion', () => {
     await expect(page.locator('nav.barre')).toBeVisible();
   });
 
-  test('Réglages s\'ouvre et se referme avec la roue', async ({ page }) => {
+  test('Réglages s\'ouvre avec la roue et se referme sur l\'écran d\'avant', async ({ page }) => {
     await ouvrir(page, { onglet: ONGLET.piste });
+    await aller(page, 'COSI');
     await aller(page, 'Réglages');
     await expect(page.getByText('Signature', { exact: true })).toBeVisible();
-    await aller(page, 'Réglages');
-    await expect(page.locator('.etape').first()).toBeVisible();
+    await page.getByRole('button', { name: 'Réglages', exact: true }).click();
+    await expect(page.locator('nav.barre button.on')).toHaveText(/COSI/);
+    await page.waitForTimeout(500);
+    await page.reload();
+    await expect(page.locator('nav.barre button.on')).toHaveText(/COSI/);
+  });
+
+  test('« Reprendre » seulement pour une vraie saisie, pas pour un simple choix d\'écran', async ({ page }) => {
+    await ouvrir(page, { onglet: ONGLET.opportunite });
+    await aller(page, 'Mails');
+    await page.getByRole('button', { name: 'Partenaire', exact: true }).click();
+    await page.getByRole('button', { name: /Nouveau patient partenaire/ }).click();
+    await aller(page, 'Fiche');
+    await expect(page.locator('.etape').filter({ hasText: 'Mails' })).not.toContainText('Reprendre');
+    await aller(page, 'Mails');
+    await page.locator('.preview.editable').last().click();
+    await page.keyboard.type(' ajout');
+    await aller(page, 'Fiche');
+    await expect(page.locator('.etape').filter({ hasText: 'Mails' })).toContainText('Reprendre');
+  });
+
+  test('carte réduite : MV et Relire restent là même si la fiche est illisible', async ({ page }) => {
+    await ouvrir(page, { onglet: ONGLET.accueilSf });
+    await aller(page, 'COSI');
+    await expect(page.getByText('Pas de fiche patient sur cette page.')).toBeVisible();
+    await expect(page.getByRole('button', { name: /^MV$/ })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Relire la fiche' })).toBeVisible();
   });
 
   test('le message court ne recouvre ni Appliquer ni la barre du bas', async ({ page }) => {
@@ -66,8 +92,22 @@ test.describe('Design fusion', () => {
     await expect(page.locator('.etape')).toHaveCount(0);
   });
 
-  test('SMS Hearo et Chat partenaire ne se ressemblent plus', async ({ page }) => {
-    await ouvrir(page, { onglet: ONGLET.opportunite });
+  test('SMS Hearo porte son nom et reste à portée depuis Mails et Chat', async ({ page }) => {
+    const p = await ouvrir(page, { onglet: ONGLET.opportunite });
     await expect(page.getByRole('button', { name: /^SMS$/ })).toBeVisible();
+    await aller(page, 'Mails');
+    await expect(page.getByRole('button', { name: /^SMS$/ })).toBeVisible();
+    await aller(page, 'Chat partenaire');
+    await page.getByRole('button', { name: /^SMS$/ }).click();
+    await expect.poll(async () => (await p.journal()).filter((j) => j.api === 'page').map((j) => j.type)).toContain('openSms');
+  });
+
+  test('éditer un texte d\'Anamnèse ou du Chat : plein écran aussi', async ({ page }) => {
+    await ouvrir(page, { onglet: ONGLET.piste });
+    await aller(page, 'Anamnèse');
+    await page.getByRole('button', { name: 'Modifier ce texte' }).click();
+    await expect(page.locator('nav.barre')).toBeHidden();
+    await page.getByRole('button', { name: 'Annuler' }).click();
+    await expect(page.locator('nav.barre')).toBeVisible();
   });
 });

@@ -25,10 +25,10 @@ const ECRANS: Record<Exclude<TabId, 'reglages'>, Ecran> = {
   fiche: { id: 'fiche', label: 'Fiche', titre: 'Fiche', aide: '', icon: 'user' },
   anamnese: { id: 'anamnese', label: 'COSI', titre: 'COSI', aide: "Remplir l'onglet Anamnèse par puces", icon: 'stetho', brouillon: 'cosi.' },
   commentaire: { id: 'commentaire', label: 'Anamnèse', titre: 'Anamnèse', aide: 'Résumé + signature dans Remarques générales', icon: 'pen', brouillon: 'anamnese.' },
-  orl: { id: 'orl', label: 'ORL', titre: 'ORL Finder', aide: 'ORL proches avec un créneau', icon: 'ear' },
+  orl: { id: 'orl', label: 'ORL Finder', titre: 'ORL Finder', aide: 'ORL proches avec un créneau', icon: 'ear' },
   partenaires: { id: 'partenaires', label: 'Partenaires', titre: 'Partenaires', aide: 'Créneaux Doctolib et Acuitis', icon: 'building' },
   mails: { id: 'mails', label: 'Mails', titre: 'Mails', aide: 'Modèles Client ou Partenaire', icon: 'mail', brouillon: 'mail.' },
-  chat: { id: 'chat', label: 'Chat', titre: 'Chat partenaire', aide: 'Message dans le fil Chatter', icon: 'message', brouillon: 'chat.' },
+  chat: { id: 'chat', label: 'Chat partenaire', titre: 'Chat partenaire', aide: 'Message dans le fil Chatter', icon: 'message', brouillon: 'chat.' },
 };
 /** Écrans de la barre du bas selon la fiche : une Piste n'envoie pas de mail, une Opportunité n'a ni COSI ni anamnèse. */
 const PARCOURS: Record<'lead' | 'opportunity' | 'other', Exclude<TabId, 'reglages'>[]> = {
@@ -347,7 +347,7 @@ export function App() {
   return (
     <>
       <Header site={site} ctx={ctx} fiche={fiche} ficheState={ficheState} recent={recent} busy={busy} arrierePlan={arrierePlan} onRevenir={() => void revenirSurSalesforce()} onMv={runMv} onPaste={pastePatient} onSms={openSms} onRefresh={() => setFicheTick((n) => n + 1)}
-        compact={activeTab !== 'fiche'} onReglages={() => setTab(activeTab === 'reglages' ? 'fiche' : 'reglages')} reglagesOuverts={activeTab === 'reglages'} />
+        compact={activeTab !== 'fiche'} onReglages={() => (activeTab === 'reglages' ? setTabState((ecranGarde(recordKey) as TabId | null) ?? 'fiche') : setTab('reglages'))} reglagesOuverts={activeTab === 'reglages'} />
       {storage.sync === 'paused' && !silence && aCopier && (
         <div class="banner" style="margin:8px 12px 0">
           <Icon name="folder" />
@@ -357,6 +357,7 @@ export function App() {
         </div>
       )}
       <main class="content">
+        {site === 'salesforce' && !ctx ? null : <>
         {activeTab === 'fiche' && parcours.length > 1 && site !== 'doctolib' && site !== 'acuitis' && (
           <div class="view accueil">
             <div class="accueil-titre"><span>{hasFiche ? `Suivi de ${civ} ${fiche!.prenom} ${fiche!.nom}`.replace(/\s+/g, ' ') : 'Que veux-tu faire ?'}</span></div>
@@ -395,6 +396,7 @@ export function App() {
             onWrite={(text) => act('chat', { type: 'writeChatPartenaire', text }).then((r) => { if (r?.ok) effacerBrouillon(recordKey, 'chat.'); })} toast={showToast} />
         )}
         {activeTab === 'reglages' && <Reglages data={data} update={update} storage={storage} aCopier={aCopier} silence={silence} onSilence={(v) => { setDossierSilencieux(v); setSilence(v); }} onChangeFolder={doChooseFolder} onAuthorize={doAuthorize} onImport={doImport} onExport={doExport} onExportShare={doExportShare} onExportLegacy={doExportLegacy} version={VERSION} />}
+        </>}
       </main>
       <div class="footer" ref={setFooterEl} />
       <nav class="barre" aria-label="Écrans">

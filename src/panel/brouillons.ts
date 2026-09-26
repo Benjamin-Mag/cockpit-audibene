@@ -192,9 +192,11 @@ export function useRemiseSiChangement(texte: string, lue: boolean, remettre: () 
 }
 
 /** Une saisie est-elle en cours pour cet écran de la fiche (champs commençant par `prefixe`) ? */
+/** Choix de navigation (destinataire, catégorie, modèle, liste ouverte, genre, situation, texte) : pas une saisie à reprendre. */
+const NAVIGATION = new Set(['mail.destinataire', 'mail.categorie', 'mail.modele', 'mail.listeOuverte', 'mail.genre', 'chat.texte', 'chat.genre', 'anamnese.situation', 'anamnese.genre']);
 export function aUnBrouillon(ficheKey: string, prefixe: string): boolean {
   const champs = brouillons[ficheKey]?.champs;
-  return !!champs && Object.keys(champs).some((n) => n.startsWith(prefixe));
+  return !!champs && Object.keys(champs).some((n) => n.startsWith(prefixe) && !NAVIGATION.has(n));
 }
 
 /** Dernier écran ouvert sur une fiche : on y revient quand le navigateur recharge le panneau. */

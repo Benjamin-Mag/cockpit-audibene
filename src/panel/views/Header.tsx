@@ -48,20 +48,27 @@ export function Header({ site, ctx, fiche, ficheState, recent, busy, arrierePlan
           </>
         )}
         <span class="grow" />
-        <button type="button" class={['btn', reglagesOuverts ? 'soft' : 'ghost', 'icon'].join(' ')} title="Réglages" aria-pressed={reglagesOuverts} onClick={onReglages}><Icon name="settings" /></button>
+        <button type="button" class={['btn', reglagesOuverts ? 'soft' : 'ghost', 'icon', 'roue'].join(' ')} title="Réglages" aria-pressed={reglagesOuverts} onClick={onReglages}><Icon name="settings" /></button>
       </div>
 
-      {compact && (
-        onSf && hasFiche ? (
-          <div class="card fiche-mini">
-            <div class="stack" style="gap:1px;flex:1;min-width:0">
-              <div class="name">{civ(fiche!.genre)} {fiche!.prenom} {fiche!.nom} <span class="tag">{page === 'lead' ? 'Piste' : page === 'opportunity' ? 'Opportunité' : 'Fiche'}</span></div>
-              {fiche!.telephone && <span class="meta">{fiche!.telephone}</span>}
-            </div>
-            {page !== 'opportunity' && <Btn kind="soft" icon="phone-off" busy={busy === 'mv'} onClick={onMv} title="Message vocal → non joignable (écrit le commentaire MV, enregistre, puis « Piste non joignable »)">MV</Btn>}
-            <Btn kind="ghost" icon="refresh" title="Relire la fiche" onClick={onRefresh} busy={ficheState === 'loading'} />
+      {compact && onSf && (
+        <div class="card fiche-mini">
+          <div class="stack" style="gap:1px;flex:1;min-width:0">
+            {ficheState === 'loading' && !hasFiche ? (
+              <><div class="skeleton" style="width:60%;height:14px" /><div class="skeleton" style="width:40%" /></>
+            ) : hasFiche ? (
+              <>
+                <div class="name">{civ(fiche!.genre)} {fiche!.prenom} {fiche!.nom} <span class="tag">{page === 'lead' ? 'Piste' : page === 'opportunity' ? 'Opportunité' : 'Fiche'}</span></div>
+                {fiche!.telephone && <span class="meta">{fiche!.telephone}</span>}
+              </>
+            ) : (
+              <span class="hint">{ficheState === 'error' ? 'Lecture impossible — recharge la page Salesforce.' : page === 'other' ? 'Pas de fiche patient sur cette page.' : 'Fiche vide — clique ↻ une fois la page chargée.'}</span>
+            )}
           </div>
-        ) : null
+          {page !== 'opportunity' && <Btn kind="soft" icon="phone-off" busy={busy === 'mv'} onClick={onMv} title="Message vocal → non joignable (écrit le commentaire MV, enregistre, puis « Piste non joignable »)">MV</Btn>}
+          {page === 'opportunity' && hasFiche && <Btn kind="soft" icon="phone" title="Ouvrir les SMS (Hearo) et chercher ce patient" onClick={onSms} busy={busy === 'sms'}>SMS</Btn>}
+          <Btn kind="ghost" icon="refresh" title="Relire la fiche" onClick={onRefresh} busy={ficheState === 'loading'} />
+        </div>
       )}
 
       {!compact && <div class="card">
