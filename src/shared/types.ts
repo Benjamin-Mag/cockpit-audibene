@@ -27,7 +27,7 @@ export interface SfContext {
 
 /** Un partenaire de l'onglet « Partner Search » d'une Piste, tel que Salesforce le propose. */
 export interface PartenaireSF {
-  /** « Audition de la Fontaine - Nimes » */
+  /** « un centre auditif partenaire » */
   nom: string;
   /** « 18 Avenue Franklin Roosevelt, Nimes, 30900, Occitanie » */
   adresse: string;
