@@ -8,7 +8,12 @@ interface BrouillonFiche {
   /** Dernière fois que la fiche a été modifiée dans Cockpit ou vue ouverte dans un onglet. */
   vu: number;
   champs: Record<string, unknown>;
+  /** Dernier écran ouvert sur la fiche : une simple visite, pas une saisie (ne compte pas comme brouillon). */
+  ecran?: string;
 }
+/** Une vraie saisie : des champs autres que la mémoire de la fiche lue (`__fiche`) et l'écran gardé. */
+const aUneSaisie = (f: BrouillonFiche) => Object.keys(f.champs ?? {}).some((n) => n !== '__fiche');
+const estVide = (f: BrouillonFiche) => !Object.keys(f.champs ?? {}).length && !f.ecran;
 type Brouillons = Record<string, BrouillonFiche>;
 
 const CLE = 'cockpitBrouillons';
@@ -63,9 +68,10 @@ function enregistrer() {
 function elaguer(maintenant: number): boolean {
   let change = false;
   for (const [cle, f] of Object.entries(brouillons)) {
-    if (!f || typeof f.vu !== 'number' || maintenant - f.vu > DUREE_MAX_MS || !Object.keys(f.champs ?? {}).length) { delete brouillons[cle]; change = true; }
+    if (!f || typeof f.vu !== 'number' || maintenant - f.vu > DUREE_MAX_MS || estVide(f)) { delete brouillons[cle]; change = true; }
   }
-  const cles = Object.keys(brouillons).sort((a, b) => brouillons[a].vu - brouillons[b].vu);
+  // Au-delà du plafond, les fiches seulement visitées (sans saisie) partent avant les vraies saisies, puis les plus anciennes.
+  const cles = Object.keys(brouillons).sort((a, b) => Number(aUneSaisie(brouillons[a])) - Number(aUneSaisie(brouillons[b])) || brouillons[a].vu - brouillons[b].vu);
   while (cles.length > MAX_FICHES) { delete brouillons[cles.shift()!]; change = true; }
   return change;
 }
@@ -100,7 +106,7 @@ export function effacerBrouillon(ficheKey: string, prefixe: string) {
   const f = brouillons[ficheKey];
   if (!f) return;
   for (const nom of Object.keys(f.champs)) if (nom.startsWith(prefixe)) delete f.champs[nom];
-  if (!Object.keys(f.champs).length) delete brouillons[ficheKey];
+  if (estVide(f)) delete brouillons[ficheKey];
   enregistrer();
 }
 
@@ -148,8 +154,8 @@ export function setFicheMemo(ficheKey: string, fiche: Fiche, at = Date.now()) {
   enregistrer();
 }
 
-/** Nombre de fiches ayant un brouillon (affichage, tests). */
-export const nombreDeBrouillons = () => Object.keys(brouillons).length;
+/** Nombre de fiches ayant une vraie saisie en cours (affichage, tests) — pas celles seulement visitées. */
+export const nombreDeBrouillons = () => Object.values(brouillons).filter(aUneSaisie).length;
 
 /**
  * Comme useState, mais la valeur est gardée pour la fiche et restaurée en revenant dessus.
@@ -199,10 +205,9 @@ export function aUnBrouillon(ficheKey: string, prefixe: string): boolean {
   return !!champs && Object.keys(champs).some((n) => n.startsWith(prefixe) && !NAVIGATION.has(n));
 }
 
-/** Dernier écran ouvert sur une fiche : on y revient quand le navigateur recharge le panneau. */
-const CHAMP_ECRAN = '__ecran';
+/** Dernier écran ouvert sur une fiche : on y revient quand le navigateur recharge le panneau. Gardé à part des champs : ce n'est pas une saisie. */
 export function ecranGarde(ficheKey: string): string | null {
-  const v = brouillons[ficheKey]?.champs?.[CHAMP_ECRAN];
+  const v = brouillons[ficheKey]?.ecran;
   return typeof v === 'string' ? v : null;
 }
 export function garderEcran(ficheKey: string, ecran: string) {
@@ -210,6 +215,6 @@ export function garderEcran(ficheKey: string, ecran: string) {
   const maintenant = Date.now();
   const f = (brouillons[ficheKey] ??= { vu: maintenant, champs: {} });
   f.vu = maintenant;
-  f.champs[CHAMP_ECRAN] = ecran;
+  f.ecran = ecran;
   enregistrer();
 }
