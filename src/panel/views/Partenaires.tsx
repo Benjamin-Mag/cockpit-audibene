@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
 import type { PartenaireSF } from '../../shared/types';
+import { lienRdvAcuitis } from '../acuitis';
 import { isExtension } from '../bridge';
 import { Btn, Icon } from '../components/ui';
 import { DoctolibRefus, heureLabel, jourLabel, voirOngletDoctolib } from '../doctolib';
-import { type LignePartenaire, type MotifCreneaux, classerLien, lireCreneaux, loadCache, premierCreneau, saveCache, trierPartenaires } from '../partenaires-sf';
+import { type LignePartenaire, type MotifCreneaux, classerLien, lireCreneaux, lireCreneauxAcuitis, loadCache, premierCreneau, saveCache, trierPartenaires } from '../partenaires-sf';
 
 interface Props {
   /** Fiche Salesforce ouverte (clé du cache) ; vide hors fiche. */
@@ -59,10 +60,13 @@ export function Partenaires({ ficheKey, surPiste, lire }: Props) {
         // Créneaux Doctolib des pages publiques, un partenaire après l'autre, dans l'ordre de Partner Search.
         for (const l of base) {
           if (!alive) return;
-          if (l.lien.sorte !== 'public') continue;
-          const slug = l.lien.slug;
+          if (l.lien.sorte !== 'public' && l.lien.sorte !== 'acuitis') continue;
+          const lien = l.lien;
+          const suivi = (partiel: MotifCreneaux[]) => { l.motifs = partiel; if (alive) setLignes(trierPartenaires(base)); };
           try {
-            l.motifs = await lireCreneaux(slug, () => alive, (partiel) => { l.motifs = partiel; if (alive) setLignes(trierPartenaires(base)); });
+            l.motifs = lien.sorte === 'acuitis'
+              ? await lireCreneauxAcuitis(lien.magasin, () => alive, suivi)
+              : await lireCreneaux(lien.slug, () => alive, suivi);
           } catch (e) {
             if (e instanceof DoctolibRefus) throw e;
             l.motifs = null;
@@ -84,8 +88,8 @@ export function Partenaires({ ficheKey, surPiste, lire }: Props) {
   const enCours = etape === 'lecture' || etape === 'creneaux';
   const avecCreneau = lignes.filter((l) => premierCreneau(l)).length;
   const statut = etape === 'lecture' ? 'Lecture de Partner Search dans Salesforce…'
-    : etape === 'creneaux' ? `${lignes.length} partenaire${lignes.length > 1 ? 's' : ''}, lecture des créneaux Doctolib…`
-    : etape === 'fini' && lignes.length ? `${lignes.length} partenaire${lignes.length > 1 ? 's' : ''}, ${avecCreneau} avec un créneau Doctolib${depuisCache ? ` · résultats ${ago(depuisCache)}` : ''}`
+    : etape === 'creneaux' ? `${lignes.length} partenaire${lignes.length > 1 ? 's' : ''}, lecture des créneaux…`
+    : etape === 'fini' && lignes.length ? `${lignes.length} partenaire${lignes.length > 1 ? 's' : ''}, ${avecCreneau} avec un créneau en ligne${depuisCache ? ` · résultats ${ago(depuisCache)}` : ''}`
     : '';
 
   if (!surPiste) {
@@ -183,17 +187,21 @@ function Carte({ l }: { l: LignePartenaire }) {
       {p.adresse && <span class="note">{p.adresse}</span>}
       {p.pastilles.length > 0 && <div class="row" style="gap:4px;flex-wrap:wrap">{p.pastilles.map((t) => <Pastille key={t} texte={t} />)}</div>}
 
-      {lien.sorte === 'public' && (
-        <div class="stack" style="gap:6px;margin-top:2px">
-          {l.motifs === undefined && !l.erreur && <span class="note"><Icon name="calendar2" size={12} /> Créneaux Doctolib : lecture…</span>}
-          {l.motifs === null && <span class="note">Créneaux Doctolib non lus{l.erreur ? ` (${l.erreur})` : ''}.</span>}
-          {l.motifs && l.motifs.length === 0 && <span class="note">Aucun motif « test auditif » ou « première consultation » réservable en ligne.</span>}
-          {l.motifs?.map((m) => <Motif key={m.motif.id} m={m} url={lien.url} />)}
-          <div class="row" style="gap:6px">
-            <Btn kind="soft" icon="calendar2" onClick={() => openUrl(lien.url)} title="Ouvre la page Doctolib du partenaire">{premier ? 'Réserver' : 'Voir sur Doctolib'}</Btn>
+      {(lien.sorte === 'public' || lien.sorte === 'acuitis') && (() => {
+        const chez = lien.sorte === 'acuitis' ? 'Acuitis' : 'Doctolib';
+        const adresse = lien.sorte === 'acuitis' ? lienRdvAcuitis(lien.magasin) : lien.url;
+        return (
+          <div class="stack" style="gap:6px;margin-top:2px">
+            {l.motifs === undefined && !l.erreur && <span class="note"><Icon name="calendar2" size={12} /> Créneaux {chez} : lecture…</span>}
+            {l.motifs === null && <span class="note">Créneaux {chez} non lus{l.erreur ? ` (${l.erreur})` : ''}.</span>}
+            {l.motifs && l.motifs.length === 0 && <span class="note">Aucun motif réservable en ligne.</span>}
+            {l.motifs?.map((m) => <Motif key={m.motif.id} m={m} url={adresse} />)}
+            <div class="row" style="gap:6px">
+              <Btn kind="soft" icon="calendar2" onClick={() => openUrl(adresse)} title={`Ouvre la page de prise de rendez-vous ${chez} du partenaire`}>{premier ? 'Réserver' : `Voir sur ${chez}`}</Btn>
+            </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
       {lien.sorte === 'pro' && <div class="row"><Btn kind="soft" icon="calendar2" onClick={() => openUrl(lien.url)} title="Ouvre l'agenda Doctolib Pro du partenaire (secrétariat)">Agenda Doctolib Pro</Btn></div>}
       {lien.sorte === 'autre' && <div class="row"><Btn kind="soft" icon="external" onClick={() => openUrl(lien.url)} title={lien.url}>Prendre RDV sur {hote(lien.url)}</Btn></div>}
       {(() => {

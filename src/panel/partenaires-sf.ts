@@ -2,12 +2,15 @@
 // créneaux Doctolib quand ils ont une page publique. Cache 10 min par fiche dans le
 // navigateur seul (chrome.storage.local, repli localStorage), jamais dans cockpit.json.
 import type { PartenaireSF } from '../shared/types';
+import { MOTIFS_ACUITIS, creneauxAcuitis, magasinAcuitis } from './acuitis';
 import { type JourCreneaux, type MotifDoctolib, PAUSE_MS, creneauxMotif, motifsDoctolib } from './doctolib';
 
 /** Sorte de lien de prise de rendez-vous trouvée dans les détails Partner Search. */
 export type Lien =
   | { sorte: 'public'; url: string; slug: string }
   | { sorte: 'pro'; url: string }
+  /** Magasin Acuitis : créneaux lus sur rdv.acuitis.com. */
+  | { sorte: 'acuitis'; url: string; magasin: string }
   | { sorte: 'autre'; url: string }
   | { sorte: 'aucun' };
 
@@ -22,6 +25,10 @@ export function classerLien(liens: string[]): Lien {
   }
   const pro = urls.find((u) => /^https?:\/\/pro\.doctolib\.fr\//i.test(u));
   if (pro) return { sorte: 'pro', url: pro };
+  for (const url of urls) {
+    const magasin = magasinAcuitis(url);
+    if (magasin) return { sorte: 'acuitis', url, magasin };
+  }
   const autre = urls.find((u) => !/doctolib\.fr/i.test(u));
   if (autre) return { sorte: 'autre', url: autre };
   return urls[0] ? { sorte: 'autre', url: urls[0] } : { sorte: 'aucun' };
@@ -64,6 +71,18 @@ export function trierPartenaires(list: LignePartenaire[]): LignePartenaire[] {
     if (ca && cb && ca !== cb) return ca < cb ? -1 : 1;
     return a.rang - b.rang;
   });
+}
+
+/** Lit les créneaux d'un magasin Acuitis : un appel par motif (seule la durée change). */
+export async function lireCreneauxAcuitis(magasin: string, alive: () => boolean, onMotif?: (partiel: MotifCreneaux[]) => void): Promise<MotifCreneaux[]> {
+  const out: MotifCreneaux[] = MOTIFS_ACUITIS.map((m, i) => ({ motif: { id: -1 - i, nom: m.nom, agendaIds: [], practiceIds: [] }, jour: null }));
+  for (let i = 0; i < MOTIFS_ACUITIS.length; i++) {
+    if (!alive()) break;
+    if (i > 0) await new Promise((r) => setTimeout(r, PAUSE_MS));
+    try { out[i] = { ...out[i], jour: await creneauxAcuitis(magasin, MOTIFS_ACUITIS[i].duree) }; } catch (e) { out[i] = { ...out[i], erreur: (e as Error).message }; }
+    onMotif?.([...out]);
+  }
+  return out;
 }
 
 /** Lit les motifs puis les créneaux d'une page Doctolib publique, un appel à la fois. */
