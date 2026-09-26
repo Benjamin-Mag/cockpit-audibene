@@ -172,8 +172,12 @@ export function App() {
     return () => { alive = false; };
   }, [recordKey, tabId, ficheTick]);
 
+  // Une seule action Salesforce à la fois. Verrou hors de l'état : le raccourci clavier (onCommand)
+  // tient une fermeture ancienne où `busy` n'a pas encore changé.
+  const actionEnCours = useRef(false);
   const act = async (label: string, req: ContentRequest) => {
-    if (tabId == null) return;
+    if (tabId == null || actionEnCours.current) return;
+    actionEnCours.current = true;
     setBusy(label);
     try {
       const r = await runAction(tabId, req);
@@ -182,6 +186,7 @@ export function App() {
     } catch (e) {
       showToast((e as Error).message ?? String(e), 'err');
     } finally {
+      actionEnCours.current = false;
       setBusy(null);
     }
   };
