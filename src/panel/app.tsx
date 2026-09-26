@@ -354,7 +354,7 @@ export function App() {
   return (
     <>
       <Header site={site} ctx={ctx} fiche={fiche} ficheState={ficheState} recent={recent} busy={busy} arrierePlan={arrierePlan} onRevenir={() => void revenirSurSalesforce()} onMv={runMv} onPaste={pastePatient} onSms={openSms} onRefresh={() => setFicheTick((n) => n + 1)}
-        compact={activeTab !== 'fiche'} onReglages={() => (activeTab === 'reglages' ? setTabState((ecranGarde(recordKey) as TabId | null) ?? 'fiche') : setTab('reglages'))} reglagesOuverts={activeTab === 'reglages'} />
+        compact={activeTab !== 'fiche' && site === 'salesforce'} onReglages={() => (activeTab === 'reglages' ? setTabState((ecranGarde(recordKey) as TabId | null) ?? 'fiche') : setTab('reglages'))} reglagesOuverts={activeTab === 'reglages'} />
       {storage.sync === 'paused' && !silence && aCopier && (
         <div class="banner" style="margin:8px 12px 0">
           <Icon name="folder" />

@@ -43,4 +43,11 @@ test.describe('Relecture : correctifs', () => {
     await expect(page.getByText('Signature', { exact: true })).toBeVisible();
     expect(p.erreurs).toEqual([]);
   });
+
+  test('sur Doctolib, le collage du patient reste visible même après un clic dans la barre du bas', async ({ page }) => {
+    await ouvrir(page, { onglet: ONGLET.doctolib, recents: [{ recordId: 'x', genre: 'F', prenom: 'Alice', nom: 'Essai', email: '', telephone: '', naissance: '', savedAt: Date.now() }] });
+    await expect(page.getByRole('button', { name: /Coller Alice Essai/ })).toBeVisible();
+    await aller(page, 'COSI');
+    await expect(page.getByRole('button', { name: /Coller Alice Essai/ })).toBeVisible();
+  });
 });
