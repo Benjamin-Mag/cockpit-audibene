@@ -115,6 +115,9 @@ Le navigateur oublie l'autorisation d'écrire dans le dossier dès que le pannea
 `AppData` (voir `model.ts`) : `reglages`, `anamnese {situations, textes ({{resume}} = emplacement du résumé), phrases}`, `chatPartenaire`, `templates`, `categories`, `ventes` (plus affiché ici, mais **gardé** dans les données et les fusions : le même `cockpit.json` peut servir à Cockpit Benjamin). Les signatures des Réglages sont converties au chargement (`variabiliserSignatures`) : un nom ou un téléphone écrit en dur devient `{{nom_conseiller}}` / `{{tel_conseiller}}`, et un nouveau modèle reprend la signature **telle quelle, variables comprises** — un modèle partagé signe du nom de chaque collègue (v1.0.49). Variables de texte : `{{nom}}`, `{{date}}`, `{{heure}}`, `{{nom partenaire}}`, `{{adresse}}`, `{{nom_conseiller}}`, `{{tel_conseiller}}`, `{{email_conseiller}}`, `{{titre_conseiller}}` ; formes `patient(e)`, `il(elle)`, `conseiller(ère)` résolues par `resolveGenre`.
 Toute fusion de données passe par `mergeData` / `mergeVentes` / `mergePartage` (union, jamais de perte).
 
+## Tutoriel des collègues
+Pages `index.html` (Installer, 4 étapes) et `utiliser.html` (Comment s'en servir) du dépôt public `cockpit-audibene-install` (dossier `Projects/Page installation Cockpit`), style `tuto.css`, images dans `images/`. Ton : une phrase par étape, une capture, aucun jargon. Captures refaites à chaque changement visible : `npx vite --port 5531` puis `PW_PORT=5531 CHROMIUM_PATH=… node tests/captures-tuto.mjs "<dossier images>"` (panneau, données fictives) ; `tests/captures-chrome.mjs` (page des extensions) ; `tests/captures-illustrations.mjs` (décompresser, mise à jour). Aucun de ces scripts n'est lancé par `npm test`.
+
 ## Publier une version (chef d'orchestre uniquement)
 1. `npx tsc --noEmit` puis `npm run build`.
 2. Monter `version` dans `public/manifest.json` et `npm pkg set version=X.Y.Z`.
