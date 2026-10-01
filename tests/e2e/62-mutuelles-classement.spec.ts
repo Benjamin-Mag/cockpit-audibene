@@ -4,7 +4,7 @@ import { ONGLET, aller, expect, glisser, ouvrir, test } from './outils';
 const mutuelles = (p: any) => p.donnees().then((d: any) => d.anamnese.phrases['Nom de la mutuelle'] ?? []);
 
 test.describe('COSI : classer les phrases enregistrées', () => {
-  test('mutuelles : réordonnées en glissant, puis triées A→Z', async ({ page }) => {
+  test('mutuelles : réordonnées en glissant', async ({ page }) => {
     const p = await ouvrir(page, { onglet: ONGLET.piste });
     await aller(page, 'COSI');
     const champ = page.locator('.field').filter({ hasText: 'Nom de la mutuelle' }).locator('input');
@@ -15,11 +15,11 @@ test.describe('COSI : classer les phrases enregistrées', () => {
     await glisser(page, puce('AG2R'), puce('MGEN'));
     await expect.poll(() => mutuelles(p)).toEqual(['AG2R', 'MGEN', 'Harmonie']);
 
-    await page.getByRole('button', { name: 'A→Z' }).click();
-    await expect.poll(() => mutuelles(p)).toEqual(['AG2R', 'Harmonie', 'MGEN']);
+    // Pas de bouton de tri : Benjamin n'en veut pas (01/10).
+    await expect(page.getByRole('button', { name: 'A→Z' })).toHaveCount(0);
     // L'ordre se voit à l'écran dans le même sens.
     const noms = await page.locator('.drag-wrap .chip').allInnerTexts();
-    expect(noms.map((n) => n.trim())).toEqual(['AG2R', 'Harmonie', 'MGEN']);
+    expect(noms.map((n) => n.trim())).toEqual(['AG2R', 'MGEN', 'Harmonie']);
     expect(p.erreurs).toEqual([]);
   });
 });
