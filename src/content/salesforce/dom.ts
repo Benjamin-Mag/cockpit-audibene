@@ -72,6 +72,34 @@ export function visibleEl<T extends Element>(candidates: T[], fallbackLast = fal
   return fallbackLast && candidates.length ? candidates[candidates.length - 1] : null;
 }
 
+/** Sous-onglet visible de la fiche portant exactement ce texte (« Anamnèse », « Partner Search »…). */
+export function sousOnglet(nom: string): HTMLElement | null {
+  return visibleEl(deepAll<HTMLElement>('[role="tab"]').filter((t) => textOf(t) === nom));
+}
+
+/** Texte du sous-onglet sélectionné dans la même barre que `onglet` — un texte, jamais un élément : Lightning re-rend la barre après chaque clic. */
+export function sousOngletActifAvec(onglet: HTMLElement): string | null {
+  const actif = onglet.closest('[role="tablist"]')?.querySelector<HTMLElement>('[role="tab"][aria-selected="true"]');
+  return actif ? textOf(actif) : null;
+}
+
+/** Remet le sous-onglet nommé au premier plan s'il ne l'est plus (retrouvé par son texte), et attend que Lightning l'ait vraiment affiché : la lecture suivante doit partir d'une barre stable. */
+export async function revenirSur(nom: string | null): Promise<void> {
+  if (!nom) return;
+  const t = sousOnglet(nom);
+  if (!t || t.getAttribute('aria-selected') === 'true') return;
+  t.click();
+  await waitFor(() => (sousOnglet(nom)?.getAttribute('aria-selected') === 'true' ? true : null), 3000, 50);
+}
+
+/** Les lectures qui changent de sous-onglet se suivent : deux en même temps se rendraient l'une l'autre au mauvais endroit. */
+let file: Promise<unknown> = Promise.resolve();
+export function enSerie<T>(fn: () => Promise<T>): Promise<T> {
+  const p = file.then(fn, fn);
+  file = p.catch(() => undefined);
+  return p;
+}
+
 export async function waitFor<T>(fn: () => T | null | undefined | false, timeoutMs: number, intervalMs = 150): Promise<T | null> {
   const end = Date.now() + timeoutMs;
   while (Date.now() < end) {

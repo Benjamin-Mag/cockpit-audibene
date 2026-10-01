@@ -133,7 +133,17 @@
     };
   };
   const onChanged = ecouteurs();
-  const local = zone('local', S.stockage || {});
+  // `localPersistant` : chrome.storage.local survit au rechargement du panneau, comme dans le vrai navigateur.
+  let localGarde = null;
+  if (S.localPersistant) { try { localGarde = JSON.parse(sessionStorage.getItem('__fauxLocal') || 'null'); } catch {} }
+  const local = zone('local', localGarde || S.stockage || {});
+  if (S.localPersistant) {
+    const garder = () => { try { sessionStorage.setItem('__fauxLocal', JSON.stringify(local._d)); } catch {} };
+    const setLocal = local.set;
+    const removeLocal = local.remove;
+    local.set = async (o) => { await setLocal(o); garder(); };
+    local.remove = async (k) => { await removeLocal(k); garder(); };
+  }
   let sessionGardee = {};
   try { sessionGardee = JSON.parse(sessionStorage.getItem('__fauxSession') || '{}'); } catch {}
   const session = zone('session', { ...sessionGardee, ...(S.session || {}) });

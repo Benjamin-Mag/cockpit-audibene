@@ -1,5 +1,6 @@
 import { createPortal } from 'preact/compat';
 import { useBrouillon } from '../brouillons';
+import { moveValue, useDragReorder } from '../components/drag';
 import { type AnamField, CONDITIONAL_FIELDS, FIELDS_CATALOG, SITUATION_COMMENT_FIELD, SITUATION_COSI_FIELD } from '../../shared/anamnese-catalog';
 import type { AppData } from '../model';
 import { Btn, Chip, Field, Icon } from '../components/ui';
@@ -27,6 +28,8 @@ export function Anamnese({ ficheKey, data, update, connected, busy, footerEl, on
   const [cosi, setCosi] = useBrouillon<Record<string, number>>(ficheKey, 'cosi.intensites', {});
   const [free, setFree] = useBrouillon<Record<string, string>>(ficheKey, 'cosi.textes', {});
   const [drafts, setDrafts] = useBrouillon<Record<string, string>>(ficheKey, 'cosi.nouvellesPhrases', {});
+  // Réordonner les phrases enregistrées en les glissant (le groupe = la liste : « Musique », « Nom de la mutuelle »…).
+  const dnd = useDragReorder((from, to, liste) => update((d) => moveValue(d.anamnese.phrases[liste] ?? [], from, to)));
 
   const pick = (label: string, value: string) => {
     const next = { ...picks };
@@ -73,33 +76,37 @@ export function Anamnese({ ficheKey, data, update, connected, busy, footerEl, on
     );
   };
 
+  // Les phrases enregistrées sont communes à une situation (« Musique »), mais la saisie en cours et les
+  // phrases cochées appartiennent à l'emplacement (Situation 1 ou 2) : la même situation peut être choisie deux fois.
   const phraseBlock = (situationValue: string, commentLabel: string, withAddRow = true) => {
     const saved = data.anamnese.phrases[situationValue] ?? [];
     const sel = phrases[commentLabel] ?? [];
-    const draft = drafts[situationValue] ?? '';
+    const draft = drafts[commentLabel] ?? '';
     const add = () => {
       const t = draft.trim();
       if (!t) return;
       update((d) => { const arr = (d.anamnese.phrases[situationValue] ??= []); if (!arr.includes(t)) arr.push(t); });
-      setDrafts((x) => ({ ...x, [situationValue]: '' }));
+      setDrafts((x) => ({ ...x, [commentLabel]: '' }));
     };
     return (
       <div class="sub">
         {saved.length > 0 && (
           <div class="chips">
             {saved.map((p) => (
-              <Chip key={p} small on={sel.includes(p)}
-                onClick={() => setPhrases((x) => ({ ...x, [commentLabel]: sel.includes(p) ? sel.filter((s) => s !== p) : [...sel, p] }))}
-                onRemove={() => { update((d) => { d.anamnese.phrases[situationValue] = (d.anamnese.phrases[situationValue] ?? []).filter((s) => s !== p); }); setPhrases((x) => ({ ...x, [commentLabel]: sel.filter((s) => s !== p) })); }}>
-                {p}
-              </Chip>
+              <span key={p} class={['drag-wrap', dnd.cls(p)].join(' ')} title="Glisser pour réordonner" {...dnd.props(p, situationValue)}>
+                <Chip small on={sel.includes(p)}
+                  onClick={() => setPhrases((x) => ({ ...x, [commentLabel]: sel.includes(p) ? sel.filter((s) => s !== p) : [...sel, p] }))}
+                  onRemove={() => { update((d) => { d.anamnese.phrases[situationValue] = (d.anamnese.phrases[situationValue] ?? []).filter((s) => s !== p); }); setPhrases((x) => ({ ...x, [commentLabel]: sel.filter((s) => s !== p) })); }}>
+                  {p}
+                </Chip>
+              </span>
             ))}
           </div>
         )}
         {withAddRow && (
           <div class="row">
             <input placeholder={`Nouvelle phrase pour « ${situationValue} »…`} value={draft} style="padding:6px 9px;font-size:12px"
-              onInput={(e) => setDrafts((x) => ({ ...x, [situationValue]: (e.target as HTMLInputElement).value }))}
+              onInput={(e) => setDrafts((x) => ({ ...x, [commentLabel]: (e.target as HTMLInputElement).value }))}
               onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); add(); } }} />
             <Btn kind="soft" icon="plus" onClick={add} title="Enregistrer cette phrase" />
           </div>

@@ -29,7 +29,7 @@ export interface SfContext {
 export interface PartenaireSF {
   /** « un centre auditif partenaire » */
   nom: string;
-  /** « 18 Avenue Franklin Roosevelt, Nimes, 30900, Occitanie » */
+  /** « 12 rue de l’Exemple, Ville, 30000, Région » */
   adresse: string;
   /** Texte tel qu'affiché : « 36.1 km » */
   distance: string;

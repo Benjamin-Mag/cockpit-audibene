@@ -1,6 +1,6 @@
 {
   "name": "cockpit-audibene",
-  "version": "1.0.42",
+  "version": "1.0.50",
   "description": "",
   "main": "index.js",
   "scripts": {

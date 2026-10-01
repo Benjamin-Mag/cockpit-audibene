@@ -1,4 +1,4 @@
-import { type AppData, defaultData } from '../model';
+import { type AppData, defaultData, variabiliserSignatures } from '../model';
 import { clearHandle, fsSupported, permissionState, pickFolder, readText, savedHandle, writeText } from './fs';
 import { detectKind, mergeData, mergeGenerateur, mergePartage, mergeVentes, normalize, toLegacyGenerateur } from './legacy';
 
@@ -60,7 +60,11 @@ export function parseAny(text: string, base: AppData): { data: AppData; kind: Re
 
 const safeParse = (text: string | null, base: AppData): AppData | null => {
   if (!text || !text.trim()) return null;
-  try { return parseAny(text, base).data; } catch { return null; }
+  try {
+    const d = parseAny(text, base).data;
+    d.reglages = variabiliserSignatures(d.reglages);
+    return d;
+  } catch { return null; }
 };
 
 /** Contenu du dossier : cockpit.json, sinon l'ancien data.json (remis au format ancien s'il avait été réécrit). */
@@ -100,7 +104,8 @@ export async function initStorage(): Promise<{ state: StorageState; data: AppDat
   // Première ouverture depuis la v1.0.41 : on part du principe que le dossier est à jour,
   // sinon le bandeau reviendrait alors que rien n'a changé.
   if (!dossierEcritLe()) marquerEcrit(local?.updatedAt ?? Date.now());
-  if (!folderGranted) return { state: state('paused'), data: local };
+  // Ni copie dans le navigateur ni accès au dossier : il faut un clic pour rouvrir le dossier.
+  if (!folderGranted) return { state: state('paused', local ? 'ready' : 'needs-folder'), data: local };
   const folder = await readFolder(handle);
   const data = reconcile(local, folder) ?? defaultData();
   await writeText(handle, DATA_FILE, JSON.stringify(data, null, 2)).catch(() => {});
@@ -133,6 +138,9 @@ export async function chooseFolder(current: AppData | null): Promise<{ state: St
   const folder = await readFolder(h);
   const data = reconcile(current, folder) ?? defaultData();
   await writeText(h, DATA_FILE, JSON.stringify(data, null, 2)).catch(() => {});
+  // Copie du navigateur tout de suite : Edge retire l'accès au dossier dès que le panneau se ferme,
+  // et sans cette copie le panneau rouvert n'aurait plus aucune donnée (réinstallation, 26/09).
+  await localWrite(JSON.stringify(data));
   return { state: state('synced'), data, existed };
 }
 

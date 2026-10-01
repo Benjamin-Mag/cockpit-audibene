@@ -328,8 +328,9 @@ export function App() {
           // Dossier repris d'un collègue : son nom écrit en dur dans les textes devient la variable.
           const previous = data?.reglages.nom ?? '';
           setDataState((prev) => {
-            if (!prev) return prev;
-            const next = previous && previous !== r.nom ? substituteName(prev, previous) : structuredClone(prev);
+            // Jamais de bouton mort : sans données chargées, on part des données par défaut.
+            const base = prev ?? defaultData();
+            const next = previous && previous !== r.nom ? substituteName(base, previous) : structuredClone(base);
             Object.assign(next.reglages, r);
             next.onboardingDone = true;
             return next;
