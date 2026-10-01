@@ -56,7 +56,7 @@ export function ChatPartenaire({ ficheKey, data, update, fiche, connected, busy,
 
   if (editing) {
     return (
-      <div class="view">
+      <div class="view editeur">
         <span class="label">{sel ? 'Modifier le texte' : 'Nouveau texte'}</span>
         <input placeholder="Titre (ex. Merci)" value={draft.label} onInput={(e) => setDraft((x) => ({ ...x, label: (e.target as HTMLInputElement).value }))} />
         <textarea rows={8} value={draft.text} onInput={(e) => setDraft((x) => ({ ...x, text: (e.target as HTMLTextAreaElement).value }))} />

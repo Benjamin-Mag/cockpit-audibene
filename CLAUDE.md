@@ -2,7 +2,9 @@
 
 Extension Chrome/Edge (Manifest V3) : un panneau latéral à côté de Salesforce pour un conseiller audibene. Elle a remplacé cinq extensions et deux sites. Propriétaire : Benjamin Magnier (conseiller, non développeur — lui parler en français, sans jargon, et viser toujours **le moins de clics possible**).
 
-> **Deux projets depuis le 2026-09-22.** Ce dépôt est la version d'équipe. Benjamin a sa copie privée **Cockpit Benjamin** (`Benjamin-Mag/cockpit-benjamin`, dossier `ProjectsCockpit Benjamin`, icône orange, versions 2.x) qui garde la page Ventes. Toute correction ou nouveauté publiée ici doit y être reportée par le chef d'orchestre (`git fetch upstream && git merge upstream/main` dans ce dossier). Rien ne remonte jamais de Cockpit Benjamin vers ce dépôt.
+> **Deux dispositions depuis le 2026-10-01.** `main` porte le design **Fusion** (versions 1.1.x : barre de navigation en bas, écran Fiche, Réglages derrière la roue, édition plein écran). La branche **`classique`** garde l'ancienne disposition (onglets en haut, versions 1.0.x) : elle reste proposée aux collègues en parallèle (`cockpit-audibene-classique.zip`), et les correctifs non liés au design doivent y être reportés (cherry-pick).
+>
+> **Deux projets depuis le 2026-09-22.** Ce dépôt est la version d'équipe. Benjamin a sa copie privée **Cockpit Benjamin** (`Benjamin-Mag/cockpit-benjamin`, dossier `ProjectsCockpit Benjamin`, icône orange, versions 2.x) qui garde la page Ventes. Benjamin garde la disposition classique : les corrections lui sont reportées depuis **`classique`** (`git fetch upstream && git merge upstream/classique` dans son dossier), jamais depuis `main`. Rien ne remonte jamais de Cockpit Benjamin vers ce dépôt.
 
 ## Règles non négociables
 
@@ -74,9 +76,16 @@ Le panneau envoie des `ContentRequest` (`src/shared/messages.ts`) via `chrome.ta
 - **Anamnèse** = texte intro + résumé Salesforce collé + signature, écrit dans « Remarques générales profil client » (`views/Commentaire.tsx`).
 - **Chat partenaire** = fil Chatter de l'Opportunité (`views/ChatPartenaire.tsx`). Pas de choix M./Mme : le genre vient de la fiche (v1.0.49).
 - **Message vocal** = commentaire « MV » dans Commentaires internes + « Piste non joignable ».
-- **Partenaires** = page à côté de Cockpit (sélecteur du haut, à la place des anciennes Ventes) : partenaires de la Piste lus dans Partner Search, créneaux Doctolib des partenaires qui ont une page publique (test auditif, première consultation avec puis sans ordonnance), créneaux Acuitis pour les magasins Acuitis (bilan auditif et 1er rendez-vous), agenda Doctolib Pro ou autre site en bouton. Le « Commentaire Partnersearch » est lu (c'est lui qui porte les liens de RDV) mais **plus affiché** depuis la v1.0.39 : Benjamin n'en avait pas besoin à l'écran.
+- **Partenaires** = écran de la barre du bas sur une Piste (disposition Fusion ; onglet du sélecteur du haut dans la disposition classique) : partenaires de la Piste lus dans Partner Search, créneaux Doctolib des partenaires qui ont une page publique (test auditif, première consultation avec puis sans ordonnance), créneaux Acuitis pour les magasins Acuitis (bilan auditif et 1er rendez-vous), agenda Doctolib Pro ou autre site en bouton. Le « Commentaire Partnersearch » est lu (c'est lui qui porte les liens de RDV) mais **plus affiché** depuis la v1.0.39 : Benjamin n'en avait pas besoin à l'écran.
 - **Hearo** = utilitaire SMS de la barre du bas (app Canvas, libellé variable : Hearo / Nouveau message / Approbation en attente).
 - **ORL Finder** = onglet de la Piste : ORL proches du patient (Doctolib) avec créneau visible, tri créneau disponible → secteur 1 avant secteur 2 → créneau le plus tôt → distance (v1.0.33), « pas de téléphone = pas de ligne », TOP 3, message type audiométrie, itinéraire Google Maps. « Trier par » (pertinence / plus tôt / plus proche, mémorisé), puces cumulables et recherche par nom ou ville : tout se fait sur les résultats déjà chargés (v1.0.34).
+
+## Disposition Fusion (main, 1.1.x)
+- Barre de navigation **en bas** (`<nav class="barre">`) : sur une Piste Fiche / COSI / Anamnèse / ORL Finder / Partenaires, sur une Opportunité Fiche / Mails / Chat partenaire ; Réglages derrière la roue en haut à droite (second clic = retour). Les boutons sont désactivés tant que la page Salesforce n'a pas répondu, Réglages reste joignable.
+- Écran **Fiche** à l'ouverture : parcours de la fiche, carte par étape, « Reprendre » quand une saisie est en cours (`aUneSaisie`, les simples choix de navigation ne comptent pas). Hors écran Fiche, carte patient réduite (MV / SMS / Relire).
+- **Dernier écran gardé par fiche** (`ecranGarde` / `garderEcran` dans `brouillons.ts`, champ `ecran` à part des saisies, seulement pour une clé `lead:`/`opportunity:`) ; hors fiche, seul Réglages est conservé.
+- Édition **plein écran** d'un modèle (Mails, Anamnèse, Chat) : barre et roue masquées, sorties par Enregistrer / Annuler. Sur Doctolib/Acuitis, la carte « Coller le patient » reste visible.
+- Tests propres : `tests/e2e/50-fusion.spec.ts`, `70-relecture.spec.ts`. L'aide `aller(page, 'Réglages')` passe par la roue.
 
 ## Pièges Salesforce connus (ne pas réintroduire)
 - Salesforce Console garde plusieurs fiches montées en même temps : toujours passer par `visibleEl` (taille rendue > 0) et **ne jamais retourner un candidat invisible** par défaut.
@@ -112,11 +121,11 @@ Toute fusion de données passe par `mergeData` / `mergeVentes` / `mergePartage` 
 3. `main` est protégé : commit sur une branche `chore/vX.Y.Z`, `gh pr create`, `gh pr merge --squash --delete-branch`, puis `git checkout main && git pull`, `git tag vX.Y.Z && git push origin vX.Y.Z`.
 4. Vérifier `gh run list --repo Benjamin-Mag/cockpit-audibene` : Release (zip) en succès.
 5. **Copier la version chez Benjamin** : `cp -r dist/. "../Extensions installees/Cockpit Audibene/"` (et, depuis le dépôt Cockpit Benjamin, vers `../Extensions installees/Cockpit Benjamin/`). Toutes ses extensions non empaquetées vivent dans `Documents\Claude\Projects\Extensions installees\` — plus rien dans Téléchargements depuis le 2026-09-26. Il n'a plus qu'à faire ↻ dans `edge://extensions`. Edge lie une extension à son chemin : ne jamais déplacer ces dossiers.
-6. **Mettre le zip à disposition des collègues** : ce dépôt est **privé** depuis le 2026-09-26, donc `npm run zip` puis
-   `gh release create vX.Y.Z --repo Benjamin-Mag/cockpit-audibene-install release/cockpit-audibene.zip release/cockpit-audibene-X.Y.Z.zip`.
+6. **Mettre les zips à disposition des collègues** : ce dépôt est **privé** depuis le 2026-09-26. Construire **les deux dispositions** — `npm run zip` sur `main` (Fusion → `cockpit-audibene.zip`) et sur un worktree de `classique` (renommer en `cockpit-audibene-classique.zip`) — puis
+   `gh release create vX.Y.Z --repo Benjamin-Mag/cockpit-audibene-install --latest cockpit-audibene.zip cockpit-audibene-X.Y.Z.zip cockpit-audibene-classique.zip cockpit-audibene-classique-A.B.C.zip`.
    Le dépôt public `cockpit-audibene-install` (dossier `Projects/Page installation Cockpit`) ne contient **que** la page d'installation et les zips : jamais de code, jamais de journal.
    Lien unique pour les collègues : https://benjamin-mag.github.io/cockpit-audibene-install/
-7. Reporter dans Cockpit Benjamin (`git fetch upstream && git merge upstream/main`, version 2.x) et remettre la branche `design/essai` au niveau si elle sert.
+7. Reporter dans Cockpit Benjamin **depuis `classique`** (`git fetch upstream && git merge upstream/classique`, version 2.x) et remettre la branche `design/essai` au niveau si elle sert.
 ## Travailler en équipe
 - Un agent = une branche `feature/<chantier>` dans son propre worktree (`git worktree add`), jamais dans le dossier principal.
 - Avant de commencer : `git fetch && git rebase origin/main` ; petits commits ; `npx tsc --noEmit` vert.
