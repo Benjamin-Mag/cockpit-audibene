@@ -8,7 +8,7 @@ Session : `projects-b4` (`72f84a`). Dossier : `Documents\Claude\Projects\Cockpit
 - Répondre aux questions des agents ; arbitrer ; remonter à Benjamin ce qui demande sa décision.
 
 ## État courant
-- Version publiée : v1.0.50 (2026-10-01). Site : https://benjamin-mag.github.io/cockpit-audibene/
+- Version publiée : v1.1.0 (2026-10-01) — Fusion ; classique v1.0.50. Site : https://benjamin-mag.github.io/cockpit-audibene/
 - `main` protégé (PR obligatoire) depuis le 2026-09-09.
 - Chantiers ouverts : aucun. Partner Search livré (v1.0.36) ; à reporter dans Cockpit Benjamin.
 
@@ -56,3 +56,4 @@ Session : `projects-b4` (`72f84a`). Dossier : `Documents\Claude\Projects\Cockpit
 - 2026-10-01 : deux demandes de Benjamin. (1) COSI, même situation en 1 et en 2 : la saisie d'une nouvelle phrase était partagée par valeur de situation (`drafts['Musique']`), donc taper sous Situation 2 remplissait aussi le champ de Situation 1 — la saisie est maintenant par emplacement (`drafts[commentLabel]`) ; les phrases cochées l'étaient déjà. Test `61-cosi-meme-situation` rouge avant (« Received: Concerts » dans le champ 1), vert après. (2) Classer les mutuelles : les phrases enregistrées du COSI se réordonnent en glissant (`useDragReorder` + `moveValue` pour une liste de textes, groupe = la liste) et se trient A→Z. Test `62-mutuelles-classement`. 85/85. → **v1.0.48**.
 - 2026-10-01 : Benjamin : un nouveau modèle de mail arrivait avec sa signature **en dur** (nom, téléphone) — `newTemplate` remplissait les variables au moment de la création, et ses signatures de Réglages (reprises de l'ancien générateur) contenaient déjà le nom en clair. Correctif double : la signature est reprise telle quelle (variables comprises) et `variabiliserSignatures` convertit au chargement le nom/téléphone en dur en `{{nom_conseiller}}` / `{{tel_conseiller}}` (modèles partageables entre collègues). Et Chat partenaire : choix M./Mme retiré, genre de la fiche. Test `63-signatures-variables` (3 cas). 88/88. → **v1.0.49**.
 - 2026-10-01 : « pas besoin du bouton A→Z » — retiré (le glisser-déposer reste). → **v1.0.50**.
+- 2026-10-01 : Benjamin : « le design Fusion pour les copains, garde une sauvegarde qu'on puisse proposer les deux ». Branche **`classique`** = main v1.0.50 (zip `cockpit-audibene-classique.zip`). `fix/relecture-fusion` mise au niveau de main par un agent (merge, 2 conflits : app.tsx côté fusion, 70-relecture union ; 103/103) → branche `fusion` → **v1.1.0** sur main. Page d'installation : deux boutons. Cockpit Benjamin reste classique (report depuis `upstream/classique`). Tutoriel (Installer / Utiliser, captures sur le faux navigateur) confié à l'Agent 1.
