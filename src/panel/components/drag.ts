@@ -10,6 +10,16 @@ export function moveById<T extends { id: string }>(list: T[], fromId: string, to
   list.splice(to, 0, item);
 }
 
+/** Même chose pour une liste de textes (phrases enregistrées) : chaque texte y est unique. */
+export function moveValue(list: string[], from: string, to: string): void {
+  if (from === to) return;
+  const i = list.indexOf(from);
+  const j = list.indexOf(to);
+  if (i === -1 || j === -1) return;
+  list.splice(i, 1);
+  list.splice(j, 0, from);
+}
+
 /**
  * Glisser-déposer pour réordonner une liste de puces ou de lignes : l'élément saisi prend la
  * place de celui sur lequel on le lâche. `group` empêche de mélanger deux listes affichées ensemble.
