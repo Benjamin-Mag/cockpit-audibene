@@ -261,9 +261,10 @@ export function Mails({ ficheKey, data, update, fiche, connected, busy, onInsert
     );
   }
 
+  // La signature est reprise telle quelle, variables comprises : un modèle partagé signe du nom de chaque collègue.
   const newTemplate = () => {
     const sig = audience === 'partenaire' ? data.reglages.sigPartenaireMail : data.reglages.sigPatientMail;
-    setEditing({ id: uid('tpl'), title: '', audience, type: 'email', patientCategory: audience === 'patient' ? (cat ?? 'all') : undefined, partnerCategory: audience === 'partenaire' ? (cat ?? data.categories.partenaire[0]?.id) : undefined, subject: '', body: sig ? '\n' + fillVars(sig, systemValues(data.reglages)) : '', smsCompanion: audience === 'patient' && data.reglages.sigPatientSMS ? '\n' + fillVars(data.reglages.sigPatientSMS, systemValues(data.reglages)) : '' });
+    setEditing({ id: uid('tpl'), title: '', audience, type: 'email', patientCategory: audience === 'patient' ? (cat ?? 'all') : undefined, partnerCategory: audience === 'partenaire' ? (cat ?? data.categories.partenaire[0]?.id) : undefined, subject: '', body: sig ? '\n' + sig : '', smsCompanion: audience === 'patient' && data.reglages.sigPatientSMS ? '\n' + data.reglages.sigPatientSMS : '' });
   };
 
   // ---------------------------------------------------------------- vue principale

@@ -1,4 +1,4 @@
-import { type AppData, defaultData } from '../model';
+import { type AppData, defaultData, variabiliserSignatures } from '../model';
 import { clearHandle, fsSupported, permissionState, pickFolder, readText, savedHandle, writeText } from './fs';
 import { detectKind, mergeData, mergeGenerateur, mergePartage, mergeVentes, normalize, toLegacyGenerateur } from './legacy';
 
@@ -60,7 +60,11 @@ export function parseAny(text: string, base: AppData): { data: AppData; kind: Re
 
 const safeParse = (text: string | null, base: AppData): AppData | null => {
   if (!text || !text.trim()) return null;
-  try { return parseAny(text, base).data; } catch { return null; }
+  try {
+    const d = parseAny(text, base).data;
+    d.reglages = variabiliserSignatures(d.reglages);
+    return d;
+  } catch { return null; }
 };
 
 /** Contenu du dossier : cockpit.json, sinon l'ancien data.json (remis au format ancien s'il avait été réécrit). */
