@@ -53,7 +53,7 @@ await rendre('mise-a-jour', `
   <div class="carte">
     <div class="haut">
       <div class="ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round"><path d="M4 14a8 8 0 0 1 16 0"/><path d="M12 14l4-5"/><circle cx="12" cy="14" r="1.6" fill="#fff"/></svg></div>
-      <div><b>Cockpit Audibene</b> <span style="color:#5f6368">1.1.0</span><div class="desc">Panneau latéral pour Salesforce : anamnèse, MV non joignable, mails, prise de RDV…</div></div>
+      <div><b>Cockpit Audibene</b> <span style="color:#5f6368">1.1.1</span><div class="desc">Panneau latéral pour Salesforce : anamnèse, MV non joignable, mails, prise de RDV…</div></div>
     </div>
     <div class="bas"><span class="lien">Détails</span><span class="lien">Supprimer</span><div class="rond" title="Recharger">↻</div><div class="toggle"></div></div>
   </div>`, 480);

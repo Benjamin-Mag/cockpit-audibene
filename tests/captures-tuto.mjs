@@ -12,12 +12,12 @@ const browser = await chromium.launch(process.env.CHROMIUM_PATH ? { executablePa
 const RECENTS = [{ recordId: 'PISTETEST0000001A', genre: 'F', prenom: 'Alice', nom: 'Essai', email: 'alice.essai@example.com', telephone: '06 00 00 00 01', naissance: '12/03/1951', savedAt: Date.now() - 120000 }];
 
 async function capture(nom, onglet, etapes = async () => {}, opts = {}) {
-  const page = await browser.newPage({ viewport: { width: 420, height: opts.hauteur ?? 860 }, deviceScaleFactor: 2, locale: 'fr-FR', timezoneId: 'Europe/Paris' });
+  const page = await browser.newPage({ viewport: { width: 420, height: opts.hauteur ?? 860 }, deviceScaleFactor: opts.leger ? 1.5 : 2, locale: 'fr-FR', timezoneId: 'Europe/Paris' });
   const sc = { onglet, stockage: opts.premierLancement ? {} : { 'cockpit-data': JSON.stringify(donneesTest()), recentPatients: RECENTS } };
   await page.addInitScript(`window.__SCENARIO = ${JSON.stringify(sc)}; ${opts.premierLancement ? '' : "localStorage.setItem('cockpit-storage-mode','browser');"}`);
   await page.addInitScript(FAUX);
   // Numéro de version montré dans Réglages : celui de la version publiée, pas celui du faux navigateur.
-  await page.addInitScript("chrome.runtime.getManifest = () => ({ version: '1.1.0', permissions: [] });");
+  await page.addInitScript("chrome.runtime.getManifest = () => ({ version: '1.1.1', permissions: [] });");
   await page.goto(`http://localhost:${PORT}/panel.html`);
   await page.waitForTimeout(800);
   await etapes(page);
@@ -34,14 +34,13 @@ await capture('premier-lancement', 11, async () => {}, { premierLancement: true,
 // Utilisation
 await capture('fiche', 11);
 await capture('fiche-reprendre', 11, async (p) => { await barre(p, 'COSI'); await p.getByRole('button', { name: 'Premier appareillage', exact: true }).click(); await barre(p, 'Fiche'); });
-await capture('cosi', 11, async (p) => { await barre(p, 'COSI'); await p.getByRole('button', { name: 'Premier appareillage', exact: true }).click(); await p.getByRole('button', { name: 'Retraité/e', exact: true }).click(); });
+await capture('cosi', 11, async (p) => { await barre(p, 'COSI'); await p.getByRole('button', { name: 'Premier appareillage', exact: true }).click(); await p.getByRole('button', { name: 'Retraité/e', exact: true }).click(); await p.locator('main.content').evaluate((el) => el.scrollTo(0, 0)); });
 await capture('anamnese', 11, async (p) => { await barre(p, 'Anamnèse'); });
-await capture('orl-finder', 11, async (p) => { await barre(p, 'ORL Finder'); await p.waitForTimeout(3500); });
-await capture('partenaires', 11, async (p) => { await barre(p, 'Partenaires'); await p.waitForTimeout(3500); });
-await capture('mails', 12, async (p) => { await barre(p, 'Mails'); await p.getByRole('button', { name: /Confirmation de RDV/ }).click(); });
+await capture('orl-finder', 11, async (p) => { await barre(p, 'ORL Finder'); await p.waitForTimeout(3500); }, { leger: true });
+await capture('partenaires', 11, async (p) => { await barre(p, 'Partenaires'); await p.waitForTimeout(3500); }, { leger: true });
+await capture('mails', 12, async (p) => { await barre(p, 'Mails'); await p.getByRole('button', { name: /Confirmation de RDV/ }).click(); }, { leger: true });
 await capture('modele-nouveau', 12, async (p) => { await barre(p, 'Mails'); await p.getByRole('button', { name: 'Nouveau modèle' }).click(); await p.getByPlaceholder(/Confirmation de rendez-vo/).fill('Relance après devis'); });
 await capture('chat-partenaire', 12, async (p) => { await barre(p, 'Chat partenaire'); });
 await capture('doctolib', 13, async () => {}, { hauteur: 560 });
-await capture('reglages', 11, async (p) => { await reglages(p); });
-await capture('reglages-donnees', 11, async (p) => { await reglages(p); await p.locator('.section-title', { hasText: 'Données' }).scrollIntoViewIfNeeded(); await p.locator('.section-title', { hasText: 'Données' }).evaluate((el) => el.scrollIntoView({ block: 'start' })); });
+await capture('reglages-donnees', 11, async (p) => { await reglages(p); await p.locator('.section-title', { hasText: 'Données' }).scrollIntoViewIfNeeded(); await p.locator('.section-title', { hasText: 'Données' }).evaluate((el) => el.scrollIntoView({ block: 'start' })); }, { leger: true });
 await browser.close();
