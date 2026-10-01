@@ -158,8 +158,12 @@ textarea { resize: vertical; min-height: 90px; line-height: 1.5; }
 .chip.on { background: var(--accent); border-color: var(--accent); color: #fff; }
 .chip:active { transform: scale(0.96); }
 .chip.small { font-size: 11px; padding: 3px 8px; }
-.chip .x { opacity: 0; width: 0; overflow: hidden; margin-left: -4px; transition: opacity var(--dur) var(--ease), width var(--dur) var(--ease), margin var(--dur) var(--ease); }
-.chip:hover .x { opacity: 0.8; width: 12px; margin-left: 2px; }
+/* Croix de suppression : posée DANS la puce, par-dessus la fin du texte (fondu), sans changer sa taille. */
+.chip .x { position: absolute; top: 0; right: 0; bottom: 0; width: 26px; display: flex; align-items: center; justify-content: flex-end; padding-right: 7px; opacity: 0; pointer-events: none; background: linear-gradient(to right, transparent, var(--accent-soft) 45%); transition: opacity var(--dur) var(--ease); z-index: 1; }
+.chip.on .x { background: linear-gradient(to right, transparent, var(--accent) 45%); }
+.chip:hover .x { opacity: 1; pointer-events: auto; }
+.chip .x:hover { color: var(--danger, #c0392b); }
+.chip.on .x:hover { color: #fff; }
 
 /* glisser-déposer pour réordonner (hook useDragReorder, components/drag.ts) */
 .drag-wrap { display: inline-flex; border-radius: 999px; transition: opacity var(--dur) var(--ease), transform var(--dur) var(--ease), box-shadow var(--dur) var(--ease); cursor: grab; }
