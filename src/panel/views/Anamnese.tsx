@@ -30,7 +30,6 @@ export function Anamnese({ ficheKey, data, update, connected, busy, footerEl, on
   const [drafts, setDrafts] = useBrouillon<Record<string, string>>(ficheKey, 'cosi.nouvellesPhrases', {});
   // Réordonner les phrases enregistrées en les glissant (le groupe = la liste : « Musique », « Nom de la mutuelle »…).
   const dnd = useDragReorder((from, to, liste) => update((d) => moveValue(d.anamnese.phrases[liste] ?? [], from, to)));
-  const trierAZ = (liste: string) => update((d) => { d.anamnese.phrases[liste] = [...(d.anamnese.phrases[liste] ?? [])].sort((a, b) => a.localeCompare(b, 'fr', { sensitivity: 'base' })); });
 
   const pick = (label: string, value: string) => {
     const next = { ...picks };
@@ -102,7 +101,6 @@ export function Anamnese({ ficheKey, data, update, connected, busy, footerEl, on
                 </Chip>
               </span>
             ))}
-            {saved.length > 1 && <Btn kind="ghost" title="Classer ces phrases par ordre alphabétique" onClick={() => trierAZ(situationValue)}>A→Z</Btn>}
           </div>
         )}
         {withAddRow && (
