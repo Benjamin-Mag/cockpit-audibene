@@ -1,10 +1,10 @@
 import { useState } from 'preact/hooks';
-import type { Fiche, Genre } from '../../shared/types';
+import type { Fiche } from '../../shared/types';
 import { writeClipboard } from '../bridge';
 import { type AppData, fillVars, resolveGenre, systemValues, uid } from '../model';
 import { ficheLue, useBrouillon, useRemiseSiChangement } from '../brouillons';
 import { moveById, useDragReorder } from '../components/drag';
-import { Btn, Chip, DeleteBtn, EditablePreview, Seg, previewHtml } from '../components/ui';
+import { Btn, Chip, DeleteBtn, EditablePreview, previewHtml } from '../components/ui';
 
 interface Props {
   /** Fiche Salesforce affichée : texte choisi et retouches y sont gardés comme brouillon. */
@@ -21,14 +21,14 @@ interface Props {
 export function ChatPartenaire({ ficheKey, data, update, fiche, connected, busy, onWrite, toast }: Props) {
   const list = data.chatPartenaire;
   const [selId, setSelId] = useBrouillon<string | null>(ficheKey, 'chat.texte', list[0]?.id ?? null);
-  const [genre, setGenre] = useBrouillon<Genre>(ficheKey, 'chat.genre', null);
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState({ label: '', text: '' });
   const [manage, setManage] = useState(false);
   const dnd = useDragReorder((fromId, toId) => update((d) => moveById(d.chatPartenaire, fromId, toId)));
 
   const sel = list.find((t) => t.id === selId) ?? null;
-  const effectiveGenre = genre ?? fiche?.genre ?? null;
+  // Le genre du patient vient de la fiche : pas de choix à faire ici (demande de Benjamin, 01/10).
+  const effectiveGenre = fiche?.genre ?? null;
   const generated = sel ? resolveGenre(fillVars(sel.text, systemValues(data.reglages)), effectiveGenre).trim() : '';
   const [edited, setEdited] = useBrouillon<string | null>(ficheKey, 'chat.texteRetouche', null);
   useRemiseSiChangement(generated, ficheLue(ficheKey, fiche), () => setEdited(null));
@@ -71,8 +71,7 @@ export function ChatPartenaire({ ficheKey, data, update, fiche, connected, busy,
 
   return (
     <div class="view">
-      <div class="row" style="justify-content:space-between">
-        <Seg options={[{ id: 'M', label: 'M.' }, { id: 'F', label: 'Mme' }]} value={effectiveGenre} onChange={setGenre} />
+      <div class="row" style="justify-content:flex-end">
         <div class="row">
           <Btn kind={manage ? 'soft' : 'ghost'} icon="pen" title="Modifier, supprimer ou réordonner les textes" onClick={() => setManage((v) => !v)} />
           <Btn kind="soft" icon="plus" title="Nouveau texte" onClick={startNew} />

@@ -115,6 +115,21 @@ export function systemValues(r: Reglages): Record<string, string> {
   };
 }
 
+/**
+ * Signatures des Réglages : le nom et le téléphone écrits en dur (souvent repris de l'ancien générateur)
+ * deviennent {{nom_conseiller}} et {{tel_conseiller}}, pour que les modèles signent du nom de chacun.
+ */
+export function variabiliserSignatures(r: Reglages): Reglages {
+  const motifs: [string, string][] = [];
+  const nom = r.nom.trim();
+  const tel = r.telephone.trim();
+  if (nom.length >= 3) motifs.push([nom, '{{nom_conseiller}}']);
+  if (tel.length >= 6) { motifs.push([tel, '{{tel_conseiller}}']); const compact = tel.replace(/[\s.]/g, ''); if (compact !== tel) motifs.push([compact, '{{tel_conseiller}}']); }
+  if (!motifs.length) return r;
+  const varier = (t: string) => motifs.reduce((acc, [litteral, variable]) => acc.split(litteral).join(variable), t);
+  return { ...r, sigPatientMail: varier(r.sigPatientMail ?? ''), sigPartenaireMail: varier(r.sigPartenaireMail ?? ''), sigPatientSMS: varier(r.sigPatientSMS ?? '') };
+}
+
 /** Remplace {{variable}} par sa valeur ; laisse la balise si la valeur est vide. */
 export function fillVars(text: string, values: Record<string, string>): string {
   return text.replace(/\{\{\s*([^}]+?)\s*\}\}/g, (m, n: string) => {
