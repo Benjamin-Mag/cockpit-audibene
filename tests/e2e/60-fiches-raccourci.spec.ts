@@ -50,7 +50,9 @@ test.describe('Changement de fiche', () => {
     await page.getByRole('button', { name: 'Relance', exact: true }).click();
 
     // Retour sur la Piste : ses choix sont là, rien de l'Opportunité.
+    // Elle rouvre sur son dernier écran (Anamnèse), sans carte patient depuis la v1.1.1 : le nom se lit sur Fiche.
     await page.evaluate(() => (window as any).__mock.activer(11));
+    await aller(page, 'Fiche');
     await expect(page.getByText('Alice Essai').first()).toBeVisible();
     await aller(page, 'COSI');
     await expect(page.getByRole('button', { name: 'Premier appareillage', exact: true })).toHaveClass(/on/);

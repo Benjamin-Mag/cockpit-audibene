@@ -18,6 +18,8 @@ interface Props {
   onSms: () => void;
   /** Hors de l'écran Fiche : une seule ligne (nom, téléphone, MV), pour laisser la place au travail. */
   compact: boolean;
+  /** Sur une Piste, dans COSI et Anamnèse : pas de carte du tout (demande de Benjamin, 01/10). */
+  sansCarte?: boolean;
   onReglages: () => void;
   reglagesOuverts: boolean;
 }
@@ -28,7 +30,7 @@ const ago = (t: number) => {
   return m < 1 ? "à l'instant" : m < 60 ? `il y a ${m} min` : m < 1440 ? `il y a ${Math.round(m / 60)} h` : `il y a ${Math.round(m / 1440)} j`;
 };
 
-export function Header({ site, ctx, fiche, ficheState, recent, busy, arrierePlan, onRevenir, onMv, onRefresh, onPaste, onSms, compact, onReglages, reglagesOuverts }: Props) {
+export function Header({ site, ctx, fiche, ficheState, recent, busy, arrierePlan, onRevenir, onMv, onRefresh, onPaste, onSms, compact, sansCarte, onReglages, reglagesOuverts }: Props) {
   const page = ctx?.page ?? 'other';
   const onSf = site === 'salesforce' && !!ctx;
   const hasFiche = !!fiche && !!(fiche.prenom || fiche.nom);
@@ -51,7 +53,7 @@ export function Header({ site, ctx, fiche, ficheState, recent, busy, arrierePlan
         <button type="button" class={['btn', reglagesOuverts ? 'soft' : 'ghost', 'icon', 'roue'].join(' ')} title="Réglages" aria-pressed={reglagesOuverts} onClick={onReglages}><Icon name="settings" /></button>
       </div>
 
-      {compact && onSf && (
+      {compact && onSf && !sansCarte && (
         <div class="card fiche-mini">
           <div class="stack" style="gap:1px;flex:1;min-width:0">
             {ficheState === 'loading' && !hasFiche ? (

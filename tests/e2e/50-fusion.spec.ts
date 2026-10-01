@@ -74,6 +74,18 @@ test.describe('Design fusion', () => {
     await expect(page.getByRole('button', { name: 'Relire la fiche' })).toBeVisible();
   });
 
+  test('Piste : pas de carte patient dans COSI ni Anamnèse, elle reste sur Fiche', async ({ page }) => {
+    await ouvrir(page, { onglet: ONGLET.piste });
+    await expect(page.getByText('Alice Essai').first()).toBeVisible();
+    await aller(page, 'COSI');
+    await expect(page.locator('.fiche-mini')).toHaveCount(0);
+    await aller(page, 'Anamnèse');
+    await expect(page.locator('.fiche-mini')).toHaveCount(0);
+    await aller(page, 'Fiche');
+    await expect(page.getByText('Alice Essai').first()).toBeVisible();
+    await expect(page.getByRole('button', { name: /Message vocal/ }).first()).toBeVisible();
+  });
+
   test('le message court ne recouvre ni Appliquer ni la barre du bas', async ({ page }) => {
     await ouvrir(page, { onglet: ONGLET.piste });
     await aller(page, 'COSI');
