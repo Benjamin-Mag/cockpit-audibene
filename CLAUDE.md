@@ -82,7 +82,7 @@ Le panneau envoie des `ContentRequest` (`src/shared/messages.ts`) via `chrome.ta
 
 ## Disposition Fusion (main, 1.1.x)
 - Barre de navigation **en bas** (`<nav class="barre">`) : sur une Piste Fiche / COSI / Anamnèse / ORL Finder / Partenaires, sur une Opportunité Fiche / Mails / Chat partenaire ; Réglages derrière la roue en haut à droite (second clic = retour). Les boutons sont désactivés tant que la page Salesforce n'a pas répondu, Réglages reste joignable.
-- Écran **Fiche** à l'ouverture : parcours de la fiche, carte par étape, « Reprendre » quand une saisie est en cours (`aUneSaisie`, les simples choix de navigation ne comptent pas). Hors écran Fiche, carte patient réduite (MV / SMS / Relire).
+- Écran **Fiche** à l'ouverture : parcours de la fiche, carte par étape, « Reprendre » quand une saisie est en cours (`aUneSaisie`, les simples choix de navigation ne comptent pas). Hors écran Fiche, carte patient réduite (MV / SMS / Relire) — **sauf sur une Piste dans COSI et Anamnèse**, où il n'y a pas de carte du tout (v1.1.1).
 - **Dernier écran gardé par fiche** (`ecranGarde` / `garderEcran` dans `brouillons.ts`, champ `ecran` à part des saisies, seulement pour une clé `lead:`/`opportunity:`) ; hors fiche, seul Réglages est conservé.
 - Édition **plein écran** d'un modèle (Mails, Anamnèse, Chat) : barre et roue masquées, sorties par Enregistrer / Annuler. Sur Doctolib/Acuitis, la carte « Coller le patient » reste visible.
 - Tests propres : `tests/e2e/50-fusion.spec.ts`, `70-relecture.spec.ts`. L'aide `aller(page, 'Réglages')` passe par la roue.

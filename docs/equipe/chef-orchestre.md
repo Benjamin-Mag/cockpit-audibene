@@ -8,7 +8,7 @@ Session : `projects-b4` (`72f84a`). Dossier : `Documents\Claude\Projects\Cockpit
 - Répondre aux questions des agents ; arbitrer ; remonter à Benjamin ce qui demande sa décision.
 
 ## État courant
-- Version publiée : v1.1.0 (2026-10-01) — Fusion ; classique v1.0.50. Site : https://benjamin-mag.github.io/cockpit-audibene/
+- Version publiée : v1.1.1 (2026-10-01) — Fusion ; classique v1.0.50. Site : https://benjamin-mag.github.io/cockpit-audibene/
 - `main` protégé (PR obligatoire) depuis le 2026-09-09.
 - Chantiers ouverts : aucun. Partner Search livré (v1.0.36) ; à reporter dans Cockpit Benjamin.
 
@@ -57,3 +57,4 @@ Session : `projects-b4` (`72f84a`). Dossier : `Documents\Claude\Projects\Cockpit
 - 2026-10-01 : Benjamin : un nouveau modèle de mail arrivait avec sa signature **en dur** (nom, téléphone) — `newTemplate` remplissait les variables au moment de la création, et ses signatures de Réglages (reprises de l'ancien générateur) contenaient déjà le nom en clair. Correctif double : la signature est reprise telle quelle (variables comprises) et `variabiliserSignatures` convertit au chargement le nom/téléphone en dur en `{{nom_conseiller}}` / `{{tel_conseiller}}` (modèles partageables entre collègues). Et Chat partenaire : choix M./Mme retiré, genre de la fiche. Test `63-signatures-variables` (3 cas). 88/88. → **v1.0.49**.
 - 2026-10-01 : « pas besoin du bouton A→Z » — retiré (le glisser-déposer reste). → **v1.0.50**.
 - 2026-10-01 : Benjamin : « le design Fusion pour les copains, garde une sauvegarde qu'on puisse proposer les deux ». Branche **`classique`** = main v1.0.50 (zip `cockpit-audibene-classique.zip`). `fix/relecture-fusion` mise au niveau de main par un agent (merge, 2 conflits : app.tsx côté fusion, 70-relecture union ; 103/103) → branche `fusion` → **v1.1.0** sur main. Page d'installation : deux boutons. Cockpit Benjamin reste classique (report depuis `upstream/classique`). Tutoriel (Installer / Utiliser, captures sur le faux navigateur) confié à l'Agent 1.
+- 2026-10-01 : Benjamin, sur Fusion : « sur une Piste, pas besoin de voir la carte patient dans COSI ou Anamnèse, on la garde dans Fiche ». Prop `sansCarte` du Header (Piste + écrans `anamnese`/`commentaire`) ; ORL Finder et Partenaires gardent la carte réduite. Test dans `50-fusion`. → **v1.1.1** (Fusion seulement ; la classique n'a pas de carte réduite).
