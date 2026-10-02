@@ -161,7 +161,7 @@ export function Anamnese({ ficheKey, data, update, connected, busy, footerEl, on
     const commentLabel = SITUATION_COMMENT_FIELD[f.label];
     if (commentLabel) {
       return (
-        <div key={f.label} class="stack">
+        <div key={f.label} class="stack situation">
           <Field label={f.displayLabel ?? f.label} right={stepper(SITUATION_COSI_FIELD[f.label])}>{chips(f)}</Field>
           {picks[f.label] && phraseBlock(picks[f.label], commentLabel)}
         </div>

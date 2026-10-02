@@ -205,6 +205,12 @@ textarea { resize: vertical; min-height: 90px; line-height: 1.5; }
 .stepper button:active { transform: scale(0.92); }
 .stepper b { min-width: 14px; text-align: center; font-size: 12px; }
 .sub { margin-left: 10px; padding-left: 10px; border-left: 2px solid var(--accent-soft-2); display: flex; flex-direction: column; gap: 8px; }
+/* COSI : sous une situation choisie, les phrases enregistrées sont un peu plus foncées que les choix de situation. */
+.situation .sub .chip { background: #dbe8f4; border-color: var(--border-strong); }
+.situation .sub .chip:hover { background: #cde0f1; border-color: var(--accent); }
+.situation .sub .chip.on { background: var(--accent); border-color: var(--accent); }
+.situation .sub .chip .x { background: linear-gradient(to right, transparent, #cde0f1 45%); }
+.situation .sub .chip.on .x { background: linear-gradient(to right, transparent, var(--accent) 45%); }
 .preview {
   white-space: pre-wrap; background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius-sm);
   padding: 10px 12px; font-size: 12.8px; line-height: 1.5; color: var(--text);
