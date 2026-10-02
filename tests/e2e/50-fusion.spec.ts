@@ -86,6 +86,19 @@ test.describe('Design fusion', () => {
     await expect(page.getByRole('button', { name: /Message vocal/ }).first()).toBeVisible();
   });
 
+  test('Piste : sans carte patient, un trait fin cadre l\'en-tête (COSI, Anamnèse), pas sur Fiche', async ({ page }) => {
+    await ouvrir(page, { onglet: ONGLET.piste });
+    await expect(page.getByText('Alice Essai').first()).toBeVisible();
+    const trait = () => page.locator('.top').first().evaluate((e) => getComputedStyle(e).borderBottomStyle);
+    await expect.poll(trait).toBe('none');
+    await aller(page, 'COSI');
+    await expect.poll(trait).toBe('solid');
+    await aller(page, 'Anamnèse');
+    await expect.poll(trait).toBe('solid');
+    await aller(page, 'Fiche');
+    await expect.poll(trait).toBe('none');
+  });
+
   test('le message court ne recouvre ni Appliquer ni la barre du bas', async ({ page }) => {
     await ouvrir(page, { onglet: ONGLET.piste });
     await aller(page, 'COSI');
