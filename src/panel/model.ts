@@ -115,18 +115,59 @@ export function systemValues(r: Reglages): Record<string, string> {
   };
 }
 
+const echapperRegex = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+const permutations = <T>(l: T[]): T[][] =>
+  l.length <= 1 ? [l] : l.flatMap((x, i) => permutations([...l.slice(0, i), ...l.slice(i + 1)]).map((p) => [x, ...p]));
+
+/**
+ * Le nom des Réglages, dans n'importe quel ordre de ses mots (2 ou 3 mots), casse et espaces libres,
+ * en mot entier seulement (\b ignore les accents) : ni « Jean-Pierre » pour « Pierre », ni une adresse mail.
+ */
+function motifNom(nom: string): RegExp | null {
+  const mots = nom.trim().split(/\s+/).filter(Boolean);
+  if ((nom.match(/\p{L}/gu) ?? []).length < 3) return null;
+  const ordres = mots.length === 2 || mots.length === 3 ? permutations(mots) : [mots];
+  const variantes = ordres.map((o) => o.map(echapperRegex).join('[^\\S\\r\\n]+'));
+  return new RegExp(`(?<![\\p{L}\\p{N}_@-])(?<![\\p{L}\\p{N}]\\.)(?:${variantes.join('|')})(?![\\p{L}\\p{N}_@-])(?!\\.[\\p{L}\\p{N}])`, 'giu');
+}
+
+/**
+ * Le téléphone des Réglages par ses seuls chiffres (emoji, espaces, points… ignorés), écrit avec n'importe quels
+ * séparateurs (espaces, points, tirets) ; « 06… » se reconnaît aussi en « +33 6… » et inversement.
+ * Ce qui entoure le numéro dans les Réglages (« 📞 ») est repris s'il est aussi dans la signature, pour ne pas le doubler.
+ * Jamais au milieu d'un nombre plus long (chiffres collés avant ou après).
+ */
+function motifTel(tel: string): RegExp | null {
+  const brut = tel.trim();
+  const chiffres = brut.replace(/\D/g, '');
+  if (chiffres.length < 6) return null;
+  const SEP = '(?:[^\\S\\r\\n]|[.-])*';
+  const suite = (c: string) => [...c].join(SEP);
+  const formes = [`(?:\\+${SEP})?${suite(chiffres)}`];
+  if (chiffres.startsWith('0')) formes.push(`\\+${SEP}33${SEP}(?:\\(0\\)${SEP})?${suite(chiffres.slice(1))}`);
+  else if (chiffres.startsWith('33') && brut.includes('+')) formes.push(suite('0' + chiffres.slice(2)));
+  const prefixe = brut.slice(0, brut.search(/[\d+]/)).trim();
+  const suffixe = brut.slice(brut.search(/\d\D*$/) + 1).trim();
+  const avant = prefixe ? `(?:${echapperRegex(prefixe)}[^\\S\\r\\n]*)?` : '';
+  const apres = suffixe ? `(?:[^\\S\\r\\n]*${echapperRegex(suffixe)})?` : '';
+  return new RegExp(`(?<![\\d+])${avant}(?<![\\d+])(?:${formes.join('|')})(?!\\d)${apres}`, 'g');
+}
+
 /**
  * Signatures des Réglages : le nom et le téléphone écrits en dur (souvent repris de l'ancien générateur)
  * deviennent {{nom_conseiller}} et {{tel_conseiller}}, pour que les modèles signent du nom de chacun.
+ * Les variables déjà présentes ({{…}}) ne sont jamais touchées.
  */
 export function variabiliserSignatures(r: Reglages): Reglages {
-  const motifs: [string, string][] = [];
-  const nom = r.nom.trim();
-  const tel = r.telephone.trim();
-  if (nom.length >= 3) motifs.push([nom, '{{nom_conseiller}}']);
-  if (tel.length >= 6) { motifs.push([tel, '{{tel_conseiller}}']); const compact = tel.replace(/[\s.]/g, ''); if (compact !== tel) motifs.push([compact, '{{tel_conseiller}}']); }
+  const motifs: [RegExp, string][] = [];
+  const nom = motifNom(r.nom ?? '');
+  const tel = motifTel(r.telephone ?? '');
+  if (nom) motifs.push([nom, '{{nom_conseiller}}']);
+  if (tel) motifs.push([tel, '{{tel_conseiller}}']);
   if (!motifs.length) return r;
-  const varier = (t: string) => motifs.reduce((acc, [litteral, variable]) => acc.split(litteral).join(variable), t);
+  const varier = (t: string) => t.split(/(\{\{[^{}]*\}\})/).map((morceau, i) =>
+    i % 2 ? morceau : motifs.reduce((acc, [motif, variable]) => acc.replace(motif, variable), morceau)).join('');
   return { ...r, sigPatientMail: varier(r.sigPatientMail ?? ''), sigPartenaireMail: varier(r.sigPartenaireMail ?? ''), sigPatientSMS: varier(r.sigPatientSMS ?? '') };
 }
 
