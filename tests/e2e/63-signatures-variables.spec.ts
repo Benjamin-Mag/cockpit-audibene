@@ -76,4 +76,27 @@ test.describe('Signatures et variables', () => {
     await expect(page.locator('.preview.editable').first()).not.toContainText('patient(e)');
     expect(p.erreurs).toEqual([]);
   });
+
+  test('modèles et textes du Chat partenaire : nom et téléphone en dur passés en variables au chargement', async ({ page }) => {
+    const d: any = donneesTest();
+    d.reglages = { ...d.reglages, nom: 'Benjamin Test', telephone: '📞 06 00 00 00 00' };
+    d.templates = [...d.templates, { id: 'tpl-signe', title: 'Avec signature', audience: 'partenaire', type: 'email', partnerCategory: 'CC1', subject: 'Objet', body: 'Bonjour {{nom partenaire}},\n\nBien cordialement,\nTest Benjamin\n06.00.00.00.00' }];
+    d.chatPartenaire = [...d.chatPartenaire, { id: 'chat-signe', label: 'Signé', text: 'Merci, Benjamin Test (06 00 00 00 00)' }];
+    const p = await ouvrir(page, { onglet: ONGLET.opportunite, donnees: d });
+    await aller(page, 'Mails');
+    await page.getByRole('button', { name: 'Partenaire', exact: true }).click();
+    await page.getByRole('button', { name: /Avec signature/ }).click();
+    await page.getByRole('button', { name: 'Modifier ce modèle' }).click();
+    const corps = page.locator('textarea').first();
+    await expect(corps).toHaveValue(/\{\{nom_conseiller\}\}/);
+    await expect(corps).toHaveValue(/\{\{tel_conseiller\}\}/);
+    await expect(corps).not.toHaveValue(/Test Benjamin|06\.00/);
+    await page.getByRole('button', { name: 'Annuler' }).click();
+    await aller(page, 'Chat partenaire');
+    await page.getByRole('button', { name: 'Signé', exact: true }).click();
+    // Le texte affiché garde le vrai nom (la variable est remplie), sans doublon d'emoji.
+    await expect(page.locator('.preview.editable').first()).toContainText('Benjamin Test');
+    await expect(page.locator('.preview.editable').first()).not.toContainText('📞 📞');
+    expect(p.erreurs).toEqual([]);
+  });
 });

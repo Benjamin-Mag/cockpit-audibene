@@ -1,4 +1,4 @@
-import { type AppData, defaultData, variabiliserSignatures } from '../model';
+import { type AppData, defaultData, variabiliserSignatures, variabiliserTextes } from '../model';
 import { clearHandle, fsSupported, permissionState, pickFolder, readText, savedHandle, writeText } from './fs';
 import { detectKind, mergeData, mergeGenerateur, mergePartage, mergeVentes, normalize, toLegacyGenerateur } from './legacy';
 
@@ -63,6 +63,7 @@ const safeParse = (text: string | null, base: AppData): AppData | null => {
   try {
     const d = parseAny(text, base).data;
     d.reglages = variabiliserSignatures(d.reglages);
+    variabiliserTextes(d);
     return d;
   } catch { return null; }
 };
