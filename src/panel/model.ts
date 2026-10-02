@@ -159,16 +159,38 @@ function motifTel(tel: string): RegExp | null {
  * deviennent {{nom_conseiller}} et {{tel_conseiller}}, pour que les modèles signent du nom de chacun.
  * Les variables déjà présentes ({{…}}) ne sont jamais touchées.
  */
-export function variabiliserSignatures(r: Reglages): Reglages {
+function variabilisateur(r: Reglages): ((t: string) => string) | null {
   const motifs: [RegExp, string][] = [];
   const nom = motifNom(r.nom ?? '');
   const tel = motifTel(r.telephone ?? '');
   if (nom) motifs.push([nom, '{{nom_conseiller}}']);
   if (tel) motifs.push([tel, '{{tel_conseiller}}']);
-  if (!motifs.length) return r;
-  const varier = (t: string) => t.split(/(\{\{[^{}]*\}\})/).map((morceau, i) =>
+  if (!motifs.length) return null;
+  return (t: string) => t.split(/(\{\{[^{}]*\}\})/).map((morceau, i) =>
     i % 2 ? morceau : motifs.reduce((acc, [motif, variable]) => acc.replace(motif, variable), morceau)).join('');
+}
+
+export function variabiliserSignatures(r: Reglages): Reglages {
+  const varier = variabilisateur(r);
+  if (!varier) return r;
   return { ...r, sigPatientMail: varier(r.sigPatientMail ?? ''), sigPartenaireMail: varier(r.sigPartenaireMail ?? ''), sigPatientSMS: varier(r.sigPatientSMS ?? '') };
+}
+
+/**
+ * Même conversion pour les modèles de mail/SMS et les textes du Chat partenaire : un modèle partagé
+ * signe ainsi du nom de chaque collègue. Le rendu ne change pas pour soi : la variable vaut le même nom.
+ */
+export function variabiliserTextes(d: AppData): AppData {
+  const varier = variabilisateur(d.reglages);
+  if (!varier) return d;
+  d.templates = d.templates.map((t) => ({
+    ...t,
+    body: varier(t.body ?? ''),
+    ...(t.subject !== undefined ? { subject: varier(t.subject) } : {}),
+    ...(t.smsCompanion !== undefined ? { smsCompanion: varier(t.smsCompanion) } : {}),
+  }));
+  d.chatPartenaire = d.chatPartenaire.map((c) => ({ ...c, text: varier(c.text ?? '') }));
+  return d;
 }
 
 /** Remplace {{variable}} par sa valeur ; laisse la balise si la valeur est vide. */
