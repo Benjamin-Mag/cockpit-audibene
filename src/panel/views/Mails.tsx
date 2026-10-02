@@ -262,6 +262,12 @@ export function Mails({ ficheKey, data, update, fiche, connected, busy, onInsert
   }
 
   // La signature est reprise telle quelle, variables comprises : un modèle partagé signe du nom de chaque collègue.
+  // Partir d'un modèle existant : une copie à part, l'original ne bouge pas.
+  const dupliquer = (t: Template) => {
+    const { createdAt: _c, ...reste } = structuredClone(t);
+    setEditing({ ...reste, id: uid('tpl'), title: `${t.title} (copie)` });
+  };
+
   const newTemplate = () => {
     const sig = audience === 'partenaire' ? data.reglages.sigPartenaireMail : data.reglages.sigPatientMail;
     setEditing({ id: uid('tpl'), title: '', audience, type: 'email', patientCategory: audience === 'patient' ? (cat ?? 'all') : undefined, partnerCategory: audience === 'partenaire' ? (cat ?? data.categories.partenaire[0]?.id) : undefined, subject: '', body: sig ? '\n' + sig : '', smsCompanion: audience === 'patient' && data.reglages.sigPatientSMS ? '\n' + data.reglages.sigPatientSMS : '' });
@@ -315,6 +321,7 @@ export function Mails({ ficheKey, data, update, fiche, connected, busy, onInsert
                   {!effectiveGenre ? <span class="note warn">genre requis</span> : !genre && fiche?.genre ? <span class="note">depuis la fiche</span> : null}
                 </div>
                 <div class="row">
+                  <Btn kind="ghost" icon="copy" title="Dupliquer ce modèle : partir de ce texte pour en créer un nouveau" onClick={() => dupliquer(sel)} />
                   <Btn kind="ghost" icon="pen" title="Modifier ce modèle" onClick={() => setEditing({ ...sel })} />
                   <DeleteBtn title="Supprimer ce modèle" onConfirm={() => deleteTemplate(sel.id, sel.title)} />
                 </div>
