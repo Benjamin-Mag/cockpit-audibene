@@ -39,7 +39,7 @@ export function Header({ site, ctx, fiche, ficheState, recent, busy, arrierePlan
   const last = recent[0];
 
   return (
-    <div class="top">
+    <div class={['top', sansCarte && onSf ? 'trait' : ''].join(' ')}>
       <div class="brand">
         <span class={['dot', onSf || isForm ? 'on' : ''].join(' ')} />
         <span>{siteLabel}</span>
