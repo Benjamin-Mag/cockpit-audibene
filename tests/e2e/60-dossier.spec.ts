@@ -110,3 +110,50 @@ test.describe('Dossier synchronisé en pause', () => {
     await expect(page.getByText(/Des changements attendent d’être copiés/)).toBeVisible();
   });
 });
+
+// Benjamin (2026-10-06) : il cliquait « Autoriser » sans cesse et son cockpit.json restait au 17/09.
+// Le fichier était en lecture seule : l'écriture échouait en silence et le panneau annonçait « synchronisé ».
+test.describe('cockpit.json en lecture seule', () => {
+  const bloque = (page: Page) => page.locator('.banner').filter({ hasText: /n’arrive pas à écrire/ });
+  const leverLectureSeule = (page: Page) => page.evaluate(() => { (window as unknown as { __SCENARIO: { dossier: { lectureSeule: boolean } } }).__SCENARIO.dossier.lectureSeule = false; });
+
+  test('« Autoriser » ne dit plus « synchronisé » : message clair, puis « Réessayer » une fois le fichier débloqué', async ({ page }) => {
+    const p = await avecDossier(page, { lectureSeule: true });
+    await changerNom(page, 'Benjamin Dossier');
+    await bandeau(page).getByRole('button', { name: 'Autoriser' }).click();
+    await expect(page.locator('.toast.err')).toContainText('n’arrive pas à écrire');
+    await expect(page.locator('.toast').filter({ hasText: 'synchronisé' })).toHaveCount(0);
+    await expect(bloque(page)).toBeVisible();
+    await expect(bandeau(page)).toHaveCount(0);
+    expect(await fichierDossier(page)).toBeNull();
+    await expect.poll(async () => (await p.donnees()).reglages.nom).toBe('Benjamin Dossier');
+    await aller(page, 'Réglages');
+    await expect(page.getByText(/cockpit\.json — écriture refusée/)).toBeVisible();
+
+    await leverLectureSeule(page);
+    await bloque(page).getByRole('button', { name: 'Réessayer' }).click();
+    await toast(page, 'Dossier Cockpit synchronisé');
+    await expect(bloque(page)).toHaveCount(0);
+    expect((await fichierDossier(page))?.reglages?.nom).toBe('Benjamin Dossier');
+    await expect(page.getByText(/cockpit\.json — synchronisé/)).toBeVisible();
+    expect(p.erreurs).toEqual([]);
+  });
+
+  test('visible même avec « Ne plus demander », et le fichier se remet à jour seul dès qu’il est débloqué', async ({ page }) => {
+    const p = await avecDossier(page, { permission: 'granted', lectureSeule: true });
+    await page.evaluate(() => localStorage.setItem('cockpit-dossier-silence', '1'));
+    await page.reload();
+    await expect(page.getByText('Alice Essai').first()).toBeVisible();
+    await expect(bloque(page)).toBeVisible();
+    await expect(bloque(page)).toContainText('Cockpit');
+    await changerNom(page, 'Benjamin Dossier');
+    await expect.poll(async () => (await p.donnees()).reglages.nom).toBe('Benjamin Dossier');
+    expect(await fichierDossier(page)).toBeNull();
+
+    await leverLectureSeule(page);
+    await changerNom(page, 'Benjamin Suite');
+    await expect.poll(async () => (await fichierDossier(page))?.reglages?.nom).toBe('Benjamin Suite');
+    await expect(bloque(page)).toHaveCount(0);
+    expect(p.erreurs).toEqual([]);
+  });
+});
