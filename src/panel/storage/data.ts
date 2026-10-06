@@ -16,6 +16,11 @@ const MODE_KEY = 'cockpit-storage-mode';
 const SILENCE_KEY = 'cockpit-dossier-silence';
 /** Date des données au moment de la dernière écriture réussie du cockpit.json. */
 const ECRIT_KEY = 'cockpit-dossier-ecrit';
+/** « Plus tard » sur le rappel de sauvegarde en retard : date jusqu'à laquelle il reste masqué, propre à ce navigateur. */
+const REPORT_KEY = 'cockpit-rappel-reporte';
+const JOUR_MS = 86_400_000;
+/** Au-delà de ce nombre de jours sans sauvegarde, le rappel sort même avec « Ne plus demander ». */
+export const RETARD_JOURS = 7;
 
 export type SyncStatus = 'synced' | 'paused' | 'blocked' | 'none';
 export interface StorageState {
@@ -43,6 +48,10 @@ const browserModeChosen = () => { try { return localStorage.getItem(MODE_KEY) ==
 /** Rien à copier tant que les données n'ont pas bougé depuis la dernière écriture du dossier. */
 export const dossierEcritLe = (): number => { try { return Number(localStorage.getItem(ECRIT_KEY)) || 0; } catch { return 0; } };
 const marquerEcrit = (t: number) => { try { localStorage.setItem(ECRIT_KEY, String(t)); } catch { /* stockage refusé */ } };
+/** Jours écoulés depuis la dernière sauvegarde réussie du dossier (0 si inconnue). */
+export const joursSansSauvegarde = (): number => { const t = dossierEcritLe(); return t ? Math.floor((Date.now() - t) / JOUR_MS) : 0; };
+export const rappelReporte = () => { try { return Number(localStorage.getItem(REPORT_KEY)) > Date.now(); } catch { return false; } };
+export const reporterRappel = () => { try { localStorage.setItem(REPORT_KEY, String(Date.now() + JOUR_MS)); } catch { /* stockage refusé */ } };
 
 export const dossierSilencieux = () => { try { return localStorage.getItem(SILENCE_KEY) === '1'; } catch { return false; } };
 export const setDossierSilencieux = (v: boolean) => { try { if (v) localStorage.setItem(SILENCE_KEY, '1'); else localStorage.removeItem(SILENCE_KEY); } catch { /* stockage refusé */ } };

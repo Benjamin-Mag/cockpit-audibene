@@ -157,3 +157,54 @@ test.describe('cockpit.json en lecture seule', () => {
     expect(p.erreurs).toEqual([]);
   });
 });
+
+// Benjamin (2026-10-06) : « j'ai peur qu'ils perdent leurs données ». Avec « Ne plus demander », le
+// cockpit.json d'un collègue pouvait rester des semaines en retard sans que rien ne le signale.
+test.describe('Rappel de sauvegarde en retard', () => {
+  const rappel = (page: Page) => page.locator('.banner').filter({ hasText: /Ta dernière sauvegarde/ });
+  const JOUR = 86_400_000;
+  const vieillir = async (page: Page, jours: number) => {
+    await page.evaluate((t) => { localStorage.setItem('cockpit-dossier-silence', '1'); localStorage.setItem('cockpit-dossier-ecrit', String(t)); }, Date.now() - jours * JOUR);
+    await page.reload();
+    // Le panneau rouvre sur le dernier écran (COSI, sans carte patient) : on attend la roue des Réglages.
+    await expect(page.getByRole('button', { name: 'Réglages', exact: true }).first()).toBeVisible();
+  };
+
+  test('plus de 7 jours : rappel même avec « Ne plus demander », « Mettre à jour » remet le fichier à jour', async ({ page }) => {
+    const p = await avecDossier(page);
+    await vieillir(page, 10);
+    await page.waitForTimeout(500);
+    await expect(rappel(page)).toHaveCount(0);
+    await changerNom(page, 'Benjamin Rappel');
+    await expect(rappel(page)).toBeVisible();
+    await expect(rappel(page)).toContainText('il y a 10 jours');
+    await expect(bandeau(page)).toHaveCount(0);
+    await aller(page, 'Réglages');
+    await expect(page.getByText(/Dernière sauvegarde dans le dossier : .*il y a 10 jours/)).toBeVisible();
+    await rappel(page).getByRole('button', { name: 'Mettre à jour' }).click();
+    await toast(page, 'Dossier Cockpit synchronisé');
+    await expect(rappel(page)).toHaveCount(0);
+    expect((await fichierDossier(page))?.reglages?.nom).toBe('Benjamin Rappel');
+    expect(p.erreurs).toEqual([]);
+  });
+
+  test('moins de 7 jours : pas de rappel ; « Plus tard » le masque jusqu’au lendemain, même après rechargement', async ({ page }) => {
+    await avecDossier(page);
+    await vieillir(page, 3);
+    await changerNom(page, 'Benjamin Récent');
+    await page.waitForTimeout(500);
+    await expect(rappel(page)).toHaveCount(0);
+
+    await vieillir(page, 8);
+    await changerNom(page, 'Benjamin Ancien');
+    await expect(rappel(page)).toBeVisible();
+    await rappel(page).getByRole('button', { name: 'Plus tard' }).click();
+    await expect(rappel(page)).toHaveCount(0);
+    const jusqua = await page.evaluate(() => Number(localStorage.getItem('cockpit-rappel-reporte')));
+    expect(jusqua).toBeGreaterThan(Date.now() + 23 * JOUR / 24);
+    await page.reload();
+    await changerNom(page, 'Benjamin Encore');
+    await page.waitForTimeout(500);
+    await expect(rappel(page)).toHaveCount(0);
+  });
+});

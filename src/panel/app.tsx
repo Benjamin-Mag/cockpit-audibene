@@ -4,7 +4,7 @@ import type { ActionResult, Fiche, RecentPatient, SfContext } from '../shared/ty
 import { type Site, connectContext, ensureOrigin, subFrames, isExtension, loadRecent, onCommand, onRecentChanged, pushRecent, readFiche, readPartnerSearch, runAction, sendToFrame, siteOf, watchActiveTab, writeClipboard } from './bridge';
 import { Btn, Icon, type IconName, Toast, type ToastMsg } from './components/ui';
 import { type AppData, defaultData } from './model';
-import { type StorageState, authorize, chooseFolder, dossierEcritLe, dossierSilencieux, exportLegacy, initStorage, parseAny, save, setDossierSilencieux, useBrowserStorage } from './storage/data';
+import { RETARD_JOURS, type StorageState, authorize, chooseFolder, dossierEcritLe, dossierSilencieux, exportLegacy, initStorage, joursSansSauvegarde, parseAny, rappelReporte, reporterRappel, save, setDossierSilencieux, useBrowserStorage } from './storage/data';
 import { mergeData, substituteName, toPartage } from './storage/legacy';
 import { downloadJson, pickJsonFile } from './storage/fs';
 import { Anamnese } from './views/Anamnese';
@@ -44,6 +44,7 @@ export function App() {
   const [storage, setStorage] = useState<StorageState | null>(null);
   // Le navigateur oublie l'autorisation du dossier à chaque fermeture : Benjamin peut cesser qu'on la redemande.
   const [silence, setSilence] = useState(dossierSilencieux());
+  const [reporte, setReporte] = useState(rappelReporte());
   const [data, setDataState] = useState<AppData | null>(null);
   const skipSave = useRef(true);
   const saveTimer = useRef<number | undefined>(undefined);
@@ -370,6 +371,13 @@ export function App() {
           <Icon name="folder" />
           <span class="grow">Cockpit n’arrive pas à écrire cockpit.json dans <b>{storage.folderName}</b> : fichier en lecture seule, ouvert dans un autre programme ou dossier déplacé. Tes données sont à l’abri dans le navigateur.</span>
           <Btn kind="soft" onClick={doAuthorize}>Réessayer</Btn>
+        </div>
+      ) || storage.sync === 'paused' && aCopier && !reporte && joursSansSauvegarde() >= RETARD_JOURS && (
+        <div class="banner" style="margin:8px 12px 0">
+          <Icon name="folder" />
+          <span class="grow" title={`cockpit.json dans ${storage.folderName}`}>Ta dernière sauvegarde date d’il y a {joursSansSauvegarde()} jours. Mets-la à jour pour ne rien perdre.</span>
+          <Btn kind="soft" onClick={doAuthorize}>Mettre à jour</Btn>
+          <Btn kind="ghost" onClick={() => { reporterRappel(); setReporte(true); }} title="Le rappel reviendra demain">Plus tard</Btn>
         </div>
       )}
       <main class="content">
