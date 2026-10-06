@@ -54,7 +54,7 @@ export function Reglages({ data, update, storage, aCopier, silence, onSilence, o
       <div class="section-title">Données</div>
       <div class="card" style="animation:none">
         <div class="stack">
-          <div class="row"><Icon name="folder" /><span class="grow">{storage.mode === 'folder' ? <>Dossier <b>{storage.folderName}</b> · cockpit.json — {storage.sync === 'synced' ? 'synchronisé' : 'en pause'}</> : 'Enregistré dans le navigateur uniquement'}</span></div>
+          <div class="row"><Icon name="folder" /><span class="grow">{storage.mode === 'folder' ? <>Dossier <b>{storage.folderName}</b> · cockpit.json — {storage.sync === 'synced' ? 'synchronisé' : storage.sync === 'blocked' ? 'écriture refusée (fichier en lecture seule ?)' : 'en pause'}</> : 'Enregistré dans le navigateur uniquement'}</span></div>
           <div class="note">Les données sont toujours gardées dans le navigateur ; le dossier sert de copie de sauvegarde et de passerelle avec l'ancien générateur.</div>
           {storage.mode === 'folder' && (
             <div class="row">
@@ -64,6 +64,7 @@ export function Reglages({ data, update, storage, aCopier, silence, onSilence, o
           )}
           <div class="row wrap">
             {storage.sync === 'paused' && <Btn kind="soft" icon="folder" onClick={onAuthorize}>Autoriser le dossier</Btn>}
+            {storage.sync === 'blocked' && <Btn kind="soft" icon="folder" onClick={onAuthorize}>Réessayer</Btn>}
             {fsSupported && <Btn kind="ghost" icon="folder" onClick={onChangeFolder}>{storage.mode === 'folder' ? 'Changer de dossier' : 'Choisir un dossier'}</Btn>}
             <Btn kind="ghost" icon="upload" onClick={onImport} title="data.json de l'ancien générateur, cockpit.json, ou fichier de modèles partagé par un collègue">Importer un fichier</Btn>
             <Btn kind="soft" icon="download" onClick={onExportShare} title="Modèles, textes, catégories — sans tes réglages, ton nom remplacé par la variable">Partager mes modèles</Btn>

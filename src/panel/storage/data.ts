@@ -17,12 +17,12 @@ const SILENCE_KEY = 'cockpit-dossier-silence';
 /** Date des données au moment de la dernière écriture réussie du cockpit.json. */
 const ECRIT_KEY = 'cockpit-dossier-ecrit';
 
-export type SyncStatus = 'synced' | 'paused' | 'none';
+export type SyncStatus = 'synced' | 'paused' | 'blocked' | 'none';
 export interface StorageState {
   mode: 'folder' | 'browser';
   status: 'ready' | 'needs-folder';
   folderName: string;
-  /** Dossier : synchronisé, en pause (autorisation à redonner) ou sans dossier. */
+  /** Dossier : synchronisé, en pause (autorisation à redonner), écriture refusée par le fichier (lecture seule…) ou sans dossier. */
   sync: SyncStatus;
 }
 
@@ -88,6 +88,20 @@ function reconcile(local: AppData | null, folder: AppData | null): AppData | nul
   return mergeData(local, folder);
 }
 
+/**
+ * Écrit cockpit.json. Un échec alors que l'autorisation est accordée vient du fichier lui-même
+ * (lecture seule, ouvert ailleurs, dossier déplacé) : « blocked », jamais « synced » (06/10, fichier en lecture seule).
+ */
+async function ecrireDossier(h: FileSystemDirectoryHandle, content: string): Promise<SyncStatus> {
+  try {
+    await writeText(h, DATA_FILE, content);
+    return 'synced';
+  } catch {
+    folderGranted = (await permissionState(h, false)) === 'granted';
+    return folderGranted ? 'blocked' : 'paused';
+  }
+}
+
 function state(sync: SyncStatus, status: StorageState['status'] = 'ready'): StorageState {
   return { mode: handle ? 'folder' : 'browser', status, folderName: handle?.name ?? '', sync };
 }
@@ -109,10 +123,10 @@ export async function initStorage(): Promise<{ state: StorageState; data: AppDat
   if (!folderGranted) return { state: state('paused', local ? 'ready' : 'needs-folder'), data: local };
   const folder = await readFolder(handle);
   const data = reconcile(local, folder) ?? defaultData();
-  await writeText(handle, DATA_FILE, JSON.stringify(data, null, 2)).catch(() => {});
+  const sync = await ecrireDossier(handle, JSON.stringify(data, null, 2));
   await localWrite(JSON.stringify(data));
-  marquerEcrit(data.updatedAt ?? Date.now());
-  return { state: state('synced'), data };
+  if (sync === 'synced') marquerEcrit(data.updatedAt ?? Date.now());
+  return { state: state(sync), data };
 }
 
 /** Clic utilisateur : redonne l'accès au dossier et remet les deux copies d'équerre. */
@@ -122,10 +136,10 @@ export async function authorize(current: AppData | null): Promise<{ state: Stora
   if (!folderGranted) return { state: state('paused'), data: current };
   const folder = await readFolder(handle);
   const data = reconcile(current, folder) ?? defaultData();
-  await writeText(handle, DATA_FILE, JSON.stringify(data, null, 2)).catch(() => {});
+  const sync = await ecrireDossier(handle, JSON.stringify(data, null, 2));
   await localWrite(JSON.stringify(data));
-  marquerEcrit(data.updatedAt ?? Date.now());
-  return { state: state('synced'), data };
+  if (sync === 'synced') marquerEcrit(data.updatedAt ?? Date.now());
+  return { state: state(sync), data };
 }
 
 /** Clic utilisateur : choisit (ou change) le dossier et charge ce qu'il contient. */
@@ -138,11 +152,12 @@ export async function chooseFolder(current: AppData | null): Promise<{ state: St
   const existed = (await readText(h, DATA_FILE)) !== null ? 'cockpit' : (await readText(h, LEGACY_FILE)) !== null ? 'legacy' : null;
   const folder = await readFolder(h);
   const data = reconcile(current, folder) ?? defaultData();
-  await writeText(h, DATA_FILE, JSON.stringify(data, null, 2)).catch(() => {});
+  const sync = await ecrireDossier(h, JSON.stringify(data, null, 2));
   // Copie du navigateur tout de suite : Edge retire l'accès au dossier dès que le panneau se ferme,
   // et sans cette copie le panneau rouvert n'aurait plus aucune donnée (réinstallation, 26/09).
   await localWrite(JSON.stringify(data));
-  return { state: state('synced'), data, existed };
+  if (sync === 'synced') marquerEcrit(data.updatedAt ?? Date.now());
+  return { state: state(sync), data, existed };
 }
 
 /** Choix explicite : pas de dossier, tout reste dans le navigateur. */
@@ -163,14 +178,9 @@ export async function save(data: AppData): Promise<SyncStatus> {
   if (!handle) return 'none';
   if (!folderGranted) folderGranted = (await permissionState(handle, false)) === 'granted';
   if (!folderGranted) return 'paused';
-  try {
-    await writeText(handle, DATA_FILE, content);
-    marquerEcrit(data.updatedAt);
-    return 'synced';
-  } catch {
-    folderGranted = false;
-    return 'paused';
-  }
+  const sync = await ecrireDossier(handle, content);
+  if (sync === 'synced') marquerEcrit(data.updatedAt);
+  return sync;
 }
 
 /** Écrit un data.json au format de l'ancien générateur dans le dossier (ou le télécharge sans dossier). */
