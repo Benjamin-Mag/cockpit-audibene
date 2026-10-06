@@ -31,6 +31,7 @@ const TABS: { id: TabId; label: string; icon: IconName }[] = [
 type PageId = 'cockpit' | 'partenaires';
 const VERSION = isExtension ? chrome.runtime.getManifest().version : 'web';
 const RDV_NOTE = 'Rendez-vous Audibene';
+const ECRITURE_REFUSEE = 'Cockpit n’arrive pas à écrire cockpit.json (lecture seule ?) — tes données restent dans le navigateur';
 
 export function App() {
   const [storage, setStorage] = useState<StorageState | null>(null);
@@ -260,7 +261,7 @@ export function App() {
     const r = await authorize(data);
     setStorage(r.state);
     if (r.data && r.data !== data) loadData(r.data);
-    showToast(r.state.sync === 'synced' ? `Dossier ${r.state.folderName} synchronisé` : 'Accès refusé — les données restent dans le navigateur', r.state.sync === 'synced' ? 'ok' : 'err');
+    showToast(r.state.sync === 'synced' ? `Dossier ${r.state.folderName} synchronisé` : r.state.sync === 'blocked' ? ECRITURE_REFUSEE : 'Accès refusé — les données restent dans le navigateur', r.state.sync === 'synced' ? 'ok' : 'err');
   };
 
   const doChooseFolder = async () => {
@@ -268,7 +269,8 @@ export function App() {
     if (!r) return;
     setStorage(r.state);
     loadData(r.data);
-    if (r.existed === 'cockpit') showToast('Données Cockpit retrouvées', 'ok');
+    if (r.state.sync === 'blocked') showToast(ECRITURE_REFUSEE, 'err');
+    else if (r.existed === 'cockpit') showToast('Données Cockpit retrouvées', 'ok');
     else if (r.existed === 'legacy') showToast(`${r.data.templates.length} modèle(s) repris de data.json — le fichier reste intact`, 'ok');
   };
 
@@ -368,6 +370,12 @@ export function App() {
           <span class="grow">Tes changements sont enregistrés dans le navigateur ; la copie de <b>{storage.folderName}</b> attend ton accord.</span>
           <Btn kind="soft" onClick={doAuthorize}>Autoriser</Btn>
           <Btn kind="ghost" onClick={() => { setDossierSilencieux(true); setSilence(true); showToast('Demande masquée — réactivable dans Réglages', 'ok'); }} title="Le navigateur redemande cette autorisation à chaque ouverture du panneau : on peut la masquer, les données restent dans le navigateur">Ne plus demander</Btn>
+        </div>
+      ) || storage.sync === 'blocked' && (
+        <div class="banner" style="margin:8px 12px 0">
+          <Icon name="folder" />
+          <span class="grow">Cockpit n’arrive pas à écrire cockpit.json dans <b>{storage.folderName}</b> : fichier en lecture seule, ouvert dans un autre programme ou dossier déplacé. Tes données sont à l’abri dans le navigateur.</span>
+          <Btn kind="soft" onClick={doAuthorize}>Réessayer</Btn>
         </div>
       )}
       <nav class="tabs">

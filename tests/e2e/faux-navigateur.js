@@ -215,6 +215,12 @@
     let perm = S.dossier.permission || 'prompt';
     FileSystemHandle.prototype.queryPermission = async function () { return perm; };
     FileSystemHandle.prototype.requestPermission = async function () { note('dossier', 'requestPermission', {}); if (!S.dossier.refus) perm = 'granted'; return perm; };
+    // `lectureSeule` : Windows refuse d'écrire le fichier alors que l'autorisation est accordée (modifiable en cours de test).
+    const createWritable = FileSystemFileHandle.prototype.createWritable;
+    FileSystemFileHandle.prototype.createWritable = async function (...a) {
+      if (S.dossier.lectureSeule) { note('dossier', 'ecritureRefusee', {}); throw new DOMException('Fichier en lecture seule', 'NoModificationAllowedError'); }
+      return createWritable.apply(this, a);
+    };
   }
 
   window.__mock = { activer, onglets, local, session, FICHES };
