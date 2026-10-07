@@ -1,3 +1,4 @@
+import { type Page } from '@playwright/test';
 import { ONGLET, aller, expect, ouvrir, test, toast } from './outils';
 
 // Propre au design « fusion » (barre du bas + écran Fiche).
@@ -134,5 +135,46 @@ test.describe('Design fusion', () => {
     await expect(page.locator('nav.barre')).toBeHidden();
     await page.getByRole('button', { name: 'Annuler' }).click();
     await expect(page.locator('nav.barre')).toBeVisible();
+  });
+});
+
+// Benjamin (2026-10-07) : sans carte dans COSI et Anamnèse, rien ne disait si le patient était lu ;
+// une lecture vide passait inaperçue et Doctolib proposait le patient d'avant. Rond vert / orange / rouge
+// à gauche de « Salesforce » (nom au survol) et ↻ à gauche de la roue.
+test.describe('Piste sans carte : état du patient dans l’en-tête', () => {
+  const rond = (page: Page) => page.locator('.brand .dot');
+  const relire = (page: Page) => page.locator('.brand').getByRole('button', { name: 'Relire la fiche' });
+
+  test('COSI et Anamnèse : rond vert avec le nom au survol, ↻ à côté de la roue ; rien de tout ça sur Fiche', async ({ page }) => {
+    const p = await ouvrir(page, { onglet: ONGLET.piste });
+    await expect(page.getByText('Alice Essai').first()).toBeVisible();
+    await expect(relire(page)).toHaveCount(0);
+    await expect(rond(page)).not.toHaveClass(/\bok\b/);
+    await aller(page, 'COSI');
+    await expect(rond(page)).toHaveClass(/\bok\b/);
+    await expect(page.locator('.brand [title*="Alice Essai"]')).toHaveCount(1);
+    await expect(relire(page)).toBeVisible();
+    const avant = (await p.demandes('readFiche')).length;
+    await relire(page).click();
+    await expect.poll(async () => (await p.demandes('readFiche')).length).toBeGreaterThan(avant);
+    await expect(rond(page)).toHaveClass(/\bok\b/);
+    await aller(page, 'Anamnèse');
+    await expect(rond(page)).toHaveClass(/\bok\b/);
+    await expect(relire(page)).toBeVisible();
+    expect(p.erreurs).toEqual([]);
+  });
+
+  test('patient pas lu : rond rouge ; ↻ le relit, le rond passe au vert et Doctolib propose le bon patient', async ({ page }) => {
+    const p = await ouvrir(page, { onglet: ONGLET.piste, ficheVide: true });
+    await aller(page, 'COSI');
+    await expect(rond(page)).toHaveClass(/\bko\b/, { timeout: 10_000 });
+    await expect(page.locator('.brand [title*="pas chargé"]')).toHaveCount(1);
+    await page.evaluate(() => { (window as unknown as { __SCENARIO: { ficheVide: boolean } }).__SCENARIO.ficheVide = false; });
+    await relire(page).click();
+    await expect(rond(page)).toHaveClass(/\bok\b/);
+    await expect(page.locator('.brand [title*="Alice Essai"]')).toHaveCount(1);
+    await page.evaluate(() => (window as any).__mock.activer(13));
+    await expect(page.getByRole('button', { name: /Coller Alice Essai sur Doctolib/ })).toBeVisible();
+    expect(p.erreurs).toEqual([]);
   });
 });

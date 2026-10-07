@@ -13,6 +13,8 @@ export interface Scenario {
   donnees?: Record<string, unknown> | null;
   echecs?: string[];
   ficheSansGenre?: boolean;
+  /** La Piste se lit vide (Salesforce encore en train de se dessiner) ; modifiable en cours de test. */
+  ficheVide?: boolean;
   doctolibBloque?: boolean;
   sansDoctolibPro?: boolean;
   partnerSearchVide?: boolean;
