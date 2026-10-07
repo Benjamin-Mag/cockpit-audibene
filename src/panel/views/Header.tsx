@@ -18,7 +18,7 @@ interface Props {
   onSms: () => void;
   /** Hors de l'écran Fiche : une seule ligne (nom, téléphone, MV), pour laisser la place au travail. */
   compact: boolean;
-  /** Sur une Piste, dans COSI et Anamnèse : pas de carte du tout (demande de Benjamin, 01/10). */
+  /** Sur une Piste, dans COSI et Anamnèse : pas de carte du tout (demande de Benjamin, 01/10), mais l'état du patient dans l'en-tête (07/10). */
   sansCarte?: boolean;
   onReglages: () => void;
   reglagesOuverts: boolean;
@@ -37,12 +37,17 @@ export function Header({ site, ctx, fiche, ficheState, recent, busy, arrierePlan
   const siteLabel = site === 'salesforce' ? 'Salesforce' : site === 'doctolib' ? 'Doctolib' : site === 'acuitis' ? 'Acuitis' : 'en attente';
   const isForm = site === 'doctolib' || site === 'acuitis';
   const last = recent[0];
+  // Sans carte, le rond dit si le patient est lu : sinon Doctolib proposerait le patient d'avant sans que rien ne se voie.
+  const etat = sansCarte && onSf ? (ficheState === 'loading' ? 'lecture' : hasFiche ? 'ok' : 'ko') : null;
+  const etatTitre = etat === 'ok' ? `${civ(fiche!.genre)} ${fiche!.prenom} ${fiche!.nom}`.trim() + ' — patient chargé' : etat === 'lecture' ? 'Lecture du patient…' : 'Patient pas chargé : clique ↻ pour relire la fiche';
 
   return (
     <div class={['top', sansCarte && onSf ? 'trait' : ''].join(' ')}>
       <div class="brand">
-        <span class={['dot', onSf || isForm ? 'on' : ''].join(' ')} />
-        <span>{siteLabel}</span>
+        <span class="site" title={etat ? etatTitre : undefined}>
+          <span class={['dot', onSf || isForm ? 'on' : '', etat ?? ''].join(' ')} role={etat ? 'status' : undefined} aria-label={etat ? etatTitre : undefined} />
+          <span>{siteLabel}</span>
+        </span>
         {arrierePlan && (
           <>
             <span class="note" title="Tu regardes un autre site : Cockpit garde ta fiche et tes saisies, et continue d'agir sur l'onglet Salesforce">· onglet en arrière-plan</span>
@@ -50,6 +55,7 @@ export function Header({ site, ctx, fiche, ficheState, recent, busy, arrierePlan
           </>
         )}
         <span class="grow" />
+        {etat && <Btn kind="ghost" icon="refresh" class="relire" title="Relire la fiche" onClick={onRefresh} busy={etat === 'lecture'} />}
         <button type="button" class={['btn', reglagesOuverts ? 'soft' : 'ghost', 'icon', 'roue'].join(' ')} title="Réglages" aria-pressed={reglagesOuverts} onClick={onReglages}><Icon name="settings" /></button>
       </div>
 
