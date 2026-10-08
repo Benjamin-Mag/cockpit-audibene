@@ -385,7 +385,7 @@ export function App() {
       <main class="content">
         {/* Réglages reste joignable même quand la page Salesforce ne répond pas (connexion, page Setup, script figé). */}
         {site === 'salesforce' && !ctx ? null : <>
-        {activeTab === 'fiche' && parcours.length > 1 && site !== 'doctolib' && site !== 'acuitis' && (
+        {activeTab === 'fiche' && parcours.length > 1 && site !== 'doctolib' && site !== 'acuitis' && site !== 'grandaudition' && (
           <div class="view accueil">
             <div class="accueil-titre"><span>{hasFiche ? `Suivi de ${civ} ${fiche!.prenom} ${fiche!.nom}`.replace(/\s+/g, ' ') : 'Que veux-tu faire ?'}</span></div>
             <div class="etapes">

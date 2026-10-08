@@ -1,14 +1,15 @@
 {
   "manifest_version": 3,
   "name": "Cockpit Audibene",
-  "version": "1.1.8",
+  "version": "1.1.9",
   "description": "Panneau latéral pour Salesforce : anamnèse, MV non joignable, commentaires, mails, prise de RDV et ORL Finder — en un clic.",
   "permissions": ["sidePanel", "scripting", "activeTab", "tabs", "storage", "clipboardRead", "clipboardWrite", "webNavigation"],
   "host_permissions": [
     "*://*.salesforce.com/*",
     "*://*.force.com/*",
     "*://*.doctolib.fr/*",
-    "*://*.acuitis.com/*"
+    "*://*.acuitis.com/*",
+    "*://*.grandaudition.com/*"
   ],
   "optional_host_permissions": ["https://*/*"],
   "background": { "service_worker": "background.js", "type": "module" },
@@ -20,7 +21,7 @@
   "icons": { "16": "icons/icon16.png", "48": "icons/icon48.png", "128": "icons/icon128.png" },
   "content_scripts": [
     {
-      "matches": ["*://*.salesforce.com/*", "*://*.force.com/*", "*://*.doctolib.fr/*", "*://*.acuitis.com/*"],
+      "matches": ["*://*.salesforce.com/*", "*://*.force.com/*", "*://*.doctolib.fr/*", "*://*.acuitis.com/*", "*://*.grandaudition.com/*"],
       "js": ["content.js"],
       "run_at": "document_idle",
       "all_frames": true

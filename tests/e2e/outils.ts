@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url';
 const FAUX = readFileSync(fileURLToPath(new URL('./faux-navigateur.js', import.meta.url)), 'utf8');
 
 /** Onglets du faux navigateur. */
-export const ONGLET = { piste: 11, opportunite: 12, doctolib: 13, google: 14, accueilSf: 15, acuitis: 16 } as const;
+export const ONGLET = { piste: 11, opportunite: 12, doctolib: 13, google: 14, accueilSf: 15, acuitis: 16, grandAudition: 17 } as const;
 
 export interface Scenario {
   onglet?: number;

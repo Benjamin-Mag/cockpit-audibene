@@ -1,7 +1,7 @@
 import { CONTENT_VERSION, PORT_NAME, type ContentRequest, type ContentResponse, type ContextPush } from '../shared/messages';
 import type { ActionResult, Fiche, PartenaireSF, RecentPatient, SfContext } from '../shared/types';
 
-export type Site = 'salesforce' | 'doctolib' | 'acuitis' | 'none';
+export type Site = 'salesforce' | 'doctolib' | 'acuitis' | 'grandaudition' | 'none';
 
 export const isExtension = typeof chrome !== 'undefined' && !!chrome.tabs && !!chrome.runtime?.id;
 
@@ -12,6 +12,7 @@ export function siteOf(url: string | undefined): Site {
     if (/(salesforce\.com|force\.com)$/.test(h)) return 'salesforce';
     if (/doctolib\.fr$/.test(h)) return 'doctolib';
     if (/acuitis\.com$/.test(h)) return 'acuitis';
+    if (/grandaudition\.com$/.test(h)) return 'grandaudition';
   } catch { /* url invalide */ }
   return 'none';
 }
@@ -142,7 +143,7 @@ export function onCommand(cb: (command: string) => Promise<void>): () => void {
 }
 
 // ---------------------------------------------------------------- cadres tiers (ex. Hearo, application Canvas)
-const OWN_HOSTS = /(salesforce\.com|force\.com|doctolib\.fr|acuitis\.com)$/;
+const OWN_HOSTS = /(salesforce\.com|force\.com|doctolib\.fr|acuitis\.com|grandaudition\.com)$/;
 
 export interface FrameInfo { frameId: number; url: string; host: string; own: boolean }
 
@@ -194,7 +195,7 @@ async function rawRecent(): Promise<RecentPatient[]> {
 
 export const loadRecent = rawRecent;
 
-/** Mémorise une fiche lue (dédoublonnée, la plus récente en tête) pour la coller sur Doctolib / Acuitis. */
+/** Mémorise une fiche lue (dédoublonnée, la plus récente en tête) pour la coller sur Doctolib / Acuitis / Grand Audition. */
 export async function pushRecent(p: RecentPatient): Promise<RecentPatient[]> {
   const list = [p, ...(await rawRecent()).filter((r) => r.recordId !== p.recordId)].slice(0, RECENT_MAX);
   try {
