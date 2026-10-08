@@ -22,7 +22,7 @@ export type ContentRequest =
   | { type: 'lirePartnerSearch' };
 
 export type ContentResponse =
-  | { type: 'pong'; version: string; site: 'salesforce' | 'doctolib' | 'acuitis' }
+  | { type: 'pong'; version: string; site: 'salesforce' | 'doctolib' | 'acuitis' | 'grandaudition' }
   | { type: 'context'; context: SfContext }
   | { type: 'fiche'; fiche: Fiche }
   | { type: 'result'; result: ActionResult }

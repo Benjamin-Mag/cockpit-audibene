@@ -29,8 +29,8 @@ export function Header({ site, ctx, fiche, ficheState, recent, busy, arrierePlan
   const page = ctx?.page ?? 'other';
   const onSf = site === 'salesforce' && !!ctx;
   const hasFiche = !!fiche && !!(fiche.prenom || fiche.nom);
-  const siteLabel = site === 'salesforce' ? 'Salesforce' : site === 'doctolib' ? 'Doctolib' : site === 'acuitis' ? 'Acuitis' : 'en attente';
-  const isForm = site === 'doctolib' || site === 'acuitis';
+  const siteLabel = site === 'salesforce' ? 'Salesforce' : site === 'doctolib' ? 'Doctolib' : site === 'acuitis' ? 'Acuitis' : site === 'grandaudition' ? 'Grand Audition' : 'en attente';
+  const isForm = site === 'doctolib' || site === 'acuitis' || site === 'grandaudition';
   const last = recent[0];
 
   return (
@@ -63,7 +63,7 @@ export function Header({ site, ctx, fiche, ficheState, recent, busy, arrierePlan
                 </div>
                 <div class="actions" style="grid-template-columns:1fr">
                   <Btn big icon="clipboard" busy={busy === 'paste'} onClick={() => onPaste(last)}>
-                    Coller {last.prenom} {last.nom} sur {site === 'doctolib' ? 'Doctolib' : 'Acuitis'}
+                    Coller {last.prenom} {last.nom} sur {siteLabel}
                   </Btn>
                 </div>
                 {recent.length > 1 && (

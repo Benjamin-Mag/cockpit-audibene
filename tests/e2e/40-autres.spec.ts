@@ -23,6 +23,19 @@ test.describe('Doctolib / Acuitis', () => {
     expect((await p.demandes('pastePatient')).length).toBe(1);
   });
 
+  // Benjamin (2026-10-08) : même collage pour les formulaires de RDV de Grand Audition.
+  test('Grand Audition : coller la dernière fiche', async ({ page }) => {
+    const p = await ouvrir(page, { onglet: ONGLET.grandAudition, recents: [RECENT, RECENT2] });
+    await expect(page.locator('.brand')).toContainText('Grand Audition');
+    await page.getByRole('button', { name: /Coller Alice Essai sur Grand Audition/ }).click();
+    await toast(page, 'OK pastePatient');
+    const [d] = await p.demandes('pastePatient');
+    expect(d.data).toMatchObject({ genre: 'F', prenom: 'Alice', nom: 'Essai', naissance: '12/03/1951' });
+    // Nouveau design : pas de parcours de fiche sous la carte « Coller », comme sur Doctolib et Acuitis.
+    await expect(page.locator('.etapes')).toHaveCount(0);
+    expect(p.erreurs).toEqual([]);
+  });
+
   test('Doctolib sans fiche récente : explication', async ({ page }) => {
     await ouvrir(page, { onglet: ONGLET.doctolib });
     await expect(page.getByText(/Aucune fiche mémorisée/)).toBeVisible();
