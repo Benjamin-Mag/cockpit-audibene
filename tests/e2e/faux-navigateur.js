@@ -20,6 +20,7 @@
     { id: 14, url: 'https://www.google.com/search?q=test', title: 'Google' },
     { id: 15, url: 'https://audibene.lightning.force.com/lightning/page/home', title: 'Accueil SF' },
     { id: 16, url: 'https://rdv.acuitis.com/v3/acuitis/TEST1_ACUITIS?store=TEST1', title: 'Acuitis' },
+    { id: 17, url: 'https://rendez-vous.grandaudition.com/ga/centre-test', title: 'Grand Audition' },
     { id: 21, url: 'https://pro.doctolib.fr/doctor_referrals_booking', title: 'Doctolib Pro' },
     { id: 22, url: 'https://www.doctolib.fr/', title: 'Doctolib public' },
   ].map((o) => ({ ...o, active: false, status: 'complete', windowId: 1, discarded: false }));
@@ -59,7 +60,7 @@
   const repondre = (tabId, req) => {
     note('page', req.type, req);
     const o = onglets.find((x) => x.id === tabId);
-    const site = /force\.com/.test(o?.url) ? 'salesforce' : /doctolib/.test(o?.url) ? 'doctolib' : 'acuitis';
+    const site = /force\.com/.test(o?.url) ? 'salesforce' : /doctolib/.test(o?.url) ? 'doctolib' : /grandaudition/.test(o?.url) ? 'grandaudition' : 'acuitis';
     if (S.pageMuette && req.type !== 'ping') return new Promise(() => {});
     switch (req.type) {
       case 'ping': return { type: 'pong', version: 'dev', site };

@@ -1,6 +1,7 @@
 import { CONTENT_VERSION } from '../shared/messages';
 import { initAcuitis } from './acuitis';
 import { initDoctolib } from './doctolib';
+import { initGrandAudition } from './grandaudition';
 import { initSalesforce } from './salesforce';
 import { initSalesforceFrame } from './salesforce/frame';
 
@@ -22,6 +23,8 @@ if (!(prev && prev.alive() && prev.version === CONTENT_VERSION)) {
     dispose = initDoctolib();
   } else if (/acuitis\.com$/.test(host)) {
     dispose = initAcuitis();
+  } else if (/grandaudition\.com$/.test(host)) {
+    dispose = initGrandAudition();
   } else {
     // Cadre d'une application intégrée à Salesforce (ex. Hearo), injecté à la demande par le panneau.
     dispose = initSalesforceFrame();

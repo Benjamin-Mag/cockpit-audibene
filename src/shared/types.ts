@@ -57,7 +57,7 @@ export interface ActionResult {
   steps?: StepResult[];
 }
 
-/** Données patient envoyées aux formulaires Doctolib / Acuitis. */
+/** Données patient envoyées aux formulaires Doctolib / Acuitis / Grand Audition. */
 export interface PatientData {
   genre: Genre;
   prenom: string;
@@ -67,7 +67,7 @@ export interface PatientData {
   naissance: string;
 }
 
-/** Fiche lue récemment, mémorisée pour être collée sur Doctolib / Acuitis. */
+/** Fiche lue récemment, mémorisée pour être collée sur Doctolib / Acuitis / Grand Audition. */
 export interface RecentPatient extends PatientData {
   recordId: string;
   savedAt: number;
