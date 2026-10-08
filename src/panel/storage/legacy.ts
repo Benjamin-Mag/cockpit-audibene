@@ -148,11 +148,26 @@ export function mergeVentes(data: AppData, raw: unknown): AppData {
  * Réunit deux copies Cockpit (navigateur / dossier) sans rien perdre : les collections
  * sont fusionnées, les réglages viennent de la copie la plus récente (ou la plus remplie).
  */
+/** Même conseiller : mêmes mots du nom, dans n'importe quel ordre et sans tenir compte de la casse. */
+export function memePersonne(a: string | undefined, b: string | undefined): boolean {
+  const cle = (n: string | undefined) => (n ?? '').toLowerCase().split(/\s+/).filter(Boolean).sort().join(' ');
+  return !!cle(a) && cle(a) === cle(b);
+}
+
+/** Complète les réglages texte vides de `r` avec ceux de `autre` (jamais l'inverse, jamais un réglage rempli). */
+function completerReglages(r: AppData['reglages'], autre: AppData['reglages']): AppData['reglages'] {
+  const out: Record<string, unknown> = { ...r };
+  for (const [k, v] of Object.entries(autre)) if ((out[k] === '' || out[k] == null) && typeof v === 'string' && v.trim()) out[k] = v;
+  return out as unknown as AppData['reglages'];
+}
+
 export function mergeData(a: AppData, b: AppData): AppData {
   const [newer, older] = (a.updatedAt ?? 0) >= (b.updatedAt ?? 0) ? [a, b] : [b, a];
   const out: AppData = structuredClone(newer);
   out.onboardingDone = a.onboardingDone || b.onboardingDone;
   if (!out.reglages.nom && older.reglages.nom) out.reglages = { ...older.reglages, ...Object.fromEntries(Object.entries(out.reglages).filter(([, v]) => v !== '' && v !== undefined)) } as AppData['reglages'];
+  // Même conseiller (deux navigateurs, dossier partagé, import de son propre fichier) : un réglage vide d'un côté est repris de l'autre.
+  else if (memePersonne(out.reglages.nom, older.reglages.nom)) out.reglages = completerReglages(out.reglages, older.reglages);
   for (const s of older.anamnese.situations) if (!out.anamnese.situations.some((x) => x.id === s.id)) out.anamnese.situations.push(s);
   for (const [id, t] of Object.entries(older.anamnese.textes)) if (!out.anamnese.textes[id]) out.anamnese.textes[id] = t;
   for (const [k, list] of Object.entries(older.anamnese.phrases)) { const arr = (out.anamnese.phrases[k] ??= []); for (const p of list) if (!arr.includes(p)) arr.push(p); }
