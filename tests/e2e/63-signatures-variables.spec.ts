@@ -47,6 +47,15 @@ test.describe('Signatures et variables', () => {
     expect(p.erreurs).toEqual([]);
   });
 
+  // Benjamin (2026-10-08) : ses signatures disaient « Magnier {{nom_conseiller}} », soit « Magnier Benjamin Magnier ».
+  test('nom en double à côté de la variable (« Test {{nom_conseiller}} ») : réparé au chargement', async ({ page }) => {
+    const p = await ouvrir(page, { onglet: ONGLET.opportunite, donnees: donneesAvecSignature('Bien cordialement,\nTest {{nom_conseiller}}\nVotre conseiller Audibene\n{{tel_conseiller}}') });
+    const corps = await nouveauModele(page);
+    await expect(corps).toHaveValue(/Bien cordialement,\n\{\{nom_conseiller\}\}\nVotre conseiller/);
+    await expect(corps).not.toHaveValue(/Test \{\{nom_conseiller/);
+    expect(p.erreurs).toEqual([]);
+  });
+
   for (const [cas, sig] of SIGNATURES_TOLERANTES) {
     test(`signature en dur différente des Réglages (${cas}) : passée en variables`, async ({ page }) => {
       const p = await ouvrir(page, { onglet: ONGLET.opportunite, donnees: donneesAvecSignature(sig, { telephone: '📞 06 00 00 00 00' }) });

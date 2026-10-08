@@ -5,7 +5,7 @@ import { type Site, connectContext, ensureOrigin, subFrames, isExtension, loadRe
 import { Btn, Icon, type IconName, Toast, type ToastMsg } from './components/ui';
 import { type AppData, defaultData } from './model';
 import { RETARD_JOURS, type StorageState, authorize, chooseFolder, dossierEcritLe, dossierSilencieux, exportLegacy, initStorage, joursSansSauvegarde, parseAny, rappelReporte, reporterRappel, save, setDossierSilencieux, useBrowserStorage } from './storage/data';
-import { mergeData, substituteName, toPartage } from './storage/legacy';
+import { memePersonne, mergeData, substituteName, toPartage } from './storage/legacy';
 import { downloadJson, pickJsonFile } from './storage/fs';
 import { Anamnese } from './views/Anamnese';
 import { ChatPartenaire } from './views/ChatPartenaire';
@@ -286,7 +286,7 @@ export function App() {
         // et le nom de l'auteur écrit en dur devient la variable {{nom_conseiller}}.
         const foreign = merged.reglages.nom;
         merged = mergeData({ ...data, updatedAt: Date.now() }, merged);
-        merged.reglages = data.reglages;
+        if (!memePersonne(foreign, data.reglages.nom)) merged.reglages = data.reglages;
         if (foreign && foreign !== data.reglages.nom) merged = substituteName(merged, foreign);
       }
       setDataState(merged);

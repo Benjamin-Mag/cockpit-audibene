@@ -4,6 +4,7 @@ import { writeClipboard } from '../bridge';
 import { moveById, useDragReorder } from '../components/drag';
 import { ficheLue, useBrouillon, useRemiseSiChangement } from '../brouillons';
 import { Btn, Chip, DeleteBtn, EditablePreview, Field, Icon, Seg, previewHtml } from '../components/ui';
+import { VariablesVides } from './VariablesVides';
 import { frToIso, frToTime, isDateVar, isHeureVar, isoToFr, timeToFr } from '../dates';
 import { type AppData, type Template, fillVars, resolveGenre, systemValues, uid } from '../model';
 
@@ -357,6 +358,7 @@ export function Mails({ ficheKey, data, update, fiche, connected, busy, onInsert
           <div class="stack" style="gap:6px">
             {genSubject && <EditablePreview class="subj-line" html={previewHtml(genSubject)} retouche={edits.subject} onChange={(t) => setEdits((e) => ({ ...e, subject: t.trim() }))} />}
             <EditablePreview html={previewHtml(genBody)} retouche={edits.body} onChange={(t) => setEdits((e) => ({ ...e, body: t }))} />
+            {sel && <VariablesVides texte={[sel.subject, sel.body, sel.smsCompanion].join('\n')} reglages={data.reglages} />}
             {(edits.subject !== undefined || edits.body !== undefined) && (
               <div class="row"><span class="note grow">Texte retouché à la main</span><Btn kind="ghost" icon="refresh" onClick={() => setEdits((e) => ({ ...e, subject: undefined, body: undefined }))}>Revenir au modèle</Btn></div>
             )}
