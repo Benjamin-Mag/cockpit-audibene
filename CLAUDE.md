@@ -35,7 +35,7 @@ Tester dans un vrai Salesforce : `edge://extensions` → ↻ sur la carte de l'e
 ## Architecture
 
 ```
-public/manifest.json         permissions, side_panel, content_scripts (SF, Doctolib, Acuitis), commandes clavier
+public/manifest.json         permissions, side_panel, content_scripts (SF, Doctolib, Acuitis, Grand Audition), commandes clavier
 scripts/build.mjs            build panneau + service worker + script de contenu avec un même __COCKPIT_BUILD__
 src/background.ts            service worker : ouverture du panneau, raccourcis (open-panel, run-mv)
 src/content/main.ts          point d'entrée unique du script de contenu, routé par domaine ; marqueur window.__cockpit (version, dispose)
@@ -46,7 +46,7 @@ src/content/salesforce/
   index.ts                   écouteur de messages du cadre principal + port de contexte
   frame.ts                   cadres secondaires (dont l'app Canvas Hearo) : ping + recherche SMS
   partnerSearch.ts           onglet « Partner Search » de la Piste : partenaires, pastilles, « Commentaire Partnersearch » et liens (ouvre « Détails », referme)
-src/content/doctolib.ts, acuitis.ts, forms.ts   collage du patient dans les formulaires de RDV
+src/content/doctolib.ts, acuitis.ts, grandaudition.ts, forms.ts   collage du patient dans les formulaires de RDV (Acuitis et Grand Audition : même prestataire, mêmes champs → `remplirWidgetRdv`)
 src/shared/                  messages.ts (protocole panneau ↔ page), types.ts, anamnese-catalog.ts (champs COSI), mail-html.ts
 src/panel.html + src/panel/
   app.tsx                    état global, stockage, pont vers la page, onglets adaptés à la fiche (la page Ventes n'existe que dans Cockpit Benjamin depuis la v1.0.35)
@@ -85,7 +85,7 @@ Le panneau envoie des `ContentRequest` (`src/shared/messages.ts`) via `chrome.ta
 - Barre de navigation **en bas** (`<nav class="barre">`) : sur une Piste Fiche / COSI / Anamnèse / ORL Finder / Partenaires, sur une Opportunité Fiche / Mails / Chat partenaire ; Réglages derrière la roue en haut à droite (second clic = retour). Les boutons sont désactivés tant que la page Salesforce n'a pas répondu, Réglages reste joignable.
 - Écran **Fiche** à l'ouverture : parcours de la fiche, carte par étape, « Reprendre » quand une saisie est en cours (`aUneSaisie`, les simples choix de navigation ne comptent pas). Hors écran Fiche, carte patient réduite (MV / SMS / Relire) — **sauf sur une Piste dans COSI et Anamnèse**, où il n'y a pas de carte du tout (v1.1.1). Dans ce cas l'en-tête collé en haut (« Salesforce » + roue) prend un fond plein et un trait fin dessous (`.top.trait`, v1.1.2), et c'est lui qui dit si le patient est lu (v1.1.8) : rond à gauche de « Salesforce » **vert** (lu, nom au survol), **orange** qui pulse (lecture), **rouge** (pas lu), et bouton ↻ « Relire la fiche » à gauche de la roue (`.relire`, masqué en édition plein écran). Sans ça, une lecture vide passait inaperçue et Doctolib proposait le patient d'avant. Une relecture demandée (↻) passe l'état en lecture même quand une fiche est gardée en mémoire.
 - **Dernier écran gardé par fiche** (`ecranGarde` / `garderEcran` dans `brouillons.ts`, champ `ecran` à part des saisies, seulement pour une clé `lead:`/`opportunity:`) ; hors fiche, seul Réglages est conservé.
-- Édition **plein écran** d'un modèle (Mails, Anamnèse, Chat) : barre et roue masquées, sorties par Enregistrer / Annuler. Sur Doctolib/Acuitis, la carte « Coller le patient » reste visible.
+- Édition **plein écran** d'un modèle (Mails, Anamnèse, Chat) : barre et roue masquées, sorties par Enregistrer / Annuler. Sur Doctolib/Acuitis/Grand Audition, la carte « Coller le patient » reste visible.
 - Tests propres : `tests/e2e/50-fusion.spec.ts`, `70-relecture.spec.ts`. L'aide `aller(page, 'Réglages')` passe par la roue.
 
 ## Pièges Salesforce connus (ne pas réintroduire)
@@ -104,6 +104,9 @@ Le panneau envoie des `ContentRequest` (`src/shared/messages.ts`) via `chrome.ta
 - Chatter : la zone « Partager une mise à jour… » devient un éditeur riche au focus ; taper via `execCommand('insertText')`, puis bouton « Envoyer un message ».
 - **Les champs d'une fiche ne sont dans la page que si son sous-onglet est affiché** : sur « Partner Search », plus rien n'est lisible. `readFiche` passe alors sur le sous-onglet des champs (« Anamnèse » / « Détails », jamais un onglet portant un autre nom), lit **tout** — y compris le code postal — puis rend l'utilisateur à son sous-onglet (v1.0.40). Trois règles depuis la v1.0.45 : le sous-onglet à rendre est mémorisé **par son texte** et retrouvé au moment de revenir (`revenirSur`), jamais par élément gardé — Lightning reconstruit la barre après un clic et l'ancien élément devient muet ; les lectures qui changent de sous-onglet (`readFiche`, `lirePartnerSearch`) passent par `enSerie` pour ne jamais se croiser ; et la lecture de Partner Search reste **invisible** (règle ferme de Benjamin, v1.0.47) : le sous-onglet précédent est remis dès la lecture finie, et `revenirSur` attend que Lightning l'ait vraiment affiché avant de rendre la main, pour que la lecture suivante parte d'une barre stable.
 - Composeur d'e-mail de l'Opportunité : boutons **Client / Partenaire** en haut (destinataire). Les mêmes libellés existent dans le formulaire de résumé d'appel : ne chercher le choix que dans le composeur, délimité par l'éditeur `.ql-editor` et son bouton « Envoyer » (`composerOf` dans `actions.ts`). Choisir le destinataire AVANT de remplir objet et corps. Juste après l'ouverture, les boutons arrivent après l'éditeur et Salesforce vide le corps en finissant son affichage : attendre, insérer, puis vérifier que le corps est toujours là.
+
+## Piège Grand Audition (v1.1.9)
+- Formulaire `rendez-vous.grandaudition.com` (React) : chaque bouton de civilité **M. / Mme** fait `setState({...état, civil})` avec l'état de son dernier affichage. Les champs texte se mettent à jour tout de suite, le clic seulement au tour suivant : cliqué **avant** les champs, la civilité était écrasée par eux. Toujours remplir les champs, attendre (~300 ms), puis cliquer la civilité **en dernier** (`content/grandaudition.ts`). L'option « Jour » vide vaut `''` (sur Acuitis : `'no'`).
 
 ## Pièges Doctolib connus (ne pas réintroduire)
 - `/search/availabilities.json` : les listes se passent en **`agenda_ids[]=1&agenda_ids[]=2`** (idem `practice_ids[]`). Avec des virgules, Doctolib répond **400 « agenda_ids: must be an array »** dès qu'un centre a plusieurs agendas — un centre à agenda unique passait, d'où un bug invisible en test (v1.0.38). Tout passe par `paramsCreneaux()` dans `doctolib.ts`.
