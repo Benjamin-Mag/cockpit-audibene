@@ -1,4 +1,4 @@
-import { ONGLET, aller, expect, ouvrir, test, toast } from './outils';
+import { ONGLET, aller, donneesTest, expect, ouvrir, test, toast } from './outils';
 
 const COSI1 = "COSI 1 - évaluation: l'intensité!";
 const COSI2 = "COSI 2 - évaluation: l'intensité!";
@@ -78,6 +78,44 @@ test.describe('COSI (suite)', () => {
     await page.reload();
     await aller(page, 'COSI');
     await expect(page.getByRole('button', { name: 'Premier appareillage', exact: true })).not.toHaveClass(/on/);
+  });
+});
+
+// Benjamin (2026-10-08) : « le {{tel_conseiller}} ne remonte pas dans l'anamnèse » — son téléphone était vide
+// dans les Réglages de ce navigateur, et la ligne disparaissait sans rien dire.
+test.describe('Variables du conseiller vides', () => {
+  const sansTel = () => { const d: any = donneesTest(); d.reglages.telephone = ''; for (const k of Object.keys(d.anamnese.textes)) d.anamnese.textes[k] += '\n{{tel_conseiller}}'; return d; };
+  const alerte = (page: import('@playwright/test').Page) => page.locator('.vars-vides');
+
+  test('Anamnèse : « Ton téléphone n\'est pas rempli dans Réglages » ; plus rien une fois rempli', async ({ page }) => {
+    await ouvrir(page, { onglet: ONGLET.piste, donnees: sansTel() });
+    await aller(page, 'Anamnèse');
+    await expect(alerte(page)).toContainText('Ton téléphone n’est pas rempli dans Réglages');
+    await aller(page, 'Réglages');
+    await page.locator('.field').filter({ hasText: 'Téléphone' }).locator('input').first().fill('06 00 00 00 07');
+    await aller(page, 'Anamnèse');
+    await expect(page.locator('.preview.editable').first()).toContainText('06 00 00 00 07');
+    await expect(alerte(page)).toHaveCount(0);
+  });
+
+  test('Chat partenaire et Mails : même avertissement', async ({ page }) => {
+    const d = sansTel();
+    d.chatPartenaire[0].text += '\n{{tel_conseiller}}';
+    d.templates[0].body += '\n{{tel_conseiller}}';
+    await ouvrir(page, { onglet: ONGLET.opportunite, donnees: d });
+    await aller(page, 'Chat partenaire');
+    await page.getByRole('button', { name: 'Merci', exact: true }).click();
+    await expect(alerte(page)).toContainText('Ton téléphone');
+    await aller(page, 'Mails');
+    await page.getByRole('button', { name: /Confirmation de RDV/ }).click();
+    await expect(alerte(page)).toContainText('Ton téléphone');
+  });
+
+  test('téléphone rempli : aucun avertissement', async ({ page }) => {
+    await ouvrir(page, { onglet: ONGLET.piste });
+    await aller(page, 'Anamnèse');
+    await expect(page.locator('.preview.editable').first()).toBeVisible();
+    await expect(alerte(page)).toHaveCount(0);
   });
 });
 

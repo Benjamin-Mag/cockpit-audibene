@@ -5,6 +5,7 @@ import { type AppData, fillVars, resolveGenre, systemValues, uid } from '../mode
 import { ficheLue, useBrouillon, useRemiseSiChangement } from '../brouillons';
 import { moveById, useDragReorder } from '../components/drag';
 import { Btn, Chip, DeleteBtn, EditablePreview, previewHtml } from '../components/ui';
+import { VariablesVides } from './VariablesVides';
 
 interface Props {
   /** Fiche Salesforce affichée : texte choisi et retouches y sont gardés comme brouillon. */
@@ -109,6 +110,7 @@ export function ChatPartenaire({ ficheKey, data, update, fiche, connected, busy,
       {sel && (
         <>
           <EditablePreview html={previewHtml(generated)} retouche={edited} onChange={(t) => setEdited(t)} />
+          <VariablesVides texte={sel.text} reglages={data.reglages} />
           <div class="row">
             <Btn big icon="send" busy={busy} disabled={!connected} onClick={() => onWrite(compose())} class="grow" title="Ouvre l'onglet Chat Partenaire, écrit le texte et clique « Envoyer un message »">
               Envoyer dans Chat Partenaire

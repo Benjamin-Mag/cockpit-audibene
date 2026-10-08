@@ -166,8 +166,23 @@ function variabilisateur(r: Reglages): ((t: string) => string) | null {
   if (nom) motifs.push([nom, '{{nom_conseiller}}']);
   if (tel) motifs.push([tel, '{{tel_conseiller}}']);
   if (!motifs.length) return null;
-  return (t: string) => t.split(/(\{\{[^{}]*\}\})/).map((morceau, i) =>
-    i % 2 ? morceau : motifs.reduce((acc, [motif, variable]) => acc.replace(motif, variable), morceau)).join('');
+  const doublon = nom ? motifDoublonNom(r.nom) : null;
+  return (t: string) => {
+    const v = t.split(/(\{\{[^{}]*\}\})/).map((morceau, i) =>
+      i % 2 ? morceau : motifs.reduce((acc, [motif, variable]) => acc.replace(motif, variable), morceau)).join('');
+    return doublon ? v.replace(doublon, '') : v;
+  };
+}
+
+/**
+ * Un mot du nom collé à {{nom_conseiller}} (« Magnier {{nom_conseiller}} ») le répète à l'affichage
+ * (« Magnier Benjamin Magnier ») : reste d'une ancienne conversion qui ne reconnaissait qu'une partie du nom.
+ */
+function motifDoublonNom(nom: string): RegExp | null {
+  const mots = nom.trim().split(/\s+/).filter((m) => (m.match(/\p{L}/gu) ?? []).length >= 2).map(echapperRegex);
+  if (!mots.length) return null;
+  const m = `(?:${mots.join('|')})`;
+  return new RegExp(`(?<![\\p{L}\\p{N}_@-])(?:${m}[^\\S\\r\\n]+)+(?=\\{\\{nom_conseiller\\}\\})|(?<=\\{\\{nom_conseiller\\}\\})(?:[^\\S\\r\\n]+${m})+(?![\\p{L}\\p{N}_@-])`, 'giu');
 }
 
 export function variabiliserSignatures(r: Reglages): Reglages {
@@ -191,6 +206,14 @@ export function variabiliserTextes(d: AppData): AppData {
   }));
   d.chatPartenaire = d.chatPartenaire.map((c) => ({ ...c, text: varier(c.text ?? '') }));
   return d;
+}
+
+const VARIABLES_CONSEILLER: [string, string][] = [['nom_conseiller', 'ton nom'], ['tel_conseiller', 'ton téléphone'], ['email_conseiller', 'ton e-mail']];
+
+/** Variables du conseiller utilisées dans le texte mais vides dans les Réglages : elles disparaîtraient sans rien dire. */
+export function variablesVides(texte: string, r: Reglages): string[] {
+  const v = systemValues(r);
+  return VARIABLES_CONSEILLER.filter(([k]) => new RegExp(`\\{\\{\\s*${k}\\s*\\}\\}`).test(texte) && !(v[k] ?? '').trim()).map(([, libelle]) => libelle);
 }
 
 /** Remplace {{variable}} par sa valeur ; laisse la balise si la valeur est vide. */

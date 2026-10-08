@@ -4,6 +4,7 @@ import { readClipboard, writeClipboard } from '../bridge';
 import { type AppData, RESUME_TAG, composeComment, fillVars, resolveGenre, systemValues, uid } from '../model';
 import { ficheLue, useBrouillon, useRemiseSiChangement } from '../brouillons';
 import { Btn, Chip, DeleteBtn, EditablePreview, Seg, previewHtml } from '../components/ui';
+import { VariablesVides } from './VariablesVides';
 
 interface Props {
   /** Fiche Salesforce affichée : genre, situation, résumé et retouches y sont gardés comme brouillon. */
@@ -79,7 +80,7 @@ export function Commentaire({ ficheKey, data, update, fiche, connected, busy, on
     const middle = resume.trim() ? `<mark class="ok">${esc(resume.trim())}</mark>` : '<mark>résumé Salesforce — copie-le, il s\'insère ici</mark>';
     return previewHtml(before) + middle + previewHtml(after);
   };
-  const preview = () => <EditablePreview html={previewMarkup()} retouche={edited} onChange={(t) => setEdited(t)} />;
+  const preview = () => <><EditablePreview html={previewMarkup()} retouche={edited} onChange={(t) => setEdited(t)} /><VariablesVides texte={raw} reglages={data.reglages} /></>;
 
   const grabResume = async () => {
     const txt = await readClipboard();

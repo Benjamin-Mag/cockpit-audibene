@@ -101,6 +101,43 @@ test.describe('Réglages', () => {
   });
 });
 
+// Benjamin (2026-10-08) : dans Chrome, son Cockpit avait ses modèles (importés) mais ni téléphone ni signatures :
+// l'import gardait les Réglages vides du nouveau Cockpit. Son propre fichier les complète désormais.
+test.describe('Import et Réglages', () => {
+  const importer = async (page: import('@playwright/test').Page, d: unknown) => {
+    await aller(page, 'Réglages');
+    const [fc] = await Promise.all([page.waitForEvent('filechooser'), page.getByRole('button', { name: /Importer un fichier/ }).click()]);
+    await fc.setFiles({ name: 'cockpit.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(d)) });
+    await toast(page, 'Données réunies');
+  };
+  const vide = () => { const d: any = donneesTest(); d.reglages = { ...d.reglages, telephone: '', email: '', sigPatientMail: '', sigPatientSMS: '', sigPartenaireMail: '' }; return d; };
+  const SIG = 'Bien cordialement,\n{{nom_conseiller}}\n{{tel_conseiller}}';
+
+  test('son propre fichier (même nom, ordre libre) : téléphone et signatures vides sont repris', async ({ page }) => {
+    const p = await ouvrir(page, { onglet: ONGLET.piste, donnees: vide() });
+    const fichier: any = donneesTest();
+    fichier.reglages = { ...fichier.reglages, nom: 'test BENJAMIN', telephone: '06 00 00 00 09', sigPatientMail: SIG, sigPatientSMS: SIG, sigPartenaireMail: SIG };
+    await importer(page, fichier);
+    await expect.poll(async () => (await p.donnees()).reglages.telephone).toBe('06 00 00 00 09');
+    const d = await p.donnees();
+    expect(d.reglages.sigPatientMail).toBe(SIG);
+    expect(d.reglages.nom).toBe('Benjamin Test');
+    expect(d.reglages.email).toBe('benjamin@test.fr');
+    expect(p.erreurs).toEqual([]);
+  });
+
+  test('fichier d\'un collègue : mes Réglages vides restent vides (son téléphone n\'est jamais repris)', async ({ page }) => {
+    const p = await ouvrir(page, { onglet: ONGLET.piste, donnees: vide() });
+    const collegue: any = donneesTest();
+    collegue.reglages = { ...collegue.reglages, nom: 'Claire Collègue', telephone: '06 00 00 00 08', sigPatientMail: SIG };
+    await importer(page, collegue);
+    await page.waitForTimeout(500);
+    const d = await p.donnees();
+    expect(d.reglages.telephone).toBe('');
+    expect(d.reglages.sigPatientMail).toBe('');
+  });
+});
+
 test.describe('Robustesse', () => {
   const SCENARIOS = [
     ['Piste', ONGLET.piste], ['Opportunité', ONGLET.opportunite], ['Doctolib', ONGLET.doctolib], ['Google', ONGLET.google], ['Accueil Salesforce', ONGLET.accueilSf],
