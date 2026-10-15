@@ -1,6 +1,7 @@
 import { type AppData, defaultData, variabiliserSignatures, variabiliserTextes } from '../model';
 import { clearHandle, fsSupported, permissionState, pickFolder, readText, savedHandle, writeText } from './fs';
 import { detectKind, mergeData, mergeGenerateur, mergePartage, mergeVentes, normalize, toLegacyGenerateur } from './legacy';
+import { fusionnerAvecBase, memesDonnees } from './sync';
 
 /**
  * Stockage « navigateur d'abord » : la copie de travail vit dans chrome.storage.local
@@ -16,6 +17,8 @@ const MODE_KEY = 'cockpit-storage-mode';
 const SILENCE_KEY = 'cockpit-dossier-silence';
 /** Date des données au moment de la dernière écriture réussie du cockpit.json. */
 const ECRIT_KEY = 'cockpit-dossier-ecrit';
+/** Dernier état commun avec le dossier (ce que ce navigateur y a écrit en dernier) : base de la fusion à trois. */
+const BASE_KEY = 'cockpit-base';
 /** « Plus tard » sur le rappel de sauvegarde en retard : date jusqu'à laquelle il reste masqué, propre à ce navigateur. */
 const REPORT_KEY = 'cockpit-rappel-reporte';
 const JOUR_MS = 86_400_000;
@@ -41,6 +44,22 @@ async function localRead(): Promise<string | null> {
 async function localWrite(content: string) {
   if (typeof chrome !== 'undefined' && chrome.storage?.local) await chrome.storage.local.set({ [LOCAL_KEY]: content });
   else localStorage.setItem(LOCAL_KEY, content);
+}
+type BaseGardee = { dossier?: string; json?: string } | null;
+async function baseLire(dossier: string): Promise<AppData | null> {
+  let brut: BaseGardee = null;
+  try {
+    if (typeof chrome !== 'undefined' && chrome.storage?.local) brut = ((await chrome.storage.local.get(BASE_KEY))[BASE_KEY] as BaseGardee) ?? null;
+    else brut = JSON.parse(localStorage.getItem(BASE_KEY) ?? 'null') as BaseGardee;
+  } catch { return null; }
+  return brut && brut.dossier === dossier ? safeParse(brut.json ?? null, defaultData()) : null;
+}
+async function baseEcrire(dossier: string, json: string) {
+  const brut = { dossier, json };
+  try {
+    if (typeof chrome !== 'undefined' && chrome.storage?.local) await chrome.storage.local.set({ [BASE_KEY]: brut });
+    else localStorage.setItem(BASE_KEY, JSON.stringify(brut));
+  } catch { /* sans base, la prochaine fusion réunit tout, comme avant */ }
 }
 const browserModeChosen = () => { try { return localStorage.getItem(MODE_KEY) === 'browser'; } catch { return false; } };
 
@@ -90,11 +109,22 @@ async function readFolder(h: FileSystemDirectoryHandle): Promise<AppData | null>
   return legacy;
 }
 
-/** Réunion des deux copies (navigateur / dossier) — jamais de perte, voir mergeData. */
-function reconcile(local: AppData | null, folder: AppData | null): AppData | null {
+/**
+ * Réunion des deux copies (navigateur / dossier), avec le dernier état commun (`base`) quand on le connaît :
+ *  - fichier inchangé depuis ce dernier échange : la copie du navigateur fait foi (ses suppressions comprises) ;
+ *  - fichier plus récent : fusion à trois, les ajouts, modifications ET suppressions faits par un autre Cockpit qui
+ *    partage ce fichier s'appliquent ici (voir sync.ts) ;
+ *  - sinon (premier échange, autre dossier, vieille copie remise à la main) : simple réunion, jamais de perte.
+ * Une version qui diffère du fichier est datée de maintenant : les autres Cockpit la verront plus récente que leur base.
+ */
+function reconcile(local: AppData | null, folder: AppData | null, base: AppData | null = null): AppData | null {
   if (!local) return folder;
   if (!folder) return local;
-  return mergeData(local, folder);
+  let out: AppData;
+  if (base && memesDonnees(folder, base)) out = local;
+  else if (base && (folder.updatedAt ?? 0) > (base.updatedAt ?? 0)) out = fusionnerAvecBase(base, local, folder);
+  else out = mergeData(local, folder);
+  return memesDonnees(out, folder) ? out : { ...out, updatedAt: Math.max(Date.now(), out.updatedAt ?? 0) };
 }
 
 /**
@@ -104,6 +134,7 @@ function reconcile(local: AppData | null, folder: AppData | null): AppData | nul
 async function ecrireDossier(h: FileSystemDirectoryHandle, content: string): Promise<SyncStatus> {
   try {
     await writeText(h, DATA_FILE, content);
+    await baseEcrire(h.name, content);
     return 'synced';
   } catch {
     folderGranted = (await permissionState(h, false)) === 'granted';
@@ -131,7 +162,7 @@ export async function initStorage(): Promise<{ state: StorageState; data: AppDat
   // Ni copie dans le navigateur ni accès au dossier : il faut un clic pour rouvrir le dossier.
   if (!folderGranted) return { state: state('paused', local ? 'ready' : 'needs-folder'), data: local };
   const folder = await readFolder(handle);
-  const data = reconcile(local, folder) ?? defaultData();
+  const data = reconcile(local, folder, await baseLire(handle.name)) ?? defaultData();
   const sync = await ecrireDossier(handle, JSON.stringify(data, null, 2));
   await localWrite(JSON.stringify(data));
   if (sync === 'synced') marquerEcrit(data.updatedAt ?? Date.now());
@@ -144,7 +175,7 @@ export async function authorize(current: AppData | null): Promise<{ state: Stora
   folderGranted = (await permissionState(handle, true)) === 'granted';
   if (!folderGranted) return { state: state('paused'), data: current };
   const folder = await readFolder(handle);
-  const data = reconcile(current, folder) ?? defaultData();
+  const data = reconcile(current, folder, await baseLire(handle.name)) ?? defaultData();
   const sync = await ecrireDossier(handle, JSON.stringify(data, null, 2));
   await localWrite(JSON.stringify(data));
   if (sync === 'synced') marquerEcrit(data.updatedAt ?? Date.now());
