@@ -4,8 +4,8 @@ import { ONGLET, aller, expect, ouvrir, test, toast, type Scenario } from './out
 // Dossier synchronisé simulé : un répertoire « Cockpit » du stockage privé du navigateur (OPFS),
 // rangé dans IndexedDB comme le ferait le sélecteur de dossier ; l'autorisation est jouée par le
 // faux navigateur (voir `dossier` dans faux-navigateur.js).
-async function avecDossier(page: Page, dossier: Scenario['dossier'] = {}) {
-  const p = await ouvrir(page, { onglet: ONGLET.piste, dossier: { permission: 'prompt', ...dossier } });
+async function avecDossier(page: Page, dossier: Scenario['dossier'] = {}, autres: Partial<Scenario> = {}) {
+  const p = await ouvrir(page, { onglet: ONGLET.piste, dossier: { permission: 'prompt', ...dossier }, ...autres });
   await expect(page.getByText('Alice Essai').first()).toBeVisible();
   await page.evaluate(async () => {
     const dir = await (await navigator.storage.getDirectory()).getDirectoryHandle('Cockpit', { create: true });
@@ -206,5 +206,48 @@ test.describe('Rappel de sauvegarde en retard', () => {
     await changerNom(page, 'Benjamin Encore');
     await page.waitForTimeout(500);
     await expect(rappel(page)).toHaveCount(0);
+  });
+});
+
+// Benjamin (2026-10-15) : quatre Cockpit partagent un même cockpit.json. Une suppression faite dans l'un doit
+// s'appliquer aux autres (fusion à trois avec le dernier état commun), sans qu'une vieille copie efface quoi que ce soit.
+test.describe('Fichier partagé entre plusieurs Cockpit', () => {
+  /** Ce que ferait un autre Cockpit : réécrire cockpit.json dans le dossier. */
+  const reecrireFichier = (page: Page, code: string) => page.evaluate(async (c) => {
+    const dir = await (await navigator.storage.getDirectory()).getDirectoryHandle('Cockpit');
+    const fh = await dir.getFileHandle('cockpit.json');
+    const d = JSON.parse(await (await fh.getFile()).text());
+    new Function('d', c)(d);
+    const w = await fh.createWritable();
+    await w.write(JSON.stringify(d, null, 2));
+    await w.close();
+  }, code);
+  const recharger = async (page: Page) => {
+    await page.reload();
+    await expect(page.getByText('Alice Essai').first()).toBeVisible();
+  };
+
+  test('modèle supprimé par un autre Cockpit : supprimé ici au chargement suivant', async ({ page }) => {
+    const p = await avecDossier(page, { permission: 'granted' }, { localPersistant: true });
+    await expect.poll(async () => (await fichierDossier(page))?.templates?.length ?? 0).toBeGreaterThan(1);
+    const avant = (await p.donnees()).templates.length;
+    const supprime = (await fichierDossier(page)).templates[1].id;
+    await reecrireFichier(page, 'd.templates.splice(1, 1); d.updatedAt = Date.now() + 60000;');
+    await recharger(page);
+    await expect.poll(async () => (await p.donnees()).templates.length).toBe(avant - 1);
+    expect((await p.donnees()).templates.some((t: any) => t.id === supprime)).toBe(false);
+    expect((await fichierDossier(page)).templates.some((t: any) => t.id === supprime)).toBe(false);
+    expect(p.erreurs).toEqual([]);
+  });
+
+  test('vieille copie remise à la main dans le dossier : rien n\'est effacé', async ({ page }) => {
+    const p = await avecDossier(page, { permission: 'granted' }, { localPersistant: true });
+    await expect.poll(async () => (await fichierDossier(page))?.templates?.length ?? 0).toBeGreaterThan(1);
+    const avant = (await p.donnees()).templates.length;
+    await reecrireFichier(page, 'd.templates = d.templates.slice(0, 1); d.updatedAt = 1;');
+    await recharger(page);
+    await page.waitForTimeout(800);
+    expect((await p.donnees()).templates.length).toBe(avant);
+    await expect.poll(async () => (await fichierDossier(page)).templates.length).toBe(avant);
   });
 });
