@@ -66,7 +66,7 @@
       case 'ping': return { type: 'pong', version: 'dev', site };
       case 'getContext': return { type: 'context', context: ctxDe(tabId) };
       case 'readFiche': {
-        const f = FICHES[tabId] ?? FICHES[15];
+        const f = S.ficheVide && tabId === 11 ? { ...FICHES[11], genre: null, prenom: '', nom: '', telephone: '', email: '', naissance: '' } : FICHES[tabId] ?? FICHES[15];
         // Partenaire et adresse : seulement à la lecture complète (survol du lien Compte), comme dans Salesforce.
         return { type: 'fiche', fiche: S.partenaireALaDemande && !req.withPartner ? { ...f, partenaire: '', adresse: '' } : f };
       }

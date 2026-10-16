@@ -32,12 +32,17 @@ export function Header({ site, ctx, fiche, ficheState, recent, busy, arrierePlan
   const siteLabel = site === 'salesforce' ? 'Salesforce' : site === 'doctolib' ? 'Doctolib' : site === 'acuitis' ? 'Acuitis' : site === 'grandaudition' ? 'Grand Audition' : 'en attente';
   const isForm = site === 'doctolib' || site === 'acuitis' || site === 'grandaudition';
   const last = recent[0];
+  // Sur une fiche Salesforce, le rond dit si le patient est lu (comme dans le nouveau design, v1.1.8) : vert, orange, rouge.
+  const etat = onSf && page !== 'other' ? (ficheState === 'loading' ? 'lecture' : hasFiche ? 'ok' : 'ko') : null;
+  const etatTitre = etat === 'ok' ? `${civ(fiche!.genre)} ${fiche!.prenom} ${fiche!.nom}`.trim() + ' — patient chargé' : etat === 'lecture' ? 'Lecture du patient…' : 'Patient pas chargé : clique ↻ pour relire la fiche';
 
   return (
     <div class="top">
       <div class="brand">
-        <span class={['dot', onSf || isForm ? 'on' : ''].join(' ')} />
-        <span>{siteLabel}</span>
+        <span class="site" title={etat ? etatTitre : undefined}>
+          <span class={['dot', onSf || isForm ? 'on' : '', etat ?? ''].join(' ')} role={etat ? 'status' : undefined} aria-label={etat ? etatTitre : undefined} />
+          <span>{siteLabel}</span>
+        </span>
         {arrierePlan && (
           <>
             <span class="note" title="Tu regardes un autre site : Cockpit garde ta fiche et tes saisies, et continue d'agir sur l'onglet Salesforce">· onglet en arrière-plan</span>

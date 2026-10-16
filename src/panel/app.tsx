@@ -145,7 +145,9 @@ export function App() {
     tickVu.current = ficheTick;
     let alive = true;
     const memo = ficheMemo(recordKey);
-    if (memo) { setFiche(memo.fiche); setFicheState('idle'); } else setFicheState('loading');
+    // Relecture demandée (↻) : la fiche gardée reste affichée, mais l'état passe en lecture pour que ça se voie.
+    if (memo) setFiche(memo.fiche);
+    setFicheState(memo && !force ? 'idle' : 'loading');
     if (memo && !force && Date.now() - memo.at < FICHE_FRAICHE_MS) return () => { alive = false; };
     (async () => {
       // La page Salesforce peut encore se dessiner : on réessaie tant que la fiche est vide.
