@@ -4,7 +4,7 @@ import { REFERRER, fillById, fullName, listen, setVal, sleep } from './forms';
 interface Ctx {
   doc: Document;
   win: Window;
-  ids: { referrer: string; first_name: string; last_name: string; maiden_name: string; birthdate: string; place_of_birth_type: string; phone_number: string; email: string; message: string };
+  ids: { referrer: string; first_name: string; last_name: string; maiden_name: string; birthdate: string; place_of_birth_type: string; phone_number: string; email: string; message: string; address: string; zipcode: string; city: string };
   genderF: string[];
   genderM: string[];
   genderNull: string[];
@@ -22,7 +22,7 @@ function getContext(): Ctx | null {
     if (!doc || !win || !doc.getElementById('patient.first_name')) return null;
     return {
       doc, win,
-      ids: { referrer: 'referrer', first_name: 'patient.first_name', last_name: 'patient.last_name', maiden_name: 'patient.maiden_name', birthdate: 'patient.birthdate', place_of_birth_type: 'patient.place_of_birth_type', phone_number: 'patient.phone_number', email: 'patient.email', message: 'notes' },
+      ids: { referrer: 'referrer', first_name: 'patient.first_name', last_name: 'patient.last_name', maiden_name: 'patient.maiden_name', birthdate: 'patient.birthdate', place_of_birth_type: 'patient.place_of_birth_type', phone_number: 'patient.phone_number', email: 'patient.email', message: 'notes', address: 'patient.address', zipcode: 'patient.zipcode', city: 'patient.city' },
       // La civilité change selon le cabinet : "Civilité" (M./Mme) ou "Sexe biologique" (Homme/Femme).
       genderF: ['patient-gender-true', 'patient-biological_sex-female'],
       genderM: ['patient-gender-false', 'patient-biological_sex-male'],
@@ -31,7 +31,7 @@ function getContext(): Ctx | null {
   }
   return {
     doc: document, win: window,
-    ids: { referrer: 'referrer', first_name: 'first_name', last_name: 'last_name', maiden_name: 'maiden_name', birthdate: 'birthdate', place_of_birth_type: 'place_of_birth_type', phone_number: 'phone_number', email: 'email', message: 'referrer_message' },
+    ids: { referrer: 'referrer', first_name: 'first_name', last_name: 'last_name', maiden_name: 'maiden_name', birthdate: 'birthdate', place_of_birth_type: 'place_of_birth_type', phone_number: 'phone_number', email: 'email', message: 'referrer_message', address: 'address', zipcode: 'zipcode', city: 'city' },
     genderF: ['gender-true'], genderM: ['gender-false'], genderNull: [],
   };
 }
@@ -65,6 +65,17 @@ async function paste(data: PatientData, note: string): Promise<ActionResult> {
   found = f(ids.phone_number, data.telephone) || found;
   found = f(ids.email, data.email) || found;
   found = f(ids.message, note) || found;
+  // Adresse : seulement chez les soignants qui la demandent (trois cases). Le code postal porte un identifiant
+  // généré (« input-5 ») mais name="zipcode" : on cherche par identifiant, puis par nom.
+  const parNomOuId = (cle: string, v: string | undefined) => {
+    const el = doc.getElementById(cle) ?? doc.querySelector(`[name="${cle}"]`);
+    if (!el) return false;
+    setVal(el, v ?? '', win);
+    return true;
+  };
+  found = parNomOuId(ids.address, data.rue) || found;
+  found = parNomOuId(ids.zipcode, data.codePostal) || found;
+  found = parNomOuId(ids.city, data.ville) || found;
   if (!found) return { ok: false, msg: 'Aucun champ Doctolib trouvé sur cette page' };
   return { ok: true, msg: `${fullName(data)} collé sur Doctolib` };
 }

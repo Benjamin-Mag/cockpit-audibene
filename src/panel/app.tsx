@@ -166,7 +166,7 @@ export function App() {
             setFicheState('idle');
             if (f.prenom || f.nom) setFicheMemo(recordKey, f);
             if (f.prenom || f.nom) {
-              const { page: _p, partenaire: _pa, adresse: _a, codePostal: _cp, ville: _v, recordId, ...patient } = f;
+              const { page: _p, partenaire: _pa, adresse: _a, recordId, ...patient } = f;
               setRecent(await pushRecent({ ...patient, recordId: recordId || f.prenom + f.nom, savedAt: Date.now() }));
             }
             return;

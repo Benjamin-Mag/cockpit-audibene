@@ -41,7 +41,8 @@ src/background.ts            service worker : ouverture du panneau, raccourcis (
 src/content/main.ts          point d'entrée unique du script de contenu, routé par domaine ; marqueur window.__cockpit (version, dispose)
 src/content/salesforce/
   dom.ts                     traversée du shadow DOM Lightning (deepAll/deepFirst), visibleEl, waitFor, setNativeValue, labels, Enregistrer
-  context.ts                 type de page (Piste/Opportunité), lecture de la fiche (nom, genre, tél, naissance, code postal + ville, partenaire, adresse)
+  context.ts                 type de page (Piste/Opportunité), lecture de la fiche (nom, genre, tél, naissance, rue + code postal + ville, partenaire, adresse du partenaire)
+  adresse.ts                 lireLieu (pur) : rue, code postal et ville dans le texte du champ « Adresse » de la Piste
   actions.ts                 MV, commentaire (Remarques générales profil client), Chat Partenaire (Chatter), SMS Hearo, COSI, mail
   index.ts                   écouteur de messages du cadre principal + port de contexte
   frame.ts                   cadres secondaires (dont l'app Canvas Hearo) : ping + recherche SMS
@@ -110,6 +111,7 @@ Le panneau envoie des `ContentRequest` (`src/shared/messages.ts`) via `chrome.ta
 - Formulaire `rendez-vous.grandaudition.com` (React) : chaque bouton de civilité **M. / Mme** fait `setState({...état, civil})` avec l'état de son dernier affichage. Les champs texte se mettent à jour tout de suite, le clic seulement au tour suivant : cliqué **avant** les champs, la civilité était écrasée par eux. Toujours remplir les champs, attendre (~300 ms), puis cliquer la civilité **en dernier** (`content/grandaudition.ts`). L'option « Jour » vide vaut `''` (sur Acuitis : `'no'`).
 
 ## Pièges Doctolib connus (ne pas réintroduire)
+- **Adresse du patient** (v1.1.12) : certains centres la demandent dans le formulaire de réservation, en trois cases `#address`, `input[name="zipcode"]` (identifiant généré, du type `input-5` : toujours chercher par `name`) et `#city`. La rue vient du champ « Adresse » de la Piste (`lireLieu` : tout ce qui précède le code postal) ; `Fiche.rue`, et la fiche mémorisée pour Doctolib garde rue / code postal / ville (`pushRecent` ne retire plus que le partenaire et son adresse). Attention aux deux sens d'« adresse » : `Fiche.adresse` = adresse du **partenaire** (Opportunité), `rue`/`codePostal`/`ville` = celle du **patient**.
 - `/search/availabilities.json` : les listes se passent en **`agenda_ids[]=1&agenda_ids[]=2`** (idem `practice_ids[]`). Avec des virgules, Doctolib répond **400 « agenda_ids: must be an array »** dès qu'un centre a plusieurs agendas — un centre à agenda unique passait, d'où un bug invisible en test (v1.0.38). Tout passe par `paramsCreneaux()` dans `doctolib.ts`.
 - `start_date_time` doit être une heure **locale avec décalage** (`2026-09-26T16:00:00+02:00`), pas un `Z`.
 
