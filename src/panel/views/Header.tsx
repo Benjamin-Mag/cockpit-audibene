@@ -93,6 +93,7 @@ export function Header({ site, ctx, fiche, ficheState, recent, busy, arrierePlan
                   {last.telephone && <span>{last.telephone}</span>}
                   {last.naissance && <span><Icon name="calendar" size={12} />{last.naissance}</span>}
                   {last.email && <span>{last.email}</span>}
+                  {(last.rue || last.codePostal) && <span><Icon name="pin" size={12} />{[last.rue, [last.codePostal, last.ville].filter(Boolean).join(' ')].filter(Boolean).join(', ')}</span>}
                 </div>
                 <div class="actions" style="grid-template-columns:1fr">
                   <Btn big icon="clipboard" busy={busy === 'paste'} onClick={() => onPaste(last)}>
@@ -132,7 +133,7 @@ export function Header({ site, ctx, fiche, ficheState, recent, busy, arrierePlan
                     {fiche!.telephone && <span>{fiche!.telephone}</span>}
                     {fiche!.naissance && <span><Icon name="calendar" size={12} />{fiche!.naissance}</span>}
                     {fiche!.email && <span>{fiche!.email}</span>}
-                    {fiche!.codePostal && <span><Icon name="pin" size={12} />{fiche!.codePostal} {fiche!.ville}</span>}
+                    {fiche!.codePostal && <span><Icon name="pin" size={12} />{fiche!.rue ? `${fiche!.rue}, ` : ''}{fiche!.codePostal} {fiche!.ville}</span>}
                     {fiche!.partenaire && <span><Icon name="building" size={12} />{fiche!.partenaire}</span>}
                   </div>
                 </div>
