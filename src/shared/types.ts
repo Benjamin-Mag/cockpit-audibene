@@ -14,6 +14,8 @@ export interface Fiche {
   /** Code postal et ville du patient (champ Adresse de la Piste, ou titre de l'Opportunité). */
   codePostal: string;
   ville: string;
+  /** Rue du patient : ce qui précède le code postal dans le champ Adresse de la Piste (souvent vide). */
+  rue: string;
   partenaire: string;
   adresse: string;
 }
@@ -65,6 +67,10 @@ export interface PatientData {
   email: string;
   telephone: string;
   naissance: string;
+  /** Adresse du patient (absente des fiches mémorisées avant la v1.1.12). */
+  rue?: string;
+  codePostal?: string;
+  ville?: string;
 }
 
 /** Fiche lue récemment, mémorisée pour être collée sur Doctolib / Acuitis / Grand Audition. */

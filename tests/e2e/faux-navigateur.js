@@ -38,7 +38,7 @@
 
   // ------------------------------------------------------------------ fiches
   const FICHES = {
-    11: { page: 'lead', recordId: 'PISTETEST0000001A', genre: 'F', prenom: 'Alice', nom: 'Essai', email: 'alice.essai@example.com', telephone: '06 00 00 00 01', naissance: '12/03/1951', codePostal: '75011', ville: 'Paris', partenaire: '', adresse: '' },
+    11: { page: 'lead', recordId: 'PISTETEST0000001A', genre: 'F', prenom: 'Alice', nom: 'Essai', email: 'alice.essai@example.com', telephone: '06 00 00 00 01', naissance: '12/03/1951', codePostal: '75011', ville: 'Paris', rue: '12 rue de l’Essai', partenaire: '', adresse: '' },
     12: { page: 'opportunity', recordId: 'OPPORTEST000001AA', genre: 'M', prenom: 'Bernard', nom: 'Test', email: 'bernard.test@example.com', telephone: '06 00 00 00 02', naissance: '01/01/1948', codePostal: '13002', ville: 'Marseille', partenaire: 'Audition Test Marseille', adresse: '7 rue de l’Essai\n13002 Marseille' },
     15: { page: 'other', recordId: '', genre: null, prenom: '', nom: '', email: '', telephone: '', naissance: '', codePostal: '', ville: '', partenaire: '', adresse: '' },
   };

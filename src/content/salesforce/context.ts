@@ -1,4 +1,5 @@
 import type { Fiche, Genre, SfContext, SfPage } from '../../shared/types';
+import { type Lieu, lireLieu } from './adresse';
 import { deepAll, deepGroup, enSerie, expandSection, revenirSur, sleep, sousOngletActifAvec, textOf, valeurChamp, visibleEl, waitFor } from './dom';
 
 /** Type de fiche d'après l'adresse seule : aucune lecture de la page, appelable aussi souvent qu'on veut. */
@@ -89,15 +90,13 @@ function nomDepuisTitre(lu: Lecture): string {
   return m ? m[1].trim() : full;
 }
 
-/** Code postal + ville : champ « Adresse » de la Piste (« 33510 ANDERNOS LES BAINS / Région France »), sinon titre de l'Opportunité (« Nom 69110 STE FOY LES LYON - 2026/09 »). */
-function codePostalEtVille(lu: Lecture): { codePostal: string; ville: string } {
-  const parse = (text: string) => {
-    const m = (text || '').match(/\b(\d{5})\s+([^\n]+)/);
-    if (!m) return null;
-    const ville = m[2].replace(/\s+-\s+\d{4}\/\d{2}.*$/, '').replace(/\s+(France)$/i, '').trim();
-    return { codePostal: m[1], ville };
-  };
-  return parse(valeurChamp(lu.labels, 'Adresse') ?? '') ?? parse(titreFiche(lu)) ?? { codePostal: '', ville: '' };
+/**
+ * Rue, code postal et ville : champ « Adresse » de la Piste (« 12 rue … / 33510 ANDERNOS LES BAINS / Région / France »),
+ * sinon code postal et ville du titre de l'Opportunité (« Nom 69110 STE FOY LES LYON - 2026/09 », sans rue).
+ */
+function codePostalEtVille(lu: Lecture): Lieu {
+  const titre = lireLieu(titreFiche(lu));
+  return lireLieu(valeurChamp(lu.labels, 'Adresse') ?? '') ?? (titre ? { ...titre, rue: '' } : { rue: '', codePostal: '', ville: '' });
 }
 
 function telephoneDepuisOpportunite(lu: Lecture): string {
