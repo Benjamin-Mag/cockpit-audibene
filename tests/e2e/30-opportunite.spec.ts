@@ -12,7 +12,10 @@ test.describe('Opportunité', () => {
     const e = (await ecransVisibles(page)).join('|');
     expect(e).toMatch(/Mails?/);
     expect(e).toMatch(/Chat/);
-    expect(e).not.toMatch(/COSI|Anamnèse|ORL/);
+    expect(e).not.toMatch(/COSI|Anamnèse/);
+    // ORL Finder aussi sur une Opportunité (2026-10-19), après Mails et Chat partenaire.
+    expect(e).toMatch(/ORL/);
+    expect(e.search(/ORL/)).toBeGreaterThan(e.search(/Chat/));
     await expect(page.getByRole('button', { name: /Message vocal/ })).toHaveCount(0);
   });
 

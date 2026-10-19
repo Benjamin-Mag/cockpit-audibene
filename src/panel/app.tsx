@@ -346,9 +346,11 @@ export function App() {
 
   // Onglets adaptés à la fiche : une Piste n'envoie pas de mail, une Opportunité n'a pas d'anamnèse.
   const page = connected ? ctx!.page : 'other';
-  // ORL Finder (ORL proches du code postal du patient) n'a de sens que sur une Piste.
-  const hidden: TabId[] = page === 'lead' ? ['mails', 'chat'] : page === 'opportunity' ? ['anamnese', 'commentaire', 'orl'] : ['orl'];
-  const visibleTabs = TABS.filter((t) => !hidden.includes(t.id));
+  // ORL Finder (ORL proches du code postal du patient) : sur une Piste, et sur une Opportunité après Mails et Chat partenaire
+  // (2026-10-19) — elle s'ouvre sur Mails (sauf si l'onglet ORL était déjà ouvert), la recherche Doctolib ne part qu'avec l'onglet.
+  const hidden: TabId[] = page === 'lead' ? ['mails', 'chat'] : page === 'opportunity' ? ['anamnese', 'commentaire'] : ['orl'];
+  const enDernier = (t: { id: TabId }) => Number(page === 'opportunity' && t.id === 'orl');
+  const visibleTabs = TABS.filter((t) => !hidden.includes(t.id)).sort((a, b) => enDernier(a) - enDernier(b));
   const activeTab: TabId = hidden.includes(tab) ? visibleTabs[0].id : tab;
 
   if (pageMode === 'partenaires') {
