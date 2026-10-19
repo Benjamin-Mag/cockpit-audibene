@@ -107,7 +107,7 @@ export function OrlFinder({ ficheKey, fiche, toast }: Props) {
   const toutAfficher = () => { setFiltres(AUCUN_FILTRE); setRecherche(''); };
   const relancer = () => { reessayerPro(); force.current = true; setTick((n) => n + 1); };
 
-  // Recherche automatique dès qu'une Piste avec code postal est ouverte (table de coordonnées et réglages chargés).
+  // Recherche automatique dès que l'écran s'ouvre sur une fiche (Piste ou Opportunité) avec code postal (table de coordonnées et réglages chargés).
   useEffect(() => {
     if (!geo || !cpPatient || !prefs) return;
     const o = localiser(cpPatient, geo);
@@ -320,7 +320,7 @@ export function OrlFinder({ ficheKey, fiche, toast }: Props) {
         </div>
       )}
 
-      {!cpPatient && <div class="note">Aucun code postal lu sur cette Piste : écris l'adresse du patient avec son code postal ci-dessous, ou relis la fiche (↻ en haut).</div>}
+      {!cpPatient && <div class="note">Aucun code postal lu sur cette fiche : écris l'adresse du patient avec son code postal ci-dessous, ou relis la fiche (↻ en haut).</div>}
       {cpSaisiDifferent && <div class="note"><Icon name="pin" size={12} /> Recherche depuis le code postal saisi ({cpPatient}) ; la fiche Salesforce indique {cpFiche}.</div>}
       {cpPatient && geo === null && <div class="banner"><Icon name="alert" /><span class="grow">Table des codes postaux absente de cette version : impossible de situer le patient.</span></div>}
       {cpPatient && geo && origine === null && etape === 'fini' && <div class="note">Code postal {cpPatient} inconnu de la table des codes postaux.</div>}

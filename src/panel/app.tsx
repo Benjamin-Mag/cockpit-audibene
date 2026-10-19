@@ -33,7 +33,8 @@ const ECRANS: Record<Exclude<TabId, 'reglages'>, Ecran> = {
 /** Écrans de la barre du bas selon la fiche : une Piste n'envoie pas de mail, une Opportunité n'a ni COSI ni anamnèse. */
 const PARCOURS: Record<'lead' | 'opportunity' | 'other', Exclude<TabId, 'reglages'>[]> = {
   lead: ['fiche', 'anamnese', 'commentaire', 'orl', 'partenaires'],
-  opportunity: ['fiche', 'mails', 'chat'],
+  // ORL Finder après Mails et Chat partenaire : l'Opportunité s'ouvre sur ses écrans habituels, la recherche ne part qu'au clic.
+  opportunity: ['fiche', 'mails', 'chat', 'orl'],
   other: ['fiche', 'anamnese', 'commentaire', 'mails', 'chat'],
 };
 const VERSION = isExtension ? chrome.runtime.getManifest().version : 'web';
