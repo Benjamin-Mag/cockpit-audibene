@@ -4,7 +4,7 @@ Extension Chrome/Edge (Manifest V3) : un panneau latéral à côté de Salesforc
 
 > **Deux dispositions depuis le 2026-10-01.** `main` porte le design **Fusion** (versions 1.1.x : barre de navigation en bas, écran Fiche, Réglages derrière la roue, édition plein écran). La branche **`classique`** garde l'ancienne disposition (onglets en haut, versions 1.0.x) : elle reste proposée aux collègues en parallèle (`cockpit-audibene-classique.zip`), et les correctifs non liés au design doivent y être reportés (cherry-pick).
 >
-> **Deux projets depuis le 2026-09-22.** Ce dépôt est la version d'équipe. Benjamin a sa copie privée **Cockpit Benjamin** (`Benjamin-Mag/cockpit-benjamin`, dossier `ProjectsCockpit Benjamin`, icône orange, versions 2.x) qui garde la page Ventes. Benjamin garde la disposition classique : les corrections lui sont reportées depuis **`classique`** (`git fetch upstream && git merge upstream/classique` dans son dossier), jamais depuis `main`. Rien ne remonte jamais de Cockpit Benjamin vers ce dépôt.
+> **Deux projets depuis le 2026-09-22.** Ce dépôt est la version d'équipe. Benjamin a sa copie privée **Cockpit Benjamin** (`Benjamin-Mag/cockpit-benjamin`, dossier `ProjectsCockpit Benjamin`, icône orange, versions 2.x) qui garde la page Ventes. **Depuis le 2026-10-20, Cockpit Benjamin est lui aussi en nouveau design** (v2.1.x, Ventes derrière une icône € à côté de la roue) : les corrections lui sont reportées depuis **`main`** (`git fetch upstream && git merge upstream/main` dans son dossier), plus depuis `classique`. Rien ne remonte jamais de Cockpit Benjamin vers ce dépôt.
 
 ## Règles non négociables
 
@@ -143,7 +143,7 @@ Pages `index.html` (Installer, 4 étapes) et `utiliser.html` (Comment s'en servi
    `gh release create vX.Y.Z --repo Benjamin-Mag/cockpit-audibene-install --latest cockpit-audibene.zip cockpit-audibene-X.Y.Z.zip cockpit-audibene-classique.zip cockpit-audibene-classique-A.B.C.zip`.
    Le dépôt public `cockpit-audibene-install` (dossier `Projects/Page installation Cockpit`) ne contient **que** la page d'installation et les zips : jamais de code, jamais de journal.
    Lien unique pour les collègues : https://benjamin-mag.github.io/cockpit-audibene-install/
-7. Reporter dans Cockpit Benjamin **depuis `classique`** (`git fetch upstream && git merge upstream/classique`, version 2.x) et remettre la branche `design/essai` au niveau si elle sert.
+7. Reporter dans Cockpit Benjamin **depuis `main`** (`git fetch upstream && git merge upstream/main`, version 2.x ; depuis le 2026-10-20) et remettre la branche `design/essai` au niveau si elle sert.
 ## Travailler en équipe
 - Un agent = une branche `feature/<chantier>` dans son propre worktree (`git worktree add`), jamais dans le dossier principal.
 - Avant de commencer : `git fetch && git rebase origin/main` ; petits commits ; `npx tsc --noEmit` vert.
