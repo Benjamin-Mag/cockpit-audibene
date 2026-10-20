@@ -2,7 +2,7 @@
 # Publie UN correctif (un commit déjà fait sur une branche partie de main) dans les trois versions :
 #   1. main = nouveau design (Fusion, 1.1.x) : PR fusionnée en merge, tag, copie dans « Extensions installees/Cockpit Audibene » ;
 #   2. classique (1.0.x) : cherry-pick du correctif, tag classique-vX ;
-#   3. Cockpit Benjamin (2.x, dépôt voisin) : merge de upstream/classique ;
+#   3. Cockpit Benjamin (2.x, dépôt voisin) : merge de upstream/main (nouveau design depuis le 2026-10-20 ; avant : upstream/classique) ;
 #   puis release publique `cockpit-audibene-install` avec les deux zips (Fusion + classique), marquée latest.
 #
 # Usage : scripts/publier-trois-versions.sh <commit> <version-fusion> <version-classique> <version-perso> <dossier-textes>
@@ -112,8 +112,8 @@ echo "zip classique : HTTP $vc $(unzip -p "$TMP/c.zip" manifest.json | grep -o '
 # ---------------------------------------------------------------- 3. Cockpit Benjamin (depuis classique)
 cd "$PERSO"
 git fetch -q upstream
-git merge upstream/classique --no-edit >/dev/null 2>&1 || true
-node "$DEPOT/scripts/conflits-perso.mjs" "$VP" "classique v$VC ($(cat "$TXT/titre.txt")) reportée depuis upstream/classique le $(date +%F) → v$VP."
+git merge upstream/main --no-edit >/dev/null 2>&1 || true
+node "$DEPOT/scripts/conflits-perso.mjs" "$VP" "v$VF ($(cat "$TXT/titre.txt")) reportée depuis upstream/main le $(date +%F) → v$VP."
 git add -A
 if [ -n "$(git diff --name-only --diff-filter=U)" ]; then echo "conflits restants dans Cockpit Benjamin :"; git diff --name-only --diff-filter=U; exit 1; fi
 if git grep -q "^<<<<<<< " -- . ':!node_modules'; then echo "marqueurs restants :"; git grep -l "^<<<<<<< " -- . ':!node_modules'; exit 1; fi
@@ -121,7 +121,7 @@ npm ci --silent 2>&1 | tail -1 || true
 npx tsc --noEmit
 npm run build 2>&1 | grep -E "^build "
 git add -A
-git -c core.autocrlf=false commit -q -m "v$VP : report de classique v$VC ($(cat "$TXT/titre.txt"))
+git -c core.autocrlf=false commit -q -m "v$VP : report de v$VF ($(cat "$TXT/titre.txt"))
 
 Co-Authored-By: Claude <noreply@anthropic.com>"
 timeout 90 git push -q origin main
