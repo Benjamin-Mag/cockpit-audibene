@@ -5,18 +5,20 @@
   --surface-2: #f3f8fc;
   --border: #cfe0ef;
   --border-strong: #b8d4e8;
+  --champ-bord: #688dae;
+  --focus: #5b8cc8;
   --text: #1a2b4a;
-  --muted: #5b7a99;
-  --faint: #8fa8cc;
+  --muted: #4a6785;
+  --faint: #566f8f;
   --accent: #1b4f9b;
   --accent-strong: #154080;
   --accent-soft: #d0e8f7;
   --accent-soft-2: #b8d4e8;
-  --success: #2e7d5a;
+  --success: #297051;
   --success-soft: #d0ead8;
-  --warn: #b98a3b;
+  --warn: #88662b;
   --warn-soft: #f7efdd;
-  --danger: #b5564c;
+  --danger: #a34d44;
   --danger-soft: #f6e4e1;
   --radius: 12px;
   --radius-sm: 8px;
@@ -40,14 +42,14 @@ button, input, textarea, select { font: inherit; color: inherit; }
 button { cursor: pointer; }
 input, textarea {
   width: 100%;
-  border: 1px solid var(--border);
+  border: 1px solid var(--champ-bord);
   border-radius: var(--radius-sm);
   background: var(--surface);
   padding: 8px 10px;
   outline: none;
   transition: border-color var(--dur) var(--ease), box-shadow var(--dur) var(--ease);
 }
-input:focus, textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+input:focus, textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--focus); }
 textarea { resize: vertical; min-height: 90px; line-height: 1.5; }
 ::selection { background: var(--accent-soft-2); }
 
@@ -221,9 +223,9 @@ textarea { resize: vertical; min-height: 90px; line-height: 1.5; }
   white-space: pre-wrap; background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius-sm);
   padding: 10px 12px; font-size: 12.8px; line-height: 1.5; color: var(--text);
 }
-.preview.editable { outline: none; cursor: text; transition: border-color var(--dur) var(--ease), box-shadow var(--dur) var(--ease); }
-.preview.editable:hover { border-color: var(--border-strong); }
-.preview.editable:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); background: var(--surface); }
+.preview.editable { border-color: var(--champ-bord); outline: none; cursor: text; transition: border-color var(--dur) var(--ease), box-shadow var(--dur) var(--ease); }
+.preview.editable:hover { border-color: var(--accent); }
+.preview.editable:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--focus); background: var(--surface); }
 .preview mark { background: var(--warn-soft); color: var(--warn); border-radius: 4px; padding: 0 4px; font-style: italic; }
 .preview mark.ok { background: var(--success-soft); color: var(--success); font-style: normal; }
 .note { font-size: 12px; color: var(--muted); }
