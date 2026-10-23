@@ -349,4 +349,4 @@ input[type="date"], input[type="time"] { cursor: pointer; }
 .toast { bottom: 78px; }
 .footer:not(:empty) ~ .barre ~ .toast { bottom: 144px; }
 #app:has(.view.editeur) .toast { bottom: 14px; }
-#app:has(.view.editeur) .roue, #app:has(.view.editeur) .relire { visibility: hidden; }
+#app:has(.view.editeur) .roue, #app:has(.view.editeur) .relire, #app:has(.view.editeur) .outlook-ico { visibility: hidden; }
