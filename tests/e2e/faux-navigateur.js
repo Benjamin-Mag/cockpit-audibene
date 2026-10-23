@@ -21,6 +21,7 @@
     { id: 15, url: 'https://audibene.lightning.force.com/lightning/page/home', title: 'Accueil SF' },
     { id: 16, url: 'https://rdv.acuitis.com/v3/acuitis/TEST1_ACUITIS?store=TEST1', title: 'Acuitis' },
     { id: 17, url: 'https://rendez-vous.grandaudition.com/ga/centre-test', title: 'Grand Audition' },
+    ...(S.ongletOutlook ? [{ id: 18, url: 'https://outlook.cloud.microsoft/mail/', title: 'Outlook' }] : []),
     { id: 21, url: 'https://pro.doctolib.fr/doctor_referrals_booking', title: 'Doctolib Pro' },
     { id: 22, url: 'https://www.doctolib.fr/', title: 'Doctolib public' },
   ].map((o) => ({ ...o, active: false, status: 'complete', windowId: 1, discarded: false }));
@@ -200,6 +201,8 @@
     scripting: {
       executeScript: async (opts) => {
         if (opts.files) { note('scripting', 'inject', opts.target); return [{ result: undefined }]; }
+        // Recherche tapée dans Outlook web.
+        if (opts.args?.[0]?.recherche !== undefined) { note('outlook', 'recherche', { tabId: opts.target.tabId, texte: opts.args[0].recherche }); return [{ result: { ok: true } }]; }
         const [url, init] = opts.args || [];
         note('reseau', init?.method || 'GET', url);
         return [{ result: reponseDoctolib(url) }];

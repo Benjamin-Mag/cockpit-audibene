@@ -11,6 +11,7 @@ import { Anamnese } from './views/Anamnese';
 import { ChatPartenaire } from './views/ChatPartenaire';
 import { Commentaire } from './views/Commentaire';
 import { Header } from './views/Header';
+import { chercherDansOutlook } from './outlook';
 import { Mails } from './views/Mails';
 import { OrlFinder } from './views/OrlFinder';
 import { Partenaires } from './views/Partenaires';
@@ -261,6 +262,11 @@ export function App() {
   };
   const insertMail = (subject: string, body: string, audience: 'patient' | 'partenaire') => act('mail', { type: 'insertMail', subject, html: buildMailHtml(body, data?.reglages.emailFooter ?? ''), recipient: audience === 'partenaire' ? 'Partenaire' : 'Client' });
   const ficheName = fiche ? [fiche.prenom, fiche.nom].filter(Boolean).join(' ') : '';
+  const rechercherOutlook = async () => {
+    if (!ficheName) return;
+    const r = await chercherDansOutlook(ficheName);
+    showToast(r.msg, r.ok ? 'ok' : 'info');
+  };
   /** Lecture complète de la fiche (partenaire + adresse via le survol du lien Compte, ~2 s). */
   const readPartner = async (): Promise<Fiche | null> => {
     if (tabId == null) return null;
@@ -361,7 +367,8 @@ export function App() {
   return (
     <>
       <Header site={site} ctx={ctx} fiche={fiche} ficheState={ficheState} recent={recent} busy={busy} arrierePlan={arrierePlan} onRevenir={() => void revenirSurSalesforce()} onMv={runMv} onPaste={pastePatient} onSms={openSms} onRefresh={() => setFicheTick((n) => n + 1)}
-        compact={activeTab !== 'fiche' && site === 'salesforce'} sansCarte={page === 'lead' && (activeTab === 'anamnese' || activeTab === 'commentaire')} onReglages={() => (activeTab === 'reglages' ? setTabState((ecranGarde(recordKey) as TabId | null) ?? 'fiche') : setTab('reglages'))} reglagesOuverts={activeTab === 'reglages'} />
+        compact={activeTab !== 'fiche' && site === 'salesforce'} sansCarte={page === 'lead' && (activeTab === 'anamnese' || activeTab === 'commentaire')} onReglages={() => (activeTab === 'reglages' ? setTabState((ecranGarde(recordKey) as TabId | null) ?? 'fiche') : setTab('reglages'))} reglagesOuverts={activeTab === 'reglages'}
+        onOutlook={() => void rechercherOutlook()} />
       {storage.sync === 'paused' && !silence && aCopier && (
         <div class="banner" style="margin:8px 12px 0">
           <Icon name="folder" />
