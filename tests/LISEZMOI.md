@@ -21,6 +21,7 @@ npx playwright show-report tests/rapport
 - `60-cosi-anamnese` : intensité COSI envoyée seulement si touchée, « Aucune valeur choisie », échec d'écriture qui garde le brouillon ; Anamnèse retouchée puis écrite, retouche remise à zéro au changement de genre.
 - `60-orl` : filtres rapides et compteurs, « Afficher 10 ORL de plus », ORL sans téléphone écarté, repli sur le site public sans session Doctolib Pro.
 - `60-fiches-raccourci` : raccourci clavier MV relayé par le service worker, brouillons rangés par fiche (Piste → Opportunité → Piste).
+- `74-cosi-liste-multiple` : « Le client est intéressé par » — puces à choix multiples du panneau, et le **script de page** sur une fausse double liste Lightning (ajout, retrait, déjà à jour, option introuvable, clic refusé, flèche sans effet).
 - `60-dossier` : dossier synchronisé en pause (dossier simulé dans le stockage privé du navigateur) : bandeau, Autoriser, refus, Ne plus demander.
 
 Scénarios du faux navigateur (`ouvrir(page, { … })`, voir `Scenario` dans `e2e/outils.ts`) : `echecs`, `ficheSansGenre`, `doctolibBloque`, `sansDoctolibPro`, `partnerSearchVide`, `creneauxEnDouble`, `pageMuette`, `partenaireALaDemande`, `beaucoupOrl`, `dossier`.

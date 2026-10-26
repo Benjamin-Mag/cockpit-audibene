@@ -2,8 +2,7 @@ import { ONGLET, aller, donneesTest, expect, ouvrir, test, toast } from './outil
 
 const COSI1 = "COSI 1 - évaluation: l'intensité!";
 const COSI2 = "COSI 2 - évaluation: l'intensité!";
-const stepper = (page: any, situation: string, sens: 'plus' | 'moins') =>
-  page.locator('.field-head').filter({ hasText: situation }).getByRole('button', { name: `COSI ${sens}` });
+const intensite = (page: any, situation: string) => page.getByRole('group', { name: `${situation} : intensité COSI de 1 à 5` });
 
 test.describe('COSI (suite)', () => {
   test('intensité non touchée : rien d\'envoyé pour les COSI', async ({ page }) => {
@@ -17,13 +16,17 @@ test.describe('COSI (suite)', () => {
     expect(d.texts.map((t: any) => t.label)).not.toContain(COSI2);
   });
 
-  test('intensité touchée (+/−, bornée 1 à 5) : envoyée pour cette situation seulement', async ({ page }) => {
+  test('intensité en boutons 1 à 5 : un clic choisit, envoyée pour cette situation seulement', async ({ page }) => {
     const p = await ouvrir(page, { onglet: ONGLET.piste });
     await aller(page, 'COSI');
-    const plus = stepper(page, 'Situation 1', 'plus');
-    for (let i = 0; i < 6; i++) await plus.click();
-    await stepper(page, 'Situation 1', 'moins').click();
-    await expect(page.locator('.field-head').filter({ hasText: 'Situation 1' }).locator('.stepper b')).toHaveText('4');
+    const g = intensite(page, 'Situation 1');
+    await expect(g.getByRole('button')).toHaveText(['1', '2', '3', '4', '5']);
+    await expect(g.getByRole('button', { pressed: true })).toHaveCount(0);
+    await g.getByRole('button', { name: '2', exact: true }).click();
+    await g.getByRole('button', { name: '4', exact: true }).click();
+    await expect(g.getByRole('button', { name: '4', exact: true })).toHaveAttribute('aria-pressed', 'true');
+    await expect(g.getByRole('button', { pressed: true })).toHaveCount(1);
+    await expect(intensite(page, 'Situation 2').getByRole('button', { pressed: true })).toHaveCount(0);
     // Toucher seulement l'intensité suffit pour appliquer.
     await expect(page.getByRole('button', { name: /^Appliquer \(1\)/ })).toBeVisible();
     await page.getByRole('button', { name: /^Appliquer/ }).click();
@@ -34,13 +37,39 @@ test.describe('COSI (suite)', () => {
     expect(p.erreurs).toEqual([]);
   });
 
-  test('intensité descendue sous 1 : reste à 1 mais compte comme touchée', async ({ page }) => {
+  test('second clic sur le chiffre choisi : il est retiré, rien d\'envoyé', async ({ page }) => {
     const p = await ouvrir(page, { onglet: ONGLET.piste });
     await aller(page, 'COSI');
-    await stepper(page, 'Situation 2', 'moins').click();
+    const g = intensite(page, 'Situation 2');
+    await g.getByRole('button', { name: '1', exact: true }).click();
+    await expect(g.getByRole('button', { name: '1', exact: true })).toHaveAttribute('aria-pressed', 'true');
+    await g.getByRole('button', { name: '1', exact: true }).click();
+    await expect(g.getByRole('button', { pressed: true })).toHaveCount(0);
+    await page.getByRole('button', { name: /^Appliquer/ }).click();
+    await toast(page, 'Aucune valeur choisie');
+    await g.getByRole('button', { name: '5', exact: true }).click();
     await page.getByRole('button', { name: /^Appliquer/ }).click();
     await toast(page, 'OK fillAnamnese');
-    expect((await p.demandes('fillAnamnese'))[0].texts).toContainEqual({ label: COSI2, value: '1' });
+    expect((await p.demandes('fillAnamnese'))[0].texts).toContainEqual({ label: COSI2, value: '5' });
+  });
+
+  test('largeur minimale du panneau : « COSI » et les cinq chiffres tiennent à droite de « Situation N »', async ({ page }) => {
+    await page.setViewportSize({ width: 320, height: 860 });
+    await ouvrir(page, { onglet: ONGLET.piste });
+    await aller(page, 'COSI');
+    for (const s of ['Situation 1', 'Situation 2']) {
+      const tete = page.locator('.field-head').filter({ has: intensite(page, s) });
+      await expect(tete.locator('.cosi-int-lib')).toHaveText('COSI');
+      const t = (await tete.boundingBox())!;
+      const libelle = (await tete.locator('.label').boundingBox())!;
+      const boutons = intensite(page, s).getByRole('button');
+      const premier = (await boutons.first().boundingBox())!;
+      const dernier = (await boutons.last().boundingBox())!;
+      expect(Math.abs(premier.y - dernier.y)).toBeLessThan(1);
+      expect(premier.x).toBeGreaterThan(libelle.x + libelle.width);
+      expect(dernier.x + dernier.width).toBeLessThanOrEqual(t.x + t.width + 0.5);
+    }
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   });
 
   test('Appliquer sans rien choisir : « Aucune valeur choisie », rien envoyé', async ({ page }) => {

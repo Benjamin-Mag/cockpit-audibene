@@ -1,0 +1,12 @@
+/* COSI : intensité 1–5 en boutons collés, à droite de « Situation N » (comme dans Cockpit Plein Écran). */
+.cosi-int { display: inline-flex; align-items: center; gap: 6px; flex: none; }
+.cosi-int-lib { font-size: 11px; font-weight: 600; color: var(--muted); letter-spacing: 0.02em; }
+.cosi-int-seg { display: inline-flex; border: 1px solid var(--border-strong); border-radius: 9px; overflow: hidden; }
+.cosi-int-seg button {
+  min-width: 26px; height: 26px; padding: 0 6px; border: 0; border-left: 1px solid var(--border); background: var(--surface-2); color: var(--text); font-size: 12px; font-weight: 600; line-height: 1; cursor: pointer;
+  transition: background var(--dur) var(--ease), color var(--dur) var(--ease);
+}
+.cosi-int-seg button:first-child { border-left: 0; }
+.cosi-int-seg button:hover { background: var(--accent-soft); }
+.cosi-int-seg button.on { background: var(--accent); color: #fff; }
+.cosi-int-seg button:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }

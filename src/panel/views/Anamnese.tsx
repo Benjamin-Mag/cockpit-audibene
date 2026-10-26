@@ -3,9 +3,11 @@ import { useBrouillon } from '../brouillons';
 import { moveValue, useDragReorder } from '../components/drag';
 import { type AnamField, CONDITIONAL_FIELDS, FIELDS_CATALOG, SITUATION_COMMENT_FIELD, SITUATION_COSI_FIELD } from '../../shared/anamnese-catalog';
 import type { AppData } from '../model';
-import { Btn, Chip, Field, Icon } from '../components/ui';
+import { Btn, Chip, Field } from '../components/ui';
+import './cosi-intensite.css';
 
 type Pair = { label: string; value: string };
+type Multi = { label: string; values: string[] };
 
 interface Props {
   /** Fiche Salesforce affichée : les choix en cours y sont gardés comme brouillon. */
@@ -16,7 +18,7 @@ interface Props {
   busy: boolean;
   /** Pied de panneau (hors zone de défilement) où ancrer le bouton Appliquer. */
   footerEl: HTMLElement | null;
-  onApply: (picklists: Pair[], texts: Pair[]) => void;
+  onApply: (picklists: Pair[], texts: Pair[], multis: Multi[]) => void;
   onEmpty: () => void;
   toast?: (msg: string, kind?: 'ok' | 'err' | 'info') => void;
 }
@@ -28,6 +30,7 @@ export function Anamnese({ ficheKey, data, update, connected, busy, footerEl, on
   const [phrases, setPhrases] = useBrouillon<Record<string, string[]>>(ficheKey, 'cosi.phrases', {});
   const [cosi, setCosi] = useBrouillon<Record<string, number>>(ficheKey, 'cosi.intensites', {});
   const [free, setFree] = useBrouillon<Record<string, string>>(ficheKey, 'cosi.textes', {});
+  const [multis, setMultis] = useBrouillon<Record<string, string[]>>(ficheKey, 'cosi.multiples', {});
   const [drafts, setDrafts] = useBrouillon<Record<string, string>>(ficheKey, 'cosi.nouvellesPhrases', {});
   // Réordonner les phrases enregistrées en les glissant (le groupe = la liste : « Musique », « Nom de la mutuelle »…).
   const dnd = useDragReorder((from, to, liste) => update((d) => moveValue(d.anamnese.phrases[liste] ?? [], from, to)));
@@ -51,13 +54,14 @@ export function Anamnese({ ficheKey, data, update, connected, busy, footerEl, on
     for (const [label, v] of Object.entries(free)) if (v.trim()) (parts[label] ??= []).push(v.trim());
     const texts: Pair[] = Object.entries(parts).map(([label, list]) => ({ label, value: list.join(' / ') }));
     for (const [label, v] of Object.entries(cosi)) texts.push({ label, value: String(v) });
-    const touched = Object.keys(picks).length || texts.length;
+    const listes: Multi[] = Object.entries(multis).filter(([, v]) => v.length).map(([label, values]) => ({ label, values }));
+    const touched = Object.keys(picks).length || texts.length || listes.length;
     if (!touched) return onEmpty();
-    onApply(picklists, texts);
+    onApply(picklists, texts, listes);
   };
 
-  const reset = () => { setPicks({}); setPhrases({}); setCosi({}); setFree({}); };
-  const touched = Object.keys(picks).length + Object.keys(cosi).length + Object.values(phrases).flat().length + Object.values(free).filter((v) => v.trim()).length;
+  const reset = () => { setPicks({}); setPhrases({}); setCosi({}); setFree({}); setMultis({}); };
+  const touched = Object.keys(picks).length + Object.keys(cosi).length + Object.values(phrases).flat().length + Object.values(free).filter((v) => v.trim()).length + Object.values(multis).flat().length;
 
   const chips = (f: AnamField) => (
     <div class="chips">
@@ -65,14 +69,29 @@ export function Anamnese({ ficheKey, data, update, connected, busy, footerEl, on
     </div>
   );
 
-  const stepper = (cosiLabel: string) => {
-    const v = cosi[cosiLabel] ?? 1;
-    const set = (d: number) => setCosi((c) => ({ ...c, [cosiLabel]: Math.max(1, Math.min(5, v + d)) }));
+  /** Liste à choix multiples : chaque puce s'ajoute ou se retire ; Appliquer met exactement ces choix dans Salesforce. */
+  const multiChips = (f: AnamField) => {
+    const sel = multis[f.label] ?? [];
+    const basculer = (o: string) => setMultis((m) => ({ ...m, [f.label]: sel.includes(o) ? sel.filter((x) => x !== o) : [...sel, o] }));
     return (
-      <span class="stepper" title="COSI (intensité 1–5) — envoyé seulement si touché">
-        <button type="button" aria-label="COSI moins" onClick={() => set(-1)}><Icon name="minus" size={11} /></button>
-        <b style={cosiLabel in cosi ? '' : 'color:var(--faint)'}>{v}</b>
-        <button type="button" aria-label="COSI plus" onClick={() => set(1)}><Icon name="plus" size={11} /></button>
+      <div class="chips" role="group" aria-label={`${f.displayLabel ?? f.label} : plusieurs choix possibles`}>
+        {f.options!.map((o) => <Chip key={o} on={sel.includes(o)} onClick={() => basculer(o)}>{o}</Chip>)}
+      </div>
+    );
+  };
+
+  /** Intensité COSI de 1 à 5 en boutons collés : un clic choisit le chiffre, un second clic sur le même le retire (rien d'envoyé). */
+  const intensite = (cosiLabel: string, nom: string) => {
+    const v = cosi[cosiLabel];
+    const choisir = (n: number) => setCosi((c) => { const x = { ...c }; if (x[cosiLabel] === n) delete x[cosiLabel]; else x[cosiLabel] = n; return x; });
+    return (
+      <span class="cosi-int" title="COSI (intensité 1–5) — envoyé seulement si choisi">
+        <span class="cosi-int-lib" aria-hidden="true">COSI</span>
+        <span class="cosi-int-seg" role="group" aria-label={`${nom} : intensité COSI de 1 à 5`}>
+          {[1, 2, 3, 4, 5].map((n) => (
+            <button key={n} type="button" class={v === n ? 'on' : ''} aria-pressed={v === n ? 'true' : 'false'} onClick={() => choisir(n)}>{n}</button>
+          ))}
+        </span>
       </span>
     );
   };
@@ -141,6 +160,14 @@ export function Anamnese({ ficheKey, data, update, connected, busy, footerEl, on
         </div>
       );
     }
+    if (f.multiple) {
+      return (
+        <Field key={f.label} label={f.displayLabel ?? f.label}
+          right={<span style="font-size:11px;color:var(--faint)" title="Appliquer remplace la liste de Salesforce par les puces choisies">plusieurs choix</span>}>
+          {multiChips(f)}
+        </Field>
+      );
+    }
     if (isBinaryOuiNon(f)) {
       const on = picks[f.label] === 'Oui';
       return (
@@ -163,7 +190,7 @@ export function Anamnese({ ficheKey, data, update, connected, busy, footerEl, on
     if (commentLabel) {
       return (
         <div key={f.label} class="stack situation">
-          <Field label={f.displayLabel ?? f.label} right={stepper(SITUATION_COSI_FIELD[f.label])}>{chips(f)}</Field>
+          <Field label={f.displayLabel ?? f.label} right={intensite(SITUATION_COSI_FIELD[f.label], f.displayLabel ?? f.label)}>{chips(f)}</Field>
           {picks[f.label] && phraseBlock(picks[f.label], commentLabel)}
         </div>
       );

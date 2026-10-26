@@ -414,7 +414,7 @@ export function App() {
         {activeTab === 'partenaires' && <Partenaires key={recordKey} ficheKey={recordKey} surPiste={connected && ctx?.page === 'lead'} lire={() => (tabId == null ? Promise.reject(new Error("Pas d'onglet Salesforce.")) : readPartnerSearch(tabId))} />}
         {activeTab === 'anamnese' && (
           <Anamnese key={recordKey} ficheKey={recordKey} data={data} update={update} connected={connected && ctx?.page !== 'opportunity'} busy={busy === 'anamnese'} footerEl={footerEl}
-            onApply={(picklists, texts) => act('anamnese', { type: 'fillAnamnese', picklists, texts }).then((r) => { if (r?.ok) effacerBrouillon(recordKey, 'cosi.'); })}
+            onApply={(picklists, texts, multis) => act('anamnese', { type: 'fillAnamnese', picklists, texts, multis }).then((r) => { if (r?.ok) effacerBrouillon(recordKey, 'cosi.'); })}
             onEmpty={() => showToast('Aucune valeur choisie', 'info')} toast={showToast} />
         )}
         {activeTab === 'commentaire' && (
