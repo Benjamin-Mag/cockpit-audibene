@@ -22,7 +22,7 @@ async function handle(req: ContentRequest): Promise<ContentResponse> {
     case 'diagSms':
       return { type: 'result', result: diagSms() };
     case 'fillAnamnese':
-      return { type: 'result', result: await fillAnamnese(req.picklists, req.texts) };
+      return { type: 'result', result: await fillAnamnese(req.picklists, req.texts, req.multis ?? []) };
     case 'openComposer':
       return { type: 'result', result: await openComposer() };
     case 'insertMail':

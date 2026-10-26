@@ -10,7 +10,7 @@ export type ContentRequest =
   | { type: 'getContext' }
   | { type: 'readFiche'; withPartner: boolean }
   | { type: 'runMv'; comment: string }
-  | { type: 'fillAnamnese'; picklists: { label: string; value: string }[]; texts: { label: string; value: string }[] }
+  | { type: 'fillAnamnese'; picklists: { label: string; value: string }[]; texts: { label: string; value: string }[]; multis?: { label: string; values: string[] }[] }
   | { type: 'writeComment'; text: string; save: boolean }
   | { type: 'writeChatPartenaire'; text: string }
   | { type: 'openSms' }

@@ -1,4 +1,5 @@
 import type { ActionResult, MailRecipient, StepResult } from '../../shared/types';
+import { remplirListeMultiple } from './liste-multiple';
 import { clickTabByTitle, climbUp, deepAll, expandSection, fillCommentAndSave, inputBehindLabel, isRendered, labelledControl, saveButtonNear, setNativeValue, sleep, textOf, visibleEl, waitFor } from './dom';
 
 // ---------------------------------------------------------------- MV non joignable
@@ -200,9 +201,10 @@ async function fillTextInput(labelText: string, value: string): Promise<StepResu
   return { ok: true, msg: `${labelText} → texte rempli` };
 }
 
-export async function fillAnamnese(picklists: { label: string; value: string }[], texts: { label: string; value: string }[]): Promise<ActionResult> {
+export async function fillAnamnese(picklists: { label: string; value: string }[], texts: { label: string; value: string }[], multis: { label: string; values: string[] }[] = []): Promise<ActionResult> {
   const steps: StepResult[] = [];
   for (const p of picklists) steps.push(await selectPicklist(p.label, p.value));
+  for (const m of multis) steps.push(...(await remplirListeMultiple(m.label, m.values)));
   for (const t of texts) steps.push(await fillTextInput(t.label, t.value));
   const failed = steps.filter((s) => !s.ok);
   return failed.length
