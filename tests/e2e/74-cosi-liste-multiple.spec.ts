@@ -10,7 +10,7 @@ import { ONGLET, aller, ouvrir, toast } from './outils';
 const CHAMP = 'Le client est intéressé par';
 const VALEURS = ['App ou télécommande', 'Rechargeable', 'Anti bruit vent', "Facilité d'utilisation", 'Streaming'];
 
-interface Options { choisis?: string[]; exigeClicReel?: boolean; boutonMuet?: boolean }
+interface Options { choisis?: string[]; exigeClicReel?: boolean; boutonMuet?: boolean; flechesSansNom?: boolean; flechesInconnues?: boolean }
 
 async function fausseFiche(page: Page, o: Options = {}) {
   await page.goto('/content/salesforce/liste-multiple.ts');
@@ -71,7 +71,12 @@ async function fausseFiche(page: Page, o: Options = {}) {
         const bi = document.createElement('lightning-button-icon');
         bi.style.display = 'block';
         const srb = bi.attachShadow({ mode: 'open' });
-        srb.innerHTML = `<button class="slds-button slds-button_icon slds-button_icon-container" type="button" title="Déplacer la sélection vers ${vers}"><svg class="slds-button__icon" aria-hidden="true" width="14" height="14"><use href="/assets/icons/utility-sprite/svg/symbols.svg#${icone}"></use></svg><span class="slds-assistive-text">Déplacer la sélection vers ${vers}</span></button>`;
+        // Vraie org (26/10) : flèche introuvable par son nom. Variantes : nom absent, icône seulement sur l'hôte (icon-name),
+        // ou ni nom ni icône reconnaissables.
+        if (o.flechesSansNom) bi.setAttribute('icon-name', `utility:${icone}`);
+        srb.innerHTML = o.flechesSansNom || o.flechesInconnues
+          ? `<button class="slds-button slds-button_icon slds-button_icon-container" type="button"><svg class="slds-button__icon" aria-hidden="true" width="14" height="14"></svg></button>`
+          : `<button class="slds-button slds-button_icon slds-button_icon-container" type="button" title="Déplacer la sélection vers ${vers}"><svg class="slds-button__icon" aria-hidden="true" width="14" height="14"><use href="/assets/icons/utility-sprite/svg/symbols.svg#${icone}"></use></svg><span class="slds-assistive-text">Déplacer la sélection vers ${vers}</span></button>`;
         srb.querySelector('button')!.addEventListener('click', () => {
           w.__journal.push(`${nom}:déplacer vers ${vers}`);
           if (o.boutonMuet) return;
@@ -115,6 +120,22 @@ test.describe('COSI : double liste « Le client est intéressé par » (script d
     expect(r.autre).toEqual([]);
     expect(r.journal.filter((j) => j.startsWith('champ:déplacer'))).toEqual(['champ:déplacer vers Sélectionné', 'champ:déplacer vers Sélectionné']);
     expect(r.journal.some((j) => !j.startsWith('champ:'))).toBe(false);
+  });
+
+  test('flèches sans nom (vraie org, 26/10) : retrouvées par l’icône de leur composant', async ({ page }) => {
+    await fausseFiche(page, { flechesSansNom: true, choisis: ['Streaming'] });
+    const r = await remplir(page, ['Rechargeable']);
+    expect(r.ok).toBe(true);
+    expect(r.choisis).toEqual(['Rechargeable']);
+    expect(r.journal).toContain('champ:déplacer vers Sélectionné');
+    expect(r.journal).toContain('champ:déplacer vers Disponible');
+  });
+
+  test('flèches méconnaissables (ni nom ni icône) : les deux seules flèches sont prises dans l’ordre', async ({ page }) => {
+    await fausseFiche(page, { flechesInconnues: true });
+    const r = await remplir(page, ['Rechargeable']);
+    expect(r.ok).toBe(true);
+    expect(r.choisis).toEqual(['Rechargeable']);
   });
 
   test('retrait : ce qui est dans « Sélectionné » sans être choisi repasse dans « Disponible »', async ({ page }) => {

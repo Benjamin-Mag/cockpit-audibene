@@ -73,17 +73,44 @@ const texteOption = (o: Element) => o.querySelector('[title]')?.getAttribute('ti
 const textes = (liste: Element) => options(liste).map(texteOption);
 const optionDe = (liste: Element, valeur: string) => options(liste).find((o) => norm(texteOption(o)) === norm(valeur)) ?? null;
 
-/** Flèche « Déplacer la sélection vers <liste> » : par le nom de la liste visée, puis par l'icône, puis par l'ordre. */
+/** Nom d'icône d'un bouton : icon-name de son lightning-button-icon (ancêtre, shadow compris) ou href de son <use>. */
+function iconeDe(b: Element): string {
+  let a: Element | null = b;
+  for (let i = 0; i < 4 && a; i++, a = climbUp(a)) { const n = a.getAttribute('icon-name'); if (n) return n; }
+  const u = b.querySelector('use');
+  return u?.getAttribute('href') || u?.getAttribute('xlink:href') || '';
+}
+const RE_HAUT_BAS = /\bhaut\b|\bbas\b|\bup\b|\bdown\b|monter|descendre/i;
+const RE_ICONE_HAUT_BAS = /(?:utility:|#)(?:up|down)$/;
+
+/** Boutons de la double liste hors des listes elles-mêmes et hors flèches haut / bas (ordre des choisis). */
+function boutonsFleches(hote: Element): HTMLButtonElement[] {
+  return sous<HTMLButtonElement>(hote, 'button').filter((b) => isRendered(b) && !b.closest('[role="listbox"]') && !RE_HAUT_BAS.test(nomDe(b)) && !RE_ICONE_HAUT_BAS.test(iconeDe(b)));
+}
+
+/**
+ * Flèche « Déplacer la sélection vers <liste> » : par le nom de la liste visée, puis par l'icône (icon-name
+ * utility:right / utility:left, ou href du sprite), puis par l'ordre. Vraie org (26/10) : le nom ne suffisait pas.
+ */
 function bouton(hote: Element, d: Double, vers: Cote): HTMLButtonElement | null {
-  const btns = sous<HTMLButtonElement>(hote, 'button').filter((b) => isRendered(b) && !b.disabled && /d[ée]placer|move/i.test(nomDe(b)) && !/haut|bas|\bup\b|down|monter|descendre/i.test(nomDe(b)));
+  const tous = boutonsFleches(hote);
+  const btns = tous.filter((b) => /d[ée]placer|move|transf[ée]r|ajouter|retirer|add|remove/i.test(nomDe(b)));
   const suffixe = (b: Element) => norm(nomDe(b).split(/\s(?:vers|to)\s/i).pop() ?? '');
   const nomVise = norm(vers === 'choisis' ? d.nomChoisis : d.nomDispo);
   const re = vers === 'choisis' ? RE_CHOISIS : RE_DISPO;
-  const icone = vers === 'choisis' ? /#right$/ : /#left$/;
+  const icone = vers === 'choisis' ? /(?:utility:|#)right$/ : /(?:utility:|#)left$/;
   return btns.find((b) => suffixe(b).startsWith(nomVise))
     ?? btns.find((b) => re.test(suffixe(b)))
-    ?? btns.find((b) => Array.from(b.querySelectorAll('use')).some((u) => icone.test(u.getAttribute('href') || u.getAttribute('xlink:href') || '')))
-    ?? (btns.length >= 2 ? btns[vers === 'choisis' ? 0 : 1] : null);
+    ?? tous.find((b) => icone.test(iconeDe(b)))
+    ?? (btns.length >= 2 ? btns[vers === 'choisis' ? 0 : 1] : null)
+    ?? (tous.length === 2 ? tous[vers === 'choisis' ? 0 : 1] : null);
+}
+
+/** Relevé sans donnée des boutons de la double liste, pour caler la recherche si la flèche reste introuvable. */
+function releveBoutons(hote: Element): string {
+  const bs = sous<HTMLButtonElement>(hote, 'button');
+  if (!bs.length) return 'aucun bouton dans la double liste';
+  return bs.slice(0, 8).map((b) => `[${(nomDe(b) || 'sans nom').slice(0, 60)} · icône ${iconeDe(b).split(/[#:]/).pop() || '?'}${b.disabled ? ' · grisé' : ''}${isRendered(b) ? '' : ' · caché'}]`).join(' ');
 }
 
 function cliquer(el: HTMLElement) {
@@ -120,7 +147,8 @@ async function deplacer(libelle: string, hote: Element, valeur: string, vers: Co
   if (!ok) return { ok: false, msg: `${libelle} : « ${valeur} » ne se sélectionne pas dans « ${nomSource} » (clic refusé par Salesforce ?) — à faire à la main` };
   const d1 = lire();
   const btn = d1 && bouton(hote, d1, vers);
-  if (!btn) return { ok: false, msg: `${libelle} : bouton « Déplacer la sélection vers ${nomVers} » introuvable` };
+  if (!btn) return { ok: false, msg: `${libelle} : bouton « Déplacer la sélection vers ${nomVers} » introuvable — boutons vus : ${releveBoutons(hote)}` };
+  if (btn.disabled) await waitFor(() => (btn.disabled ? null : true), 1000, 50);
   cliquer(btn);
   const arrivee = await waitFor(() => { const d = lire(); return d && optionDe(d[vers], valeur) && !optionDe(d[de], valeur) ? true : null; }, 1500, 50);
   if (!arrivee) return { ok: false, msg: `${libelle} : « ${valeur} » sélectionnée mais pas déplacée vers « ${nomVers} » (bouton sans effet)` };
