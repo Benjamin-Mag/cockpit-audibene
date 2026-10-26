@@ -415,7 +415,7 @@ export function App() {
         {activeTab === 'anamnese' && (
           <Anamnese key={recordKey} ficheKey={recordKey} data={data} update={update} connected={connected && ctx?.page !== 'opportunity'} busy={busy === 'anamnese'} footerEl={footerEl}
             onApply={(picklists, texts) => act('anamnese', { type: 'fillAnamnese', picklists, texts }).then((r) => { if (r?.ok) effacerBrouillon(recordKey, 'cosi.'); })}
-            onEmpty={() => showToast('Aucune valeur choisie', 'info')} />
+            onEmpty={() => showToast('Aucune valeur choisie', 'info')} toast={showToast} />
         )}
         {activeTab === 'commentaire' && (
           <Commentaire key={recordKey} ficheKey={recordKey} data={data} update={update} fiche={fiche} connected={connected && ctx?.page !== 'opportunity'} busy={busy === 'comment'}
