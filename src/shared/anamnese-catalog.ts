@@ -11,7 +11,11 @@ export interface AnamField {
   freeText?: boolean;
   /** Texte libre avec phrases enregistrées réutilisables (comme Situation 1/2). */
   reusable?: boolean;
+  /** Liste à choix multiples de Salesforce : double liste « Disponible » / « Sélectionné » en modification. */
+  multiple?: boolean;
 }
+
+export const INTERESSE_PAR = 'Le client est intéressé par';
 
 export const SITUATION_OPTIONS = ['Musique', 'Conversations de groupe', 'Loisirs', 'Télévision', 'Travail', 'Restaurant', 'Téléphone'];
 
@@ -27,6 +31,7 @@ export const FIELDS_CATALOG: AnamField[] = [
   { label: 'Exposition aux nuisances sonores', section: 'Analyse des besoins auditifs', options: ['Oui', 'Non'] },
   { label: "Type d'appareil préféré", section: 'Attentes du client', options: ['BTE', 'Intra-auriculaire', 'RIC'] },
   { label: 'Design discret', section: 'Attentes du client', options: ['Moins important', 'Important', 'Très important'] },
+  { label: INTERESSE_PAR, section: 'Attentes du client', options: ['App ou télécommande', 'Rechargeable', 'Anti bruit vent', "Facilité d'utilisation", 'Streaming'], multiple: true },
   { label: 'Perte auditive fluctuante', section: 'Antécédents médicaux', options: ['Oui', 'Non'] },
   { label: "Opération à l'oreille", section: 'Antécédents médicaux', options: ['Oui', 'Non'] },
   { label: 'Otite', section: 'Antécédents médicaux', options: ['Oui', 'Non'] },
