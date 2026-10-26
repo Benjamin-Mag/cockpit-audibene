@@ -170,8 +170,10 @@ export const readFiche = (withPartner: boolean): Promise<Fiche> => enSerie(() =>
 async function lireFiche(withPartner: boolean): Promise<Fiche> {
   const { page, recordId } = pageInfo();
   let lu = lirePage();
-  // Sur « Partner Search », les champs du patient ne sont pas dans la page : aller les chercher.
-  const retour = bascule(lu);
+  // Sur « Partner Search », les champs du patient ne sont pas dans la page : aller les chercher. Seulement sur une Piste ou
+  // une Opportunité : ailleurs (page d'un fichier : « Aperçu » / « Détails »), il n'y a pas de patient à lire, et chaque
+  // lecture faisait basculer la page d'un sous-onglet à l'autre.
+  const retour = page === 'lead' || page === 'opportunity' ? bascule(lu) : null;
   if (retour) {
     retour.cible.click();
     await waitFor(() => { lu = lirePage(); return valeurChamp(lu.labels, 'Nom complet') !== null || valeurChamp(lu.labels, 'Adresse') !== null; }, 5000, 200);
