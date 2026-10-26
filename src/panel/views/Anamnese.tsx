@@ -18,11 +18,12 @@ interface Props {
   footerEl: HTMLElement | null;
   onApply: (picklists: Pair[], texts: Pair[]) => void;
   onEmpty: () => void;
+  toast?: (msg: string, kind?: 'ok' | 'err' | 'info') => void;
 }
 
 const isBinaryOuiNon = (f: AnamField) => f.section === 'Antécédents médicaux' && f.options?.length === 2 && f.options.includes('Oui') && f.options.includes('Non');
 
-export function Anamnese({ ficheKey, data, update, connected, busy, footerEl, onApply, onEmpty }: Props) {
+export function Anamnese({ ficheKey, data, update, connected, busy, footerEl, onApply, onEmpty, toast }: Props) {
   const [picks, setPicks] = useBrouillon<Record<string, string>>(ficheKey, 'cosi.choix', {});
   const [phrases, setPhrases] = useBrouillon<Record<string, string[]>>(ficheKey, 'cosi.phrases', {});
   const [cosi, setCosi] = useBrouillon<Record<string, number>>(ficheKey, 'cosi.intensites', {});
@@ -96,7 +97,7 @@ export function Anamnese({ ficheKey, data, update, connected, busy, footerEl, on
               <span key={p} class={['drag-wrap', dnd.cls(p)].join(' ')} title="Glisser pour réordonner" {...dnd.props(p, situationValue)}>
                 <Chip small on={sel.includes(p)}
                   onClick={() => setPhrases((x) => ({ ...x, [commentLabel]: sel.includes(p) ? sel.filter((s) => s !== p) : [...sel, p] }))}
-                  onRemove={() => { update((d) => { d.anamnese.phrases[situationValue] = (d.anamnese.phrases[situationValue] ?? []).filter((s) => s !== p); }); setPhrases((x) => ({ ...x, [commentLabel]: sel.filter((s) => s !== p) })); }}>
+                  onRemove={() => { update((d) => { d.anamnese.phrases[situationValue] = (d.anamnese.phrases[situationValue] ?? []).filter((s) => s !== p); }); setPhrases((x) => ({ ...x, [commentLabel]: sel.filter((s) => s !== p) })); toast?.('Phrase supprimée', 'ok'); }}>
                   {p}
                 </Chip>
               </span>
