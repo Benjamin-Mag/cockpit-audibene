@@ -219,6 +219,21 @@ textarea { resize: vertical; min-height: 90px; line-height: 1.5; }
 .situation .sub .chip.on { background: var(--accent); border-color: var(--accent); }
 .situation .sub .chip .x { background: linear-gradient(to right, transparent, #cde0f1 45%); }
 .situation .sub .chip.on .x { background: linear-gradient(to right, transparent, var(--accent) 45%); }
+/* Menu d'une phrase (clic droit sur la puce) : « Supprimer cette phrase », puis « Confirmer ? ». */
+.menu-phrase {
+  position: fixed; z-index: 30; padding: 4px; border-radius: 12px; background: var(--surface); border: 1px solid var(--border);
+  box-shadow: 0 10px 28px rgba(18, 52, 92, 0.16); animation: menuPhrase var(--dur) var(--ease); transform-origin: top left;
+}
+.menu-phrase.above { transform: translateY(-100%); transform-origin: bottom left; animation-name: menuPhraseAbove; }
+.menu-phrase button {
+  display: flex; align-items: center; gap: 8px; width: 100%; min-height: 34px; padding: 6px 12px; border: 0; border-radius: 8px;
+  background: none; color: var(--text); font: inherit; font-size: 12.5px; cursor: pointer; white-space: nowrap;
+  transition: background var(--dur) var(--ease), color var(--dur) var(--ease);
+}
+.menu-phrase button:hover, .menu-phrase button:focus-visible { background: var(--danger-soft); color: var(--danger); outline: none; }
+.menu-phrase button.armed { background: var(--danger-soft); color: var(--danger); font-weight: 600; }
+@keyframes menuPhrase { from { opacity: 0; transform: translateY(-4px) scale(0.97); } to { opacity: 1; transform: none; } }
+@keyframes menuPhraseAbove { from { opacity: 0; transform: translateY(calc(-100% + 4px)) scale(0.97); } to { opacity: 1; transform: translateY(-100%); } }
 .preview {
   white-space: pre-wrap; background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius-sm);
   padding: 10px 12px; font-size: 12.8px; line-height: 1.5; color: var(--text);

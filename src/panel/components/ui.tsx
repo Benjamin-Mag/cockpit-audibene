@@ -1,5 +1,6 @@
 import type { ComponentChildren } from 'preact';
 import { useEffect, useRef, useState } from 'preact/hooks';
+import { createPortal } from 'preact/compat';
 
 const esc = (s: string) => s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!);
 
@@ -121,16 +122,76 @@ export function DeleteBtn({ onConfirm, label, title }: { onConfirm: () => void; 
   );
 }
 
+/**
+ * Puce. Supprimable (`onRemove`) : pas de croix, le clic gauche ne fait que cocher ; le clic droit
+ * (ou la touche Menu, ou Maj+F10) ouvre un petit menu « Supprimer cette phrase », en deux temps.
+ */
 export function Chip({ on, onClick, children, small, onRemove }: { on?: boolean; onClick?: () => void; children: ComponentChildren; small?: boolean; onRemove?: () => void }) {
+  const ref = useRef<HTMLButtonElement>(null);
+  const [menu, setMenu] = useState<{ x: number; y: number; above: boolean } | null>(null);
+  const open = () => { if (ref.current) setMenu(placeMenu(ref.current.getBoundingClientRect())); };
+  const close = (refocus: boolean) => { setMenu(null); if (refocus) ref.current?.focus({ preventScroll: true }); };
   return (
-    <button type="button" class={['chip', on ? 'on' : '', small ? 'small' : ''].join(' ')} onClick={onClick}>
+    <button ref={ref} type="button" class={['chip', on ? 'on' : '', small ? 'small' : ''].join(' ')} onClick={onClick}
+      title={onRemove ? 'Clic droit pour supprimer' : undefined}
+      aria-haspopup={onRemove ? 'menu' : undefined} aria-expanded={onRemove ? (menu ? 'true' : 'false') : undefined}
+      onContextMenu={onRemove ? (e) => { e.preventDefault(); e.stopPropagation(); open(); } : undefined}
+      onKeyDown={onRemove ? (e) => { if (e.key === 'ContextMenu' || (e.shiftKey && e.key === 'F10')) { e.preventDefault(); open(); } } : undefined}>
       {children}
-      {onRemove && (
-        <span class="x" title="Supprimer" onClick={(e) => { e.stopPropagation(); onRemove(); }}>
-          <Icon name="x" size={11} />
-        </span>
-      )}
+      {menu && onRemove && createPortal(<PhraseMenu {...menu} close={close} onDelete={() => { close(false); onRemove(); }} />, document.body)}
     </button>
+  );
+}
+
+function placeMenu(r: DOMRect) {
+  const width = 210, height = 50;
+  const above = r.bottom + 6 + height > window.innerHeight && r.top - 6 - height > 0;
+  return { x: Math.max(8, Math.min(r.left, window.innerWidth - width - 8)), y: above ? r.top - 6 : r.bottom + 6, above };
+}
+
+/** Échap, un clic ailleurs, le défilement ou Tab le referment ; sans second clic, « Confirmer ? » se désarme en 4 s. */
+function PhraseMenu({ x, y, above, close, onDelete }: { x: number; y: number; above: boolean; close: (refocus: boolean) => void; onDelete: () => void }) {
+  const box = useRef<HTMLDivElement>(null);
+  const action = useRef<HTMLButtonElement>(null);
+  // Heure de garde posée au clic même : un double-clic ne supprime rien.
+  const armedAt = useRef(0);
+  const [armed, setArmed] = useState(false);
+  useEffect(() => {
+    action.current?.focus({ preventScroll: true });
+    const key = (e: KeyboardEvent) => { if (e.key === 'Escape') { e.preventDefault(); e.stopImmediatePropagation(); close(true); } else if (e.key === 'Tab') close(false); };
+    const outside = (e: Event) => { if (!box.current?.contains(e.target as Node)) close(false); };
+    const leave = () => close(false);
+    window.addEventListener('keydown', key, true);
+    document.addEventListener('pointerdown', outside, true);
+    window.addEventListener('scroll', leave, true);
+    window.addEventListener('resize', leave);
+    window.addEventListener('blur', leave);
+    return () => {
+      window.removeEventListener('keydown', key, true);
+      document.removeEventListener('pointerdown', outside, true);
+      window.removeEventListener('scroll', leave, true);
+      window.removeEventListener('resize', leave);
+      window.removeEventListener('blur', leave);
+    };
+  }, []);
+  useEffect(() => {
+    if (!armed) return;
+    const t = setTimeout(() => setArmed(false), 4000);
+    return () => clearTimeout(t);
+  }, [armed]);
+  const click = () => {
+    if (!armed) { armedAt.current = Date.now(); setArmed(true); return; }
+    if (Date.now() - armedAt.current < 400) return;
+    onDelete();
+  };
+  return (
+    <div ref={box} class={['menu-phrase', above ? 'above' : ''].join(' ')} role="menu" aria-label="Phrase" style={{ left: `${x}px`, top: `${y}px` }}
+      onContextMenu={(e) => e.preventDefault()} onClick={(e) => e.stopPropagation()}>
+      <button ref={action} type="button" role="menuitem" class={armed ? 'armed' : ''} onClick={click}
+        title={armed ? 'Cliquer à nouveau pour supprimer (Échap : annuler)' : undefined}>
+        <Icon name={armed ? 'alert' : 'x'} size={13} /> {armed ? 'Confirmer ?' : 'Supprimer cette phrase'}
+      </button>
+    </div>
   );
 }
 
