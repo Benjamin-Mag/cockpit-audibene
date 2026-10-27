@@ -1,3 +1,4 @@
+import { type ChampLu, estChampRdv, rdvDepuisChamps } from '../../shared/rdv';
 import type { Fiche, Genre, SfContext, SfPage } from '../../shared/types';
 import { type Lieu, lireLieu } from './adresse';
 import { deepAll, deepGroup, enSerie, expandSection, revenirSur, sleep, sousOngletActifAvec, textOf, valeurChamp, visibleEl, waitFor } from './dom';
@@ -97,6 +98,20 @@ function nomDepuisTitre(lu: Lecture): string {
 function codePostalEtVille(lu: Lecture): Lieu {
   const titre = lireLieu(titreFiche(lu));
   return lireLieu(valeurChamp(lu.labels, 'Adresse') ?? '') ?? (titre ? { ...titre, rue: '' } : { rue: '', codePostal: '', ville: '' });
+}
+
+/** Champs affichés dont le libellé parle du rendez-vous (« Date du rendez-vous »…), avec leur valeur, dans l'ordre de la page. */
+function champsRdv(lu: Lecture): ChampLu[] {
+  const vus = new Set<string>();
+  const out: ChampLu[] = [];
+  for (const l of lu.labels) {
+    const libelle = textOf(l);
+    if (vus.has(libelle) || !estChampRdv(libelle)) continue;
+    vus.add(libelle);
+    const valeur = valeurChamp(lu.labels, libelle);
+    if (valeur) out.push({ libelle, valeur });
+  }
+  return out;
 }
 
 function telephoneDepuisOpportunite(lu: Lecture): string {
@@ -206,6 +221,7 @@ async function lireFiche(withPartner: boolean): Promise<Fiche> {
 
   // Tout doit être lu AVANT de rendre l'utilisateur à son sous-onglet : les champs redeviennent invisibles.
   const lieu = codePostalEtVille(lu);
+  const rdv = rdvDepuisChamps(champsRdv(lu));
   if (retour) await revenirSur(retour.precedent);
 
   return {
@@ -220,5 +236,6 @@ async function lireFiche(withPartner: boolean): Promise<Fiche> {
     ...lieu,
     partenaire: pa.partenaire,
     adresse: pa.adresse,
+    rdv,
   };
 }

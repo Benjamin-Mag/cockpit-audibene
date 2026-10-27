@@ -100,6 +100,10 @@ textarea { resize: vertical; min-height: 90px; line-height: 1.5; }
 
 .actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px; }
 .actions .btn { justify-content: flex-start; }
+.actions.mv-ligne { grid-template-columns: auto minmax(0, 1fr); }
+.actions.mv-ligne .btn { white-space: normal; text-align: left; }
+.actions.mv-ligne .btn svg { flex-shrink: 0; }
+.btn.non-joignable.arme { background: var(--accent-strong); box-shadow: 0 0 0 3px var(--accent-soft-2); animation: pop 420ms var(--ease); }
 
 /* ---------- pages (Cockpit / Ventes) ---------- */
 .pages { display: flex; gap: 4px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px; padding: 3px; margin-bottom: 8px; }
