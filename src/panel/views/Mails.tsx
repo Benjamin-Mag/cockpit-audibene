@@ -7,6 +7,7 @@ import { Btn, Chip, DeleteBtn, EditablePreview, Field, Icon, Seg, previewHtml } 
 import { VariablesVides } from './VariablesVides';
 import { frToIso, frToTime, isDateVar, isHeureVar, isoToFr, timeToFr } from '../dates';
 import { type AppData, type Template, fillVars, resolveGenre, systemValues, uid } from '../model';
+import { GROUPES_VARIABLES } from '../variables-mail';
 
 type Audience = 'patient' | 'partenaire';
 const SYSTEM_VARS = ['nom_conseiller', 'tel_conseiller', 'email_conseiller', 'titre_conseiller'];
@@ -63,18 +64,6 @@ export function Mails({ ficheKey, data, update, fiche, connected, busy, onInsert
       return { ...e, [activeField]: next };
     });
   };
-  const VARIABLES: { snippet: string; label: string; hint: string }[] = [
-    { snippet: '{{nom}}', label: 'Nom du patient', hint: 'Civilité + prénom + nom, lus sur la fiche' },
-    { snippet: '{{nom partenaire}}', label: 'Partenaire', hint: 'Nom du partenaire, lu sur la fiche' },
-    { snippet: '{{adresse}}', label: 'Adresse', hint: 'Adresse du partenaire, lue sur la fiche' },
-    { snippet: '{{nom_conseiller}}', label: 'Nom conseiller', hint: 'Réglages → Signature' },
-    { snippet: '{{tel_conseiller}}', label: 'Téléphone conseiller', hint: 'Réglages → Signature' },
-    { snippet: '{{email_conseiller}}', label: 'Adresse mail conseiller', hint: 'Réglages → Signature' },
-    { snippet: '{{titre_conseiller}}', label: 'Conseiller/ère audibene', hint: 'Selon le titre choisi dans Réglages' },
-    { snippet: 'patient(e)', label: 'patient(e)', hint: 'S\'accorde au genre choisi' },
-    { snippet: 'il(elle)', label: 'il(elle)', hint: 'S\'accorde au genre choisi' },
-  ];
-
   const dnd = useDragReorder((fromId, toId, aud) => update((d) => moveById(d.categories[aud as Audience], fromId, toId)));
   const [genreAlert, setGenreAlert] = useState(0);
 
@@ -148,10 +137,13 @@ export function Mails({ ficheKey, data, update, fiche, connected, busy, onInsert
   }, [sel]);
 
   // Préremplissage depuis la fiche (le partenaire/adresse demandent une lecture plus longue : à la demande).
+  // Date et heure : champ du rendez-vous de la fiche ouverte (shared/rdv.ts), sinon saisies au moment du mail.
   const auto: Record<string, string> = {
     nom: fiche ? [fiche.prenom, fiche.nom].filter(Boolean).join(' ') : '',
     'nom partenaire': fiche?.partenaire ?? '',
     adresse: fiche?.adresse ?? '',
+    date: fiche?.rdv?.date ? isoToFr(fiche.rdv.date) : '',
+    heure: fiche?.rdv?.heure ? timeToFr(fiche.rdv.heure) : '',
   };
   const needsPartner = vars.includes('adresse') || vars.includes('nom partenaire');
   useEffect(() => {
@@ -243,8 +235,16 @@ export function Mails({ ficheKey, data, update, fiche, connected, busy, onInsert
         </Field>
         {e.type === 'email' && <Field label="Objet"><input ref={fieldRefs.subject} value={e.subject ?? ''} onFocus={() => setActiveField('subject')} onInput={(ev) => set({ subject: (ev.target as HTMLInputElement).value })} placeholder="Objet du mail" /></Field>}
         <Field label="Variables — un clic l'insère dans le champ en cours">
-          <div class="chips">
-            {VARIABLES.map((v) => <Chip key={v.snippet} small onClick={() => insertVar(v.snippet)}><span title={v.hint}>{v.label}</span></Chip>)}
+          <div class="stack" style="gap:8px">
+            {GROUPES_VARIABLES.map((g) => (
+              <div key={g.titre} class="stack" style="gap:4px" role="group" aria-label={g.titre}>
+                <span class="label muted">{g.titre}</span>
+                <div class="chips">
+                  {g.variables.map((v) => <Chip key={v.snippet} small title={v.aide} onClick={() => insertVar(v.snippet)}>{v.label}</Chip>)}
+                </div>
+              </div>
+            ))}
+            <span class="note">Autre information : écris-la entre doubles accolades, par exemple {'{{prix}}'} — une case à remplir apparaîtra au moment du mail.</span>
           </div>
         </Field>
         <Field label={e.type === 'email' ? 'Texte du mail' : 'Texte du SMS'}>
@@ -253,7 +253,7 @@ export function Mails({ ficheKey, data, update, fiche, connected, busy, onInsert
         {e.audience === 'patient' && e.type === 'email' && (
           <Field label="SMS accompagnateur (optionnel)"><textarea ref={fieldRefs.smsCompanion} rows={5} value={e.smsCompanion ?? ''} onFocus={() => setActiveField('smsCompanion')} onInput={(ev) => set({ smsCompanion: (ev.target as HTMLTextAreaElement).value })} /></Field>
         )}
-        <div class="note">Les formes patient(e), il(elle), conseiller(ère) s'accordent automatiquement au genre M./Mme choisi au moment de générer.</div>
+        <div class="note">Les formes masculin / féminin s'accordent au genre M. / Mme du patient au moment de générer. La date et l'heure viennent du champ du rendez-vous de la fiche ouverte quand elle en a un ; sinon tu les choisis au moment du mail.</div>
         <div class="row">
           <Btn icon="check" onClick={saveTpl} class="grow">Enregistrer le modèle</Btn>
           {!isNew && <DeleteBtn label="Supprimer" title="Supprimer ce modèle" onConfirm={() => deleteTemplate(e.id, e.title)} />}
@@ -329,17 +329,18 @@ export function Mails({ ficheKey, data, update, fiche, connected, busy, onInsert
               </div>
               {vars.map((v) => {
                 const fromFiche = v in auto && !(v in values) && !!auto[v];
+                const lu = fromFiche && (v === 'date' || v === 'heure') ? <span class="note" title={`Lu dans « ${fiche?.rdv?.champ ?? ''} »`}>depuis la fiche</span> : undefined;
                 if (isDateVar(v)) {
                   return (
-                    <Field key={v} label={fieldLabel(v)}>
-                      <input type="date" value={frToIso(val(v))} onInput={(e) => setValues((x) => ({ ...x, [v]: isoToFr((e.target as HTMLInputElement).value) }))} />
+                    <Field key={v} label={fieldLabel(v)} right={lu}>
+                      <input type="date" aria-label={fieldLabel(v)} value={frToIso(val(v))} onInput={(e) => setValues((x) => ({ ...x, [v]: isoToFr((e.target as HTMLInputElement).value) }))} />
                     </Field>
                   );
                 }
                 if (isHeureVar(v)) {
                   return (
-                    <Field key={v} label={fieldLabel(v)}>
-                      <input type="time" value={frToTime(val(v))} onInput={(e) => setValues((x) => ({ ...x, [v]: timeToFr((e.target as HTMLInputElement).value) }))} />
+                    <Field key={v} label={fieldLabel(v)} right={lu}>
+                      <input type="time" aria-label={fieldLabel(v)} value={frToTime(val(v))} onInput={(e) => setValues((x) => ({ ...x, [v]: timeToFr((e.target as HTMLInputElement).value) }))} />
                     </Field>
                   );
                 }

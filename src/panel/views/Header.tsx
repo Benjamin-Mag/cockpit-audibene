@@ -1,6 +1,7 @@
 import type { Site } from '../bridge';
 import type { Fiche, RecentPatient, SfContext } from '../../shared/types';
 import { Btn, Chip, Icon } from '../components/ui';
+import { BoutonNonJoignable } from '../components/non-joignable';
 
 interface Props {
   site: Site;
@@ -12,7 +13,8 @@ interface Props {
   /** L'utilisateur regarde un autre site : la fiche affichée est celle de l'onglet Salesforce gardé. */
   arrierePlan: boolean;
   onRevenir: () => void;
-  onMv: () => void;
+  /** Sans argument : MV complet ; « non-joignable » : seulement « Piste non joignable », sans commentaire. */
+  onMv: (quoi?: 'non-joignable') => void;
   onRefresh: () => void;
   onPaste: (p: RecentPatient) => void;
   onSms: () => void;
@@ -155,8 +157,9 @@ export function Header({ site, ctx, fiche, ficheState, recent, busy, arrierePlan
             </div>
 
             {page !== 'opportunity' && (
-              <div class="actions" style="grid-template-columns:1fr">
-                <Btn big icon="phone-off" busy={busy === 'mv'} onClick={onMv} title="Écrit le commentaire MV, enregistre, puis clique « Piste non joignable »">
+              <div class="actions mv-ligne">
+                <BoutonNonJoignable big busy={busy === 'nonjoignable'} onConfirm={() => onMv('non-joignable')} />
+                <Btn big icon="phone-off" busy={busy === 'mv'} onClick={() => onMv()} title="Écrit le commentaire MV, enregistre, puis clique « Piste non joignable »">
                   Message vocal → non joignable
                 </Btn>
               </div>
