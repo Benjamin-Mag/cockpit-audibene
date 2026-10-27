@@ -224,17 +224,21 @@ export function fillVars(text: string, values: Record<string, string>): string {
   });
 }
 
-/** Résout les formes "patient(e)", "il(elle)", "du(de la)"… selon le genre. */
+/** Le mot choisi, avec la majuscule de la forme écrite dans le modèle : « Il(elle) » → « Elle ». */
+const avecMajuscule = (ecrit: string, mot: string) => (/^\p{Lu}/u.test(ecrit) ? mot.charAt(0).toUpperCase() + mot.slice(1) : mot);
+
+/** Résout les formes "patient(e)", "il(elle)", "du(de la)"… selon le genre (liste complète : variables-mail.ts). */
 export function resolveGenre(text: string, genre: Genre): string {
   if (!genre) return text;
   const f = genre === 'F';
+  const forme = (masculin: string, feminin: string) => (ecrit: string) => avecMajuscule(ecrit, f ? feminin : masculin);
   return text
-    .replace(/s'il\(elle\)/gi, f ? 'si elle' : "s'il")
-    .replace(/\bdu\(de la\)/gi, f ? 'de la' : 'du')
-    .replace(/\bau\(à la\)/gi, f ? 'à la' : 'au')
-    .replace(/\ble\(la\)/gi, f ? 'la' : 'le')
-    .replace(/\bun\(une\)/gi, f ? 'une' : 'un')
-    .replace(/il\(elle\)/gi, f ? 'elle' : 'il')
+    .replace(/s(['’])il\(elle\)/gi, (ecrit, apostrophe: string) => avecMajuscule(ecrit, f ? 'si elle' : `s${apostrophe}il`))
+    .replace(/\bdu\(de la\)/gi, forme('du', 'de la'))
+    .replace(/\bau\(à la\)/gi, forme('au', 'à la'))
+    .replace(/\ble\(la\)/gi, forme('le', 'la'))
+    .replace(/\bun\(une\)/gi, forme('un', 'une'))
+    .replace(/il\(elle\)/gi, forme('il', 'elle'))
     .replace(/(\S+?)er\(ère\)/g, (_m, w: string) => (f ? w + 'ère' : w + 'er'))
     .replace(/(\S+?)\(te\)/g, (_m, w: string) => (f ? w + 'te' : w))
     .replace(/(\S+?)\(e\)/g, (_m, w: string) => (f ? w + 'e' : w));

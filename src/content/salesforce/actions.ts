@@ -31,6 +31,17 @@ export async function runMv(comment: string): Promise<ActionResult> {
     : { ok: true, msg: 'Piste marquée non joignable', steps };
 }
 
+/** « Piste non joignable » seul, sans commentaire (bouton à gauche du MV, demande de Benjamin du 26/10) : onglet « Lead », puis le bouton. */
+export async function runNonJoignable(): Promise<ActionResult> {
+  const steps: StepResult[] = [await clickTabByTitle('Lead')];
+  await sleep(400);
+  const bouton = await clickPisteNonJoignable();
+  steps.push(bouton);
+  return bouton.ok
+    ? { ok: true, msg: 'Piste marquée non joignable (sans commentaire)', steps }
+    : { ok: false, msg: "Rien n'a été fait : " + steps.filter((s) => !s.ok).map((s) => s.msg).join(' / '), steps };
+}
+
 // ---------------------------------------------------------------- Commentaire
 // Cible : la rubrique "Commentaire" en bas de la fiche, champ "Remarques générales
 // profil client" (formulaire), et non le fil des commentaires internes.

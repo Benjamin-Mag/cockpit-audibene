@@ -160,7 +160,7 @@ export function App() {
             setFicheState('idle');
             if (f.prenom || f.nom) setFicheMemo(recordKey, f);
             if (f.prenom || f.nom) {
-              const { page: _p, partenaire: _pa, adresse: _a, recordId, ...patient } = f;
+              const { page: _p, partenaire: _pa, adresse: _a, rdv: _r, recordId, ...patient } = f;
               setRecent(await pushRecent({ ...patient, recordId: recordId || f.prenom + f.nom, savedAt: Date.now() }));
             }
             return;
@@ -194,7 +194,10 @@ export function App() {
       setBusy(null);
     }
   };
-  const runMv = () => act('mv', { type: 'runMv', comment: data?.reglages.mvComment || 'MV' });
+  // « non-joignable » : le bouton à gauche du MV, « Piste non joignable » seul, sans commentaire.
+  const runMv = (quoi?: 'non-joignable') => (quoi === 'non-joignable'
+    ? act('nonjoignable', { type: 'runNonJoignable' })
+    : act('mv', { type: 'runMv', comment: data?.reglages.mvComment || 'MV' }));
   const pastePatient = (p: RecentPatient) => {
     const { recordId: _r, savedAt: _s, ...patient } = p;
     return act('paste', { type: 'pastePatient', data: patient, note: RDV_NOTE });

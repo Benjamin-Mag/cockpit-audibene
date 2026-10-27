@@ -1,3 +1,5 @@
+import type { RdvLu } from './rdv';
+
 export type SfPage = 'lead' | 'opportunity' | 'other';
 export type Genre = 'M' | 'F' | null;
 
@@ -18,6 +20,8 @@ export interface Fiche {
   rue: string;
   partenaire: string;
   adresse: string;
+  /** Date et heure du rendez-vous lues sur la fiche ({{date}} / {{heure}} des mails) ; absentes d'une fiche gardée par une version précédente. */
+  rdv?: RdvLu | null;
 }
 
 /** État léger de la page, poussé par le script de contenu à chaque changement. */

@@ -1,5 +1,5 @@
 import { CONTENT_VERSION, PORT_NAME, type ContentRequest, type ContentResponse, type ContextPush } from '../../shared/messages';
-import { diagSms, fillAnamnese, fillSmsSearch, insertMail, openComposer, openSmsPanel, runMv, writeChatPartenaire, writeComment } from './actions';
+import { diagSms, fillAnamnese, fillSmsSearch, insertMail, openComposer, openSmsPanel, runMv, runNonJoignable, writeChatPartenaire, writeComment } from './actions';
 import { currentContext, readFiche } from './context';
 import { lirePartnerSearch } from './partnerSearch';
 
@@ -13,6 +13,8 @@ async function handle(req: ContentRequest): Promise<ContentResponse> {
       return { type: 'fiche', fiche: await readFiche(req.withPartner) };
     case 'runMv':
       return { type: 'result', result: await runMv(req.comment) };
+    case 'runNonJoignable':
+      return { type: 'result', result: await runNonJoignable() };
     case 'writeComment':
       return { type: 'result', result: await writeComment(req.text, req.save) };
     case 'writeChatPartenaire':

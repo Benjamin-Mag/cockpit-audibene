@@ -126,14 +126,14 @@ export function DeleteBtn({ onConfirm, label, title }: { onConfirm: () => void; 
  * Puce. Supprimable (`onRemove`) : pas de croix, le clic gauche ne fait que cocher ; le clic droit
  * (ou la touche Menu, ou Maj+F10) ouvre un petit menu « Supprimer cette phrase », en deux temps.
  */
-export function Chip({ on, onClick, children, small, onRemove }: { on?: boolean; onClick?: () => void; children: ComponentChildren; small?: boolean; onRemove?: () => void }) {
+export function Chip({ on, onClick, children, small, onRemove, title }: { on?: boolean; onClick?: () => void; children: ComponentChildren; small?: boolean; onRemove?: () => void; title?: string }) {
   const ref = useRef<HTMLButtonElement>(null);
   const [menu, setMenu] = useState<{ x: number; y: number; above: boolean } | null>(null);
   const open = () => { if (ref.current) setMenu(placeMenu(ref.current.getBoundingClientRect())); };
   const close = (refocus: boolean) => { setMenu(null); if (refocus) ref.current?.focus({ preventScroll: true }); };
   return (
     <button ref={ref} type="button" class={['chip', on ? 'on' : '', small ? 'small' : ''].join(' ')} onClick={onClick}
-      title={onRemove ? 'Clic droit pour supprimer' : undefined}
+      title={onRemove ? 'Clic droit pour supprimer' : title}
       aria-haspopup={onRemove ? 'menu' : undefined} aria-expanded={onRemove ? (menu ? 'true' : 'false') : undefined}
       onContextMenu={onRemove ? (e) => { e.preventDefault(); e.stopPropagation(); open(); } : undefined}
       onKeyDown={onRemove ? (e) => { if (e.key === 'ContextMenu' || (e.shiftKey && e.key === 'F10')) { e.preventDefault(); open(); } } : undefined}>
