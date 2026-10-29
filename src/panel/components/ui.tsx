@@ -1,5 +1,5 @@
 import type { ComponentChildren } from 'preact';
-import { useEffect, useRef, useState } from 'preact/hooks';
+import { useEffect, useLayoutEffect, useRef, useState } from 'preact/hooks';
 import { createPortal } from 'preact/compat';
 
 const esc = (s: string) => s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!);
@@ -157,19 +157,27 @@ function PhraseMenu({ x, y, above, close, onDelete }: { x: number; y: number; ab
   // Heure de garde posée au clic même : un double-clic ne supprime rien.
   const armedAt = useRef(0);
   const [armed, setArmed] = useState(false);
-  useEffect(() => {
-    action.current?.focus({ preventScroll: true });
+  // Échap et clic ailleurs posés avant l'affichage (useLayoutEffect) : juste après l'ouverture, ils n'étaient parfois
+  // pas encore là et le menu restait ouvert.
+  useLayoutEffect(() => {
     const key = (e: KeyboardEvent) => { if (e.key === 'Escape') { e.preventDefault(); e.stopImmediatePropagation(); close(true); } else if (e.key === 'Tab') close(false); };
     const outside = (e: Event) => { if (!box.current?.contains(e.target as Node)) close(false); };
-    const leave = () => close(false);
     window.addEventListener('keydown', key, true);
     document.addEventListener('pointerdown', outside, true);
+    return () => {
+      window.removeEventListener('keydown', key, true);
+      document.removeEventListener('pointerdown', outside, true);
+    };
+  }, []);
+  // Le reste après l'affichage : le défilement causé par le clic droit lui-même ne doit pas refermer le menu ; le focus
+  // une fois le menu attaché à la page (il y est rendu à part, par un portail).
+  useEffect(() => {
+    action.current?.focus({ preventScroll: true });
+    const leave = () => close(false);
     window.addEventListener('scroll', leave, true);
     window.addEventListener('resize', leave);
     window.addEventListener('blur', leave);
     return () => {
-      window.removeEventListener('keydown', key, true);
-      document.removeEventListener('pointerdown', outside, true);
       window.removeEventListener('scroll', leave, true);
       window.removeEventListener('resize', leave);
       window.removeEventListener('blur', leave);
