@@ -92,6 +92,7 @@ Le panneau envoie des `ContentRequest` (`src/shared/messages.ts`) via `chrome.ta
 
 ## Pièges Salesforce connus (ne pas réintroduire)
 - Salesforce Console garde plusieurs fiches montées en même temps : toujours passer par `visibleEl` (taille rendue > 0) et **ne jamais retourner un candidat invisible** par défaut.
+- **Type de page d'après l'adresse** (`pageParAdresse`, chemin seul) : `/lightning/r/<Objet>/<Id>/…`, et aussi l'**adresse courte** `/lightning/r/<Id>/view` reconnue par le début de l'identifiant (00Q = Piste, 006 = Opportunité, sinon autre page). Une facture ouverte depuis une Opportunité arrive le plus souvent à `/lightning/r/069…/view?ws=<Opportunité>` : non reconnue, elle passait par la lecture de la page, un onglet « Lead » rendu d'une Piste gardée par la console la faisait prendre pour une Piste, et `readFiche` faisait basculer la page entre « Aperçu » et « Détails » (v1.1.16 ne couvrait que `/lightning/r/ContentDocument/…` ; corrigé en v1.1.22). Test `73-onglet-fichier`.
 - **Une seule lecture de page par action** : le coût d'un `deepAll` vient de la traversée du shadow DOM (un appel navigateur par élément). Regrouper les recherches avec `deepGroup([...])` puis `valeurChamp(labels, ...)` (v1.0.33 : lecture de fiche 3 à 4 fois plus rapide).
 - Shadow DOM : `.shadowRoot` d'abord, puis `chrome.dom.openOrClosedShadowRoot` (l'ordre inverse a déjà cassé la lecture).
 - Chercher les éléments par **texte / titre / placeholder**, jamais par position ni référence gardée : Lightning re-rend après chaque clic.

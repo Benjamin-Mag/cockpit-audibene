@@ -59,6 +59,28 @@ test.describe('Lecture de la fiche : sous-onglets', () => {
     expect(r.page).toBe('other');
   });
 
+  test('fichier à l\'adresse courte (/lightning/r/069…/view, retour 29/10/2026) : aucun clic, même avec un onglet « Lead » rendu', async ({ page }) => {
+    // La console met l'Opportunité d'origine dans ?ws= et garde la Piste d'un autre onglet montée : sans nom d'objet dans
+    // l'adresse, Cockpit lisait la page, voyait « Lead » et prenait le fichier pour une Piste.
+    await fausePage(page, '/lightning/r/069ESSAIFICHIER01A/view?ws=%2Flightning%2Fr%2FOpportunity%2FOPPESSAI000000001A%2Fview',
+      [{ nom: 'Aperçu', actif: true }, { nom: 'Détails', actif: false }]);
+    await page.evaluate(() => document.body.insertAdjacentHTML('beforeend', '<a title="Lead" style="display:inline-block;padding:4px">Lead</a>'));
+    const r = await lire(page);
+    expect(r.clics).toEqual([]);
+    expect(r.actif).toBe('Aperçu');
+    expect(r.page).toBe('other');
+  });
+
+  test('Piste à l\'adresse courte (/lightning/r/00Q…/view) : reconnue par son identifiant', async ({ page }) => {
+    await fausePage(page, '/lightning/r/00QESSAIPISTE0001A/view', [
+      { nom: 'Partner Search', actif: true },
+      { nom: 'Anamnèse', actif: false, champs: { 'Nom complet': 'M. Bruno Essai' } },
+    ]);
+    const r = await lire(page);
+    expect(r.clics).toEqual(['Anamnèse', 'Partner Search']);
+    expect([r.page, r.prenom, r.nom]).toEqual(['lead', 'Bruno', 'Essai']);
+  });
+
   test('Piste ouverte sur Partner Search : Cockpit va lire Anamnèse puis remet Partner Search', async ({ page }) => {
     await fausePage(page, '/lightning/r/Lead/PISTEESSAI0000001A/view', [
       { nom: 'Partner Search', actif: true },
