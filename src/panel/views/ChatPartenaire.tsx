@@ -32,6 +32,7 @@ export function ChatPartenaire({ ficheKey, data, update, fiche, connected, busy,
   const effectiveGenre = fiche?.genre ?? null;
   const generated = sel ? resolveGenre(fillVars(sel.text, systemValues(data.reglages)), effectiveGenre).trim() : '';
   const [edited, setEdited] = useBrouillon<string | null>(ficheKey, 'chat.texteRetouche', null);
+  // Le genre vient de la fiche : le texte ne change que si on en choisit un autre, la retouche repart alors de zéro.
   useRemiseSiChangement(generated, ficheLue(ficheKey, fiche), () => setEdited(null));
   const compose = () => (edited ?? generated).trim();
 

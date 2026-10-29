@@ -167,7 +167,9 @@ test.describe('Anamnèse (suite)', () => {
     expect(p.erreurs).toEqual([]);
   });
 
-  test('changer le genre remet la retouche à zéro (texte régénéré au masculin)', async ({ page }) => {
+  // 29/10/2026, Benjamin : « si j'ai oublié un champ (Monsieur ou Madame), le template de base se réaffiche et on perd
+  // les modifications ». Le changement de genre est maintenant reporté dans la retouche.
+  test('changer le genre garde la retouche et accorde le texte (masculin)', async ({ page }) => {
     const p = await ouvrir(page, { onglet: ONGLET.piste });
     await expect(page.getByText('Alice Essai').first()).toBeVisible();
     await aller(page, 'Anamnèse');
@@ -176,12 +178,12 @@ test.describe('Anamnèse (suite)', () => {
     await page.keyboard.press('Control+End');
     await page.keyboard.type(' RETOUCHE');
     await page.getByRole('button', { name: 'M.', exact: true }).click();
-    await expect(ap).not.toContainText('RETOUCHE');
+    await expect(ap).toContainText('RETOUCHE');
     await expect(ap).toContainText('notre patient pour');
     await page.getByRole('button', { name: /Écrire sans résumé/ }).click();
     await toast(page, 'OK writeComment');
     const [d] = await p.demandes('writeComment');
-    expect(d.text).not.toContain('RETOUCHE');
+    expect(d.text).toContain('RETOUCHE');
     expect(d.text).toContain('notre patient pour un dépistage');
   });
 });

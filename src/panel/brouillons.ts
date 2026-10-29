@@ -178,15 +178,16 @@ export function useBrouillon<T>(ficheKey: string, nom: string, depart: T) {
 }
 
 /**
- * Remet à zéro les retouches d'un texte généré quand ce texte change (autre modèle, autre genre…),
- * mais pas au premier affichage (brouillon restauré) ni pendant la lecture de la fiche.
+ * Prévient quand un texte généré change (autre genre, champ rempli, autre situation…) — mais pas au premier affichage
+ * (brouillon restauré) ni pendant la lecture de la fiche — avec l'ancien et le nouveau texte : la retouche en cours y
+ * est reportée (fusionnerRetouche) au lieu d'être effacée (29/10/2026, Benjamin : « on perd les modifications »).
  */
-export function useRemiseSiChangement(texte: string, lue: boolean, remettre: () => void) {
+export function useRemiseSiChangement(texte: string, lue: boolean, remettre: (avant: string, apres: string) => void) {
   const avant = useRef<{ texte: string; lue: boolean } | null>(null);
   useEffect(() => {
     const p = avant.current;
     avant.current = { texte, lue };
     if (!p || p.texte === texte || !p.lue || !lue) return;
-    remettre();
+    remettre(p.texte, texte);
   }, [texte, lue]);
 }
