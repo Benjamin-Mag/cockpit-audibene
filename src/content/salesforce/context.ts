@@ -3,12 +3,23 @@ import type { Fiche, Genre, SfContext, SfPage } from '../../shared/types';
 import { type Lieu, lireLieu } from './adresse';
 import { deepAll, deepGroup, enSerie, expandSection, revenirSur, sleep, sousOngletActifAvec, textOf, valeurChamp, visibleEl, waitFor } from './dom';
 
-/** Type de fiche d'après l'adresse seule : aucune lecture de la page, appelable aussi souvent qu'on veut. */
+/**
+ * Type de fiche d'après l'adresse seule : aucune lecture de la page, appelable aussi souvent qu'on veut. Le chemin seul :
+ * la console met la fiche d'origine dans `?ws=` (fichier ouvert depuis une Opportunité).
+ */
 function pageParAdresse(url: string): { page: SfPage; recordId: string } | null {
-  const m = url.match(/\/lightning\/r\/([A-Za-z0-9_]+)\/([A-Za-z0-9]{15,18})(?:\/|\?|$)/);
-  if (!m) return null;
-  const obj = m[1].toLowerCase();
-  return { page: obj === 'lead' ? 'lead' : obj === 'opportunity' ? 'opportunity' : 'other', recordId: m[2] };
+  const chemin = url.split(/[?#]/)[0];
+  const m = chemin.match(/\/lightning\/r\/([A-Za-z0-9_]+)\/([A-Za-z0-9]{15,18})(?:\/|$)/);
+  if (m) {
+    const obj = m[1].toLowerCase();
+    return { page: obj === 'lead' ? 'lead' : obj === 'opportunity' ? 'opportunity' : 'other', recordId: m[2] };
+  }
+  // Adresse courte, sans nom d'objet (/lightning/r/069…/view : la facture ouverte depuis une Opportunité, vraie org
+  // 29/10/2026) : le début de l'identifiant dit l'objet. Laissée à la lecture de la page, elle passait pour une Piste
+  // dès qu'un onglet « Lead » était rendu quelque part, et la page du fichier basculait entre « Aperçu » et « Détails ».
+  const c = chemin.match(/\/lightning\/r\/([A-Za-z0-9]{15,18})(?:\/|$)/);
+  if (!c) return null;
+  return { page: c[1].startsWith('00Q') ? 'lead' : c[1].startsWith('006') ? 'opportunity' : 'other', recordId: c[1] };
 }
 
 export function pageInfo(): { page: SfPage; recordId: string } {
