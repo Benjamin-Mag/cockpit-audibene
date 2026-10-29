@@ -3,6 +3,7 @@ import type { Fiche, Genre } from '../../shared/types';
 import { readClipboard, writeClipboard } from '../bridge';
 import { type AppData, RESUME_TAG, composeComment, fillVars, resolveGenre, systemValues, uid } from '../model';
 import { ficheLue, useBrouillon, useRemiseSiChangement } from '../brouillons';
+import { fusionnerRetouche } from '../fusion-retouche';
 import { Btn, Chip, DeleteBtn, EditablePreview, Seg, previewHtml } from '../components/ui';
 import { VariablesVides } from './VariablesVides';
 
@@ -68,10 +69,16 @@ export function Commentaire({ ficheKey, data, update, fiche, connected, busy, on
     return false;
   };
 
-  // Aperçu modifiable à la volée (résumé compris) ; se régénère si la situation, le genre ou le résumé change.
+  // Aperçu modifiable à la volée (résumé compris). Si la situation, le genre ou le résumé change après une retouche, le
+  // changement est reporté dans la retouche (le texte de l'aperçu, emplacement du résumé compris, sert de base).
   const [edited, setEdited] = useBrouillon<string | null>(ficheKey, 'anamnese.texteRetouche', null);
   const generated = composeComment(raw, resume, data.reglages, effectiveGenre);
-  useRemiseSiChangement(generated, ficheLue(ficheKey, fiche), () => setEdited(null));
+  const previewText = () => {
+    const t = resolveGenre(fillVars(raw, systemValues(data.reglages)), effectiveGenre);
+    const [before, after] = t.split(RESUME_TAG);
+    return after === undefined ? t : before + (resume.trim() || 'résumé Salesforce — copie-le, il s\'insère ici') + after;
+  };
+  useRemiseSiChangement(previewText(), ficheLue(ficheKey, fiche), (avant, apres) => setEdited((e) => (e === null ? null : fusionnerRetouche(avant, apres, e))));
   const previewMarkup = () => {
     const t = resolveGenre(fillVars(raw, systemValues(data.reglages)), effectiveGenre);
     const [before, after] = t.split(RESUME_TAG);

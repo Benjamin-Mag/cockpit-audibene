@@ -18,7 +18,8 @@ export function donneesTest(extra = {}) {
       phrases: {},
     },
     chatPartenaire: [{ id: 'chat-merci', label: 'Merci', text: 'Bonjour,\nMerci pour cette mise à jour.\n{{nom_conseiller}}' }, { id: 'chat-relance', label: 'Relance', text: 'Bonjour, avez-vous des nouvelles de notre patient(e) ?' }],
-    templates: MODELES,
+    // Une copie par appel : un test qui retouche un modèle (60-cosi-anamnese) ne doit pas le changer pour les suivants.
+    templates: MODELES.map((t) => ({ ...t })),
     categories: { patient: [{ id: 'Reconfirmation', label: 'Reconfirmation' }, { id: 'CC1', label: 'CC1' }], partenaire: [{ id: 'CC1', label: 'CC1' }, { id: 'CC2', label: 'CC2' }], seeded: true },
     ventes: { settings: { primeCat1: 40, primeCat2: 80, salaireBase: 0, indemnites: 0, cotFallback: 0.21, pasFallback: 0.099, retenuesFallback: 0, tauxImposition: 9.9 }, payslips: [], sales: { '2026-09': [{ name: 'Vente gardée', cat: 1 }] } },
     ...extra,

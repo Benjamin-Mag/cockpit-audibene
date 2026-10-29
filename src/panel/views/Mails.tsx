@@ -3,6 +3,7 @@ import type { Fiche, Genre } from '../../shared/types';
 import { writeClipboard } from '../bridge';
 import { moveById, useDragReorder } from '../components/drag';
 import { ficheLue, useBrouillon, useRemiseSiChangement } from '../brouillons';
+import { fusionnerRetouche } from '../fusion-retouche';
 import { Btn, Chip, DeleteBtn, EditablePreview, Field, Icon, Seg, previewHtml } from '../components/ui';
 import { VariablesVides } from './VariablesVides';
 import { frToIso, frToTime, isDateVar, isHeureVar, isoToFr, timeToFr } from '../dates';
@@ -168,7 +169,13 @@ export function Mails({ ficheKey, data, update, fiche, connected, busy, onInsert
   const genSubject = sel?.type === 'email' && sel.subject ? compose(sel.subject) : '';
   const genBody = sel ? compose(sel.body) : '';
   const genSms = sel?.audience === 'patient' && sel.type === 'email' && sel.smsCompanion ? compose(sel.smsCompanion) : '';
-  useRemiseSiChangement(JSON.stringify([genSubject, genBody, genSms]), ficheLue(ficheKey, fiche), () => setEdits({}));
+  // Genre ou champ changé après une retouche : le changement est reporté dans chaque texte retouché (autre modèle : select).
+  useRemiseSiChangement(JSON.stringify([genSubject, genBody, genSms]), ficheLue(ficheKey, fiche), (avant, apres) => {
+    const [s0, b0, m0] = JSON.parse(avant) as string[];
+    const [s1, b1, m1] = JSON.parse(apres) as string[];
+    const f = (base: string, neuf: string, r: string | undefined) => (r === undefined ? undefined : fusionnerRetouche(base, neuf, r));
+    setEdits((e) => ({ subject: f(s0, s1, e.subject), body: f(b0, b1, e.body), sms: f(m0, m1, e.sms) }));
+  });
   const subject = edits.subject ?? genSubject;
   const body = edits.body ?? genBody;
   const sms = sel?.type === 'sms' ? body : edits.sms ?? genSms;

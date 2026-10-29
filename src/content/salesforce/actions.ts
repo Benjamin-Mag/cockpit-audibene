@@ -124,18 +124,28 @@ export async function writeChatPartenaire(text: string): Promise<ActionResult> {
 }
 
 // ---------------------------------------------------------------- SMS (utilitaire Hearo)
-const SMS_LABEL = /hearo|nouveau message|approbation en attente/i;
+// Hearo change le libellé de son utilitaire selon ses alertes : « Hearo », « Nouveau message », « Approbation en
+// attente », « Client marqué » (vu chez des collègues le 29/10/2026)…
+const SMS_LABEL = /hearo|nouveaux? messages?|approbations? en attente|clients? marqu/i;
+/** Hors de la barre du bas : pas « Client marqué », qui est aussi un filtre du Kanban (« Clients marqués ce mois-ci »). */
+const SMS_LABEL_AILLEURS = /hearo|nouveau message|approbation en attente/i;
+const BARRE_DU_BAS = '[class*="utility"], [class*="Utility"], footer, .slds-utility-bar, [data-aura-class*="utility"]';
 /** Libellé complet d'un bouton : texte visible + titre + libellé d'accessibilité. */
 const labelOf = (el: Element) => `${textOf(el)} ${el.getAttribute('title') || ''} ${el.getAttribute('aria-label') || ''}`;
 /** Boutons de la barre d'utilitaires (Salesforce peut les rendre en <button> ou en lien). */
-const smsButtons = () => deepAll<HTMLElement>('button, a, [role="button"]').filter((b) => SMS_LABEL.test(labelOf(b)) && b.closest('[class*="utility"], [class*="Utility"], footer, .slds-utility-bar, [data-aura-class*="utility"]') !== null);
+const smsButtons = () => deepAll<HTMLElement>('button, a, [role="button"]').filter((b) => SMS_LABEL.test(labelOf(b)) && b.closest(BARRE_DU_BAS) !== null);
 
 /** Ouvre l'utilitaire Hearo de la barre du bas s'il ne l'est pas déjà ; renvoie les adresses des cadres du panneau. */
 export async function openSmsPanel(): Promise<ActionResult> {
-  const panelOpen = () => visibleEl(deepAll<HTMLElement>('.slds-utility-panel, [class*="utilityPanel"]').filter((p) => /hearo/i.test(textOf(p).slice(0, 200))));
+  // L'en-tête du panneau porte le même libellé que le bouton (« Hearo », « Client marqué »…).
+  const panelOpen = () => visibleEl(deepAll<HTMLElement>('.slds-utility-panel, [class*="utilityPanel"]').filter((p) => SMS_LABEL.test(textOf(p).slice(0, 200))));
   if (!panelOpen()) {
-    const btn = visibleEl(smsButtons()) ?? visibleEl(deepAll<HTMLElement>('button, a, [role="button"]').filter((b) => SMS_LABEL.test(labelOf(b))));
-    if (!btn) return { ok: false, msg: 'bouton Hearo / Nouveau message introuvable dans la barre du bas' };
+    const btn = visibleEl(smsButtons()) ?? visibleEl(deepAll<HTMLElement>('button, a, [role="button"]').filter((b) => SMS_LABEL_AILLEURS.test(labelOf(b))));
+    if (!btn) {
+      // Les boutons de la barre du bas, pour savoir quel libellé Hearo a pris cette fois.
+      const vus = [...new Set(deepAll<HTMLElement>('.slds-utility-bar button, .slds-utility-bar a, [class*="utilitybar"] button, [class*="utilityBar"] button').map((b) => textOf(b).replace(/\s+/g, ' ').trim().slice(0, 30)).filter(Boolean))];
+      return { ok: false, msg: `bouton Hearo / Nouveau message introuvable dans la barre du bas${vus.length ? ` (boutons vus : ${vus.slice(0, 8).join(', ')})` : ''}` };
+    }
     btn.click();
     await waitFor(panelOpen, 4000, 200);
   }
