@@ -147,9 +147,17 @@ function state(sync: SyncStatus, status: StorageState['status'] = 'ready'): Stor
 }
 
 /** Au démarrage : charge la copie locale tout de suite, puis le dossier s'il est accessible sans rien demander. */
+/** Repli si le dossier ne répond pas : on ouvre avec la copie du navigateur, le bandeau propose de réautoriser. */
+export async function initStorageSecours(): Promise<{ state: StorageState; data: AppData | null }> {
+  const local = safeParse(await localRead().catch(() => null), defaultData());
+  return { state: state('paused', local ? 'ready' : 'needs-folder'), data: local ?? defaultData() };
+}
+
 export async function initStorage(): Promise<{ state: StorageState; data: AppData | null }> {
+  console.info('[Cockpit] démarrage : lecture de la copie du navigateur');
   const local = safeParse(await localRead(), defaultData());
   if (!fsSupported || browserModeChosen()) return { state: state('none'), data: local ?? defaultData() };
+  console.info('[Cockpit] démarrage : dossier mémorisé');
   handle = await savedHandle().catch(() => null);
   if (!handle) {
     if (local?.onboardingDone) return { state: state('none'), data: local };
@@ -161,11 +169,14 @@ export async function initStorage(): Promise<{ state: StorageState; data: AppDat
   if (!dossierEcritLe()) marquerEcrit(local?.updatedAt ?? Date.now());
   // Ni copie dans le navigateur ni accès au dossier : il faut un clic pour rouvrir le dossier.
   if (!folderGranted) return { state: state('paused', local ? 'ready' : 'needs-folder'), data: local };
+  console.info('[Cockpit] démarrage : lecture de cockpit.json dans', handle.name);
   const folder = await readFolder(handle);
   const data = reconcile(local, folder, await baseLire(handle.name)) ?? defaultData();
+  console.info('[Cockpit] démarrage : écriture de cockpit.json');
   const sync = await ecrireDossier(handle, JSON.stringify(data, null, 2));
   await localWrite(JSON.stringify(data));
   if (sync === 'synced') marquerEcrit(data.updatedAt ?? Date.now());
+  console.info('[Cockpit] démarrage : terminé', sync);
   return { state: state(sync), data };
 }
 
