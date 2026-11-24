@@ -225,6 +225,12 @@
       if (S.dossier.lectureSeule) { note('dossier', 'ecritureRefusee', {}); throw new DOMException('Fichier en lecture seule', 'NoModificationAllowedError'); }
       return createWritable.apply(this, a);
     };
+    // `muet` : le fichier ne répond jamais (OneDrive qui ne rend pas la main, dossier réseau perdu).
+    const getFile = FileSystemFileHandle.prototype.getFile;
+    FileSystemFileHandle.prototype.getFile = function (...a) {
+      if (S.dossier.muet) { note('dossier', 'lectureMuette', {}); return new Promise(() => {}); }
+      return getFile.apply(this, a);
+    };
   }
 
   window.__mock = { activer, onglets, local, session, FICHES, ports };
