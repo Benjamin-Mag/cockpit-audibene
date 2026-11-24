@@ -4,7 +4,7 @@ import type { ActionResult, Fiche, RecentPatient, SfContext } from '../shared/ty
 import { type Site, connectContext, ensureOrigin, subFrames, isExtension, loadRecent, onCommand, onRecentChanged, pushRecent, readFiche, readPartnerSearch, runAction, sendToFrame, siteOf, watchActiveTab, writeClipboard } from './bridge';
 import { Btn, Icon, type IconName, Toast, type ToastMsg } from './components/ui';
 import { type AppData, defaultData } from './model';
-import { RETARD_JOURS, type StorageState, authorize, chooseFolder, dossierEcritLe, dossierSilencieux, exportLegacy, initStorage, joursSansSauvegarde, parseAny, rappelReporte, reporterRappel, save, setDossierSilencieux, useBrowserStorage } from './storage/data';
+import { RETARD_JOURS, type StorageState, authorize, chooseFolder, dossierEcritLe, dossierSilencieux, exportLegacy, initStorage, initStorageSecours, joursSansSauvegarde, parseAny, rappelReporte, reporterRappel, save, setDossierSilencieux, useBrowserStorage } from './storage/data';
 import { memePersonne, mergeData, substituteName, toPartage } from './storage/legacy';
 import { downloadJson, pickJsonFile } from './storage/fs';
 import { Anamnese } from './views/Anamnese';
@@ -80,7 +80,13 @@ export function App() {
   }, [data]);
 
   useEffect(() => {
-    initStorage().then(({ state, data }) => { setStorage(state); loadData(data); });
+    // Le dossier (cockpit.json) peut ne jamais répondre (OneDrive, dossier déplacé, droits) :
+    // au bout de 8 s, ou en cas d'erreur, on ouvre quand même avec la copie du navigateur.
+    let fait = false;
+    const ouvrir = (r: { state: StorageState; data: AppData | null }) => { if (fait) return; fait = true; setStorage(r.state); loadData(r.data); };
+    const secours = (raison: unknown) => { console.error('[Cockpit] dossier injoignable, ouverture avec la copie du navigateur :', raison); initStorageSecours().then(ouvrir, () => ouvrir({ state: { mode: 'none', sync: 'paused', status: 'ready', folderName: '' } as unknown as StorageState, data: defaultData() })); };
+    const minuteur = window.setTimeout(() => secours('délai de 8 s dépassé'), 8000);
+    initStorage().then((r) => { clearTimeout(minuteur); ouvrir(r); }, (e) => { clearTimeout(minuteur); secours(e); });
     // Ménage : le cache des partenaires de la v1.0.20 (chantier abandonné) n'a plus d'usage.
     if (isExtension) chrome.storage.local.remove('partenairesCache').catch(() => { /* rien à nettoyer */ });
   }, []);
@@ -123,7 +129,8 @@ export function App() {
 
   // Brouillons par fiche : chargés avant d'afficher les saisies, puis ménage régulier des fiches fermées.
   useEffect(() => {
-    chargerBrouillons().then(() => { setBrouillonsPrets(true); void verifierOngletsOuverts(); });
+    const pret = window.setTimeout(() => { console.error('[Cockpit] brouillons : délai dépassé'); setBrouillonsPrets(true); }, 5000);
+    chargerBrouillons().then(() => { clearTimeout(pret); setBrouillonsPrets(true); void verifierOngletsOuverts(); }, (e) => { clearTimeout(pret); console.error('[Cockpit] brouillons :', e); setBrouillonsPrets(true); });
     const t = window.setInterval(() => { void verifierOngletsOuverts(); }, VERIFICATION_MS);
     return () => clearInterval(t);
   }, []);

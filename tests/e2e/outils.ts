@@ -26,8 +26,8 @@ export interface Scenario {
   partenaireALaDemande?: boolean;
   /** 30 ORL au lieu de 6 (plus que l'affichage initial de l'ORL Finder). */
   beaucoupOrl?: boolean;
-  /** Dossier synchronisé simulé (OPFS) : autorisation de départ, refus au clic « Autoriser », cockpit.json en lecture seule. */
-  dossier?: { permission?: 'granted' | 'prompt' | 'denied'; refus?: boolean; lectureSeule?: boolean };
+  /** Dossier synchronisé simulé (OPFS) : autorisation de départ, refus au clic « Autoriser », cockpit.json en lecture seule, ou qui ne répond jamais. */
+  dossier?: { permission?: 'granted' | 'prompt' | 'denied'; refus?: boolean; lectureSeule?: boolean; muet?: boolean };
   /** chrome.storage.local survit au rechargement du panneau (réinstallation, fermeture/réouverture). */
   localPersistant?: boolean;
 }
